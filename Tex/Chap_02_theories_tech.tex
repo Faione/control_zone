@@ -2,7 +2,7 @@
 
 % \section{可观测性}
 
-\section{BPF}
+\section{BPF技术}
 
 eBPF（Extended Berkeley Packet Filter）是Linux内核中的一个轻量级、快速的64位的类RISC虚拟机\citep{sharaf2022extended}。当前eBPF当前已经成为在Linux内核运行时执行不可信的、由用户定义的专用代码的最佳实践与事实标准。其强大的性能、可移植性、灵活性与安全性得到了工业界和学术界的认可，并被广泛地用于更多的领域。
 
@@ -14,16 +14,16 @@ BPF本身是一种指令集，最初设计时考虑到安全性与易用性，�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{bpf_user_kernel}
+    \includegraphics[width=0.6\textwidth]{bpf_user_kernel}
     \bicaption{\quad BPF中用户态与内核态的交互}{\quad Interaction between user mode and kernel mode in BPF}
     \label{fig:bpf_user_kernel}
 \end{figure}
 
-同时，BPF技术也具备高度的灵活性。这种灵活性体现在两个方面，首先对于用户态与内核态的交互，BPF技术运行由用户态的程序来加载BPF代码，由于BPF本身是字节码，因此能够借助libbpf等工具来对代码中的部分进行修改，这大大增强了BPF代码的灵活性。其次，BPF技术允许通过BPF Map来实现用户态与内核的逻辑交互，一方面，内核态BPF程序所收集到的数据，能够借助BPF Map反馈给用户态程序进行处理，另一方面用户态程序也能通过BPF系统调用操作内BPF Map，对其中的内容进行读写，从而影响内核态BPF程序的行为。其次，BPF技术还允许BPF程序之间的交互，除上述通过BPF Map的交互外，BPF程序还能够相互进行调用，从而进行数据传递，或通过多个BPF程序的调用，来突破内核对单个BPF函数的限制，从而实现更加复杂的代码逻辑。
+同时，BPF技术也具备高度的灵活性。这种灵活性体现在两个方面，首先对于用户态与内核态的交互，BPF技术运行由用户态的程序来加载BPF代码，由于BPF本身是字节码，因此能够借助libbpf等工具来对代码中的部分进行修改，这大大增强了BPF代码的灵活性。其次，如图~\ref{fig:bpf_user_kernel}所示，BPF技术允许通过BPF Map来实现用户态与内核的逻辑交互，一方面，内核态BPF程序所收集到的数据，能够借助BPF Map反馈给用户态程序进行处理，另一方面用户态程序也能通过BPF系统调用操作内BPF Map，对其中的内容进行读写，从而影响内核态BPF程序的行为。其次，BPF技术还允许BPF程序之间的交互，除上述通过BPF Map的交互外，如图~\ref{fig:bpf_to_bpf}所示，BPF程序还能够相互进行调用，从而进行数据传递，或通过多个BPF程序的调用，来突破内核对单个BPF函数的限制，从而实现更加复杂的代码逻辑。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{bpf_to_bpf}
+    \includegraphics[width=0.7\textwidth]{bpf_to_bpf}
     \bicaption{\quad BPF程序之间的调用}{\quad Interaction between BPF programs}
     \label{fig:bpf_to_bpf}
 \end{figure}
@@ -32,6 +32,52 @@ BPF本身是一种指令集，最初设计时考虑到安全性与易用性，�
 
 \section{Sched Ext}
 
+Sched Ext是一种可扩展的内核调度器设计\citep{schedext}，由Meta以及内核社区的工程师共同设计实现，并已经在Meta的集群中运行与测试。Sched Ext最早提出于2022年，当前尚未合并入内核主线，但Meta与内核社区开发者十分活跃，Sched Ext当前仍然正在积极更新并持续地向内核社区提交Patch。
 
+Sched Ext启发自ghOSt\citep{humphries2021ghost}，其同样考虑到内核调度器在开发与部署上的困难，与当前数据中心对于定制调度器的需求的不匹配，因此以设计一种插件化的调度器，来提升内核调度器开发的灵活性。然而不同于ghOSt，Sched Ext在设计初就尽可能地保持与Linux现有调度就机制的兼容性，这点在Sched Ext调度类的优先级上就有所体现，如图~\ref{fig:sched_ext_priorty}所示，开发者有意将Sched Ext调度类的优先级定义在Sched Normal之下，这就使得常规应用仍然可以由Sched Normal处理，从而最大地与当前Linux的调度机制兼容。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{sched_ext_priorty}
+    \bicaption{\quad Sched Ext 调度优先级}{\quad Sched Ext Priorty}
+    \label{fig:sched_ext_priorty}
+\end{figure}
+
+Sched Ext调度类实现了所有调度类方法，但是在每个方法的实现中，仅进行了函数开头的设置与结尾时资源的回收，所有调度相关的核心实现都依赖BPF函数中的实现：
+
+1）enqueue_task，当一个任务需要被加入到调度器的就绪队列时被调用，从而将进程加入到就绪队列，准备进行调度。
+
+2）dequeue_task，当一个任务不再需要调度（如被挂起或完成）时被调用，从就绪队列中移除进程。
+
+3）yield_task，当一个任务主动放弃CPU时间时，通常是在执行了yield系统调用后被调用，从而允许其他进程使用当前未使用的时间片。
+
+4）check_preempt_curr，在每次任务唤醒时检查是否需要抢占当前运行的任务，从而确定当前运行的任务是否应该被新唤醒的任务抢占。
+
+5）pick_next_task，选择下一个要运行的任务，一般从就绪队列中选择下一个要执行的任务。
+
+6）put_prev_task，当前运行的任务停止运行时被调用，通常需要更新该任务的调度信息，并在其还有继续运行时放回就绪队列。
+
+7）set_curr_task，每次切换到新任务时被调用，通常用于更新调度器的指示当前任务的curr指针。
+
+8）task_tick，每次系统时钟中断发生时被调用，一般时更新当前任务的调度信息，同时也包括当任务时间片使用完时执行抢占。
+
+9）task_fork，当一个新的任务被创建（fork）时被调用，通常用于处理新任务的调度相关设置。
+
+10）task_dead，当一个任务彻底结束并且要被移除时被调用，用于清理该任务的调度相关资源。
+
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{sched_ext_arch}
+    \bicaption{\quad Sched Ext架构}{\quad Sched Ext Arch}
+    \label{fig:sched_ext_arch}
+\end{figure}
+
+如图~\ref{fig:sched_ext_arch}所示，Sched Ext基于BPF的可编程设计提供了丰富的手段来定制化调度过程。首先最直接的就是通过BPF代码定制调度逻辑，，这种方式的好处就在于所有的调度过程仍然在内核中进行，因此不会有用户态与内核态频繁切换的开销，而开发者仅需要提交BPF代码。其次，开发者可以直接操作任务队列来控制调度过程，Sched Ext将调度中核心的任务队列暴漏了出来，并允许通过BPF Help函数直接操作任务队列，这使得在调度程序完全能够在用户态进行实现，同时Sched Ext还提供了基于C与Rust语言的库函数，方便了开发者进行调度器设计，这种方式虽然引入了地址空间切换的开销，但也极大增加了调度器设计的灵活性。
+
+默认情况下仅由Sched Ext类的任务会被BPF调度程序处理，而如果BPF调度程序尚未加载，Sched Ext调度类的任务仍然会交给Sched Normal进行处理，以避免任务得不到执行。同时，Sched Ext还允许通过特殊的BPF Helper函数，将SCHED NORMAL即以下的任务全部交给SCHED EXT进行处理，这种情况下，Sched Ext调度类就能够参与系统中核心的调度过程。
 
 \section{本章小结}
+
+本章主要介绍了eBPF技术以及Sched Ext可扩展内核调度机制。其中eBPF技术提供了一种集性能、灵活性于安全性于一体的扩展内核方式，利用eBPF技术能够方便地从内核中获取更多细致的数据，同时也能够在一些支持相对丰富的内核子系统中对内核功能进行定制。而Sched Ext提供了一种内核主线之外扩展内核调度的方式，其本身基于eBPF技术，因而能够利用到eBPF本身所具备的优势，同时其在调度子系统中展开了许多工作，使得通过eBPF程序定制调度逻辑成为可能，而其在设计上对于兼容性的考量，也方便了其在生产环境中的部署于测试。如上技术为本论文对应用进行细粒度监控，构造Control Zone与为不同混部场景设计不同的调度策略奠定了基础。
+
