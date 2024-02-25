@@ -12,7 +12,21 @@ BPF本身是一种指令集，最初设计时考虑到安全性与易用性，�
 
 同作为对内核功能的扩展，BPF技术经常会与内核模块进行比较。相较于内核模块，BPF技术具有更高的安全性，BPF程序安全性体现在三个方面。首先不同于内核模块，BPF程序在编写时所有的对内核数据、地址的访问都需要通过BPF Helper函数来实现，同时，部分BPF Helper函数设计时就考虑到并发性，极大减少了不安全代码的数量。其次，BPF代码在加载时会被内核验证，同时由于运行在虚拟机中，也增强了安全性。最后，BPF代码所能执行的位置由内核提供，这样也大大缩小了危险代码的影响范围。
 
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{bpf_user_kernel}
+    \bicaption{\quad BPF中用户态与内核态的交互}{\quad Interaction between user mode and kernel mode in BPF}
+    \label{fig:bpf_user_kernel}
+\end{figure}
+
 同时，BPF技术也具备高度的灵活性。这种灵活性体现在两个方面，首先对于用户态与内核态的交互，BPF技术运行由用户态的程序来加载BPF代码，由于BPF本身是字节码，因此能够借助libbpf等工具来对代码中的部分进行修改，这大大增强了BPF代码的灵活性。其次，BPF技术允许通过BPF Map来实现用户态与内核的逻辑交互，一方面，内核态BPF程序所收集到的数据，能够借助BPF Map反馈给用户态程序进行处理，另一方面用户态程序也能通过BPF系统调用操作内BPF Map，对其中的内容进行读写，从而影响内核态BPF程序的行为。其次，BPF技术还允许BPF程序之间的交互，除上述通过BPF Map的交互外，BPF程序还能够相互进行调用，从而进行数据传递，或通过多个BPF程序的调用，来突破内核对单个BPF函数的限制，从而实现更加复杂的代码逻辑。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{bpf_to_bpf}
+    \bicaption{\quad BPF程序之间的调用}{\quad Interaction between BPF programs}
+    \label{fig:bpf_to_bpf}
+\end{figure}
 
 然而BPF技术也存在设计上的不足。由于在设计时首要考虑的是安全性，因此BPF程序在编写受到了种种限制，实际上，编写BPF程序所能使用的C语言子集是非图灵完备的，同时BPF程序在栈空间上也有严格的要求。这些限制都极大削弱了BPF程序的表达能力，使得其能够编写的逻辑十分有限。内核社区关注到这一点，并在近期的版本更新中逐步地减少对BPF程序的限制。
 

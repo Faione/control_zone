@@ -82,6 +82,7 @@
     \label{fig:controlzone}
 \end{figure}
 
+
 \section{国内外相关研究}
 
 % 可观测性技术用来进行应用画像与劣化监测
@@ -112,7 +113,7 @@ SLO（Service-level objective）服务级别目标指定了用户所购买云服
 
 可观测性技术是实现上述目标的基础设施，能够通过监控、日志记录、跟踪和其他数据收集手段来描述系统的状态，协助理解和诊断系统的行为和性能。大型数据中心中由于应用数量众多、软件环境复杂，因此云厂商更倾向于一些简单易懂的指标，来反映应用的性能，早期Google就使用CPI来作为应用的性能指标\citep{zhang2013cpi2}。CPI(Cycle Per Instruction)本身用于度量微观体系结构下的性能，应用正常运行时，CPI通常在一个小范围内波动，而当应用受到干扰导致运行速度变慢时，CPI的确能够很好地反映性能的劣化。然而在Li YI等人的研究中\citep{yi2020cpi}，CPI在核心频率较低时存在较大的误差，并通过建模分析优化得到RCPI来对误差进行修正。
 
-随AI技术的不断发展，研究者们发现数据中心的监控数据作为时序数据能够很方便地利用现有的AI数据分析技术进行分析，将AI和系统结合的研究也不断展开，而通过时序数据对服务性能劣化进行预测\citep{qiu2020firm, zhou2022aquatope, wang2022deepscaling, gan2021sage}，也使得提前一步进行SLO保障成为可能。然而AI预测模型由于计算开销大、时间长，在单点调度上很难进行部署。
+随AI技术的不断发展，研究者们发现数据中心的监控数据作为时序数据能够很方便地利用现有的AI数据分析技术进行分析，将AI和系统结合的研究也不断展开，而通过时序数据对服务性能劣化进行预测\citep{qiu2020firm, zhou2022aquatope, wang2022deepscaling, gan2021sage, ghafouri2020survey,zheng2020web,wu2019posterior}，也使得提前一步进行SLO保障成为可能。然而AI预测模型由于计算开销大、时间长，在单点调度上很难进行部署。
 
 近年来随云原生可观测技术、DevOps技术的发展，可观测性技术在云服务中占据了越来越重要的地位。当前借助服务容器化以及容器编排技术的发展，云原生可观测性技术发展十分迅速。以指标监控为例，Prometheus监控系统提供了统一的数据采集格式以及灵活的检索系统\citep{brazil2018prometheus}，而其在架构上的灵活性与可扩展性，也使得其能够方便地对大规模集群进行监控。而在服务质量上，2010年，Google提出了分布式追踪系统Dapper\citep{sigelman2010dapper}，通过在rpc中嵌入span载荷，并允许span在rpc中进行传递，来实现对请求分布式处理过程的追踪。OpenTracing和OpenTelemetry等开源项目吸收了Dapper的核心思想并迅速在云原生社区中推广，当前大多数云原生应用都支持了基本的云原生可观测性，使得在集群中能够相对方便地收集云服务的QoS信息。同时，K8s向开发者开放了CNI(Container Network Interface)\citep{k8s-network-plugins}，允许开发者自定义容器网络模型，同时能够结合eBPF、Envoy等云原生网络技术\citep{ebpf,envoyproxy}，能够构筑一套完善Overlay Network系统，实现全链路的网络性能监测。
 
