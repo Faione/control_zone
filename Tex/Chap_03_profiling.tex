@@ -99,20 +99,20 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
         %\cline{i-j}% partial hline from column i to column j
         层级 & 来源 & 指标\\
         \hline
-        Host & Kernel(271) & [cpu] sys_time、user_time、freq ... \\
+        Host & Kernel(271) & [cpu] sys\_time、user\_time、freq ... \\
         & & [mem] usage、avail、swapfree、bounce、hugepage ...\\
         & & [network] transmit、netstat、sockstat、ip、speed ...\\
         & & [disk]flush requests、flush request time、read、write ...\\
         & & ...\\
         & eBPF(2) & [syscall] count、duration\\
         & Resctrl(3) & llc cap、mem b/w local、mem b/w total\\
-        Hypervisor & Libvirt(68) & [vcpu] sys_time、user_time、wait、delay...\\
+        Hypervisor & Libvirt(68) & [vcpu] sys\_time、user\_time、wait、delay...\\
         & & [mem] usable、avail、dick cache、rss ...\\
         & & [perf] cycle、instruction、cache miss ...\\
         & & [block] flush request、flush time、read、write ...\\
         & & [interface] receive、transmit ...\\
         & & ...\\
-        & KVM(59) & vm_exit、io_exit、irq_exit、irq_inject、halt_poll ...\\
+        & KVM(59) & vm\_exit、io\_exit、irq\_exit、irq\_inject、halt\_poll ...\\
         App & Log/Envoy & qos, latency, rate, score ...\\
         \hline
     \end{tabular}
