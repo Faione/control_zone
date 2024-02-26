@@ -46,7 +46,7 @@
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{montor_arch}
+    \includegraphics[width=1.0\textwidth]{montor_arch}
     \bicaption{\quad 监控系统中不同角色的区别}{\quad The differences between different roles in the monitoring system}
     \label{fig:montor_arch}
 \end{figure}
@@ -57,7 +57,7 @@
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{exportes}
+    \includegraphics[width=1.0\textwidth]{exportes}
     \bicaption{\quad Exporters设计}{\quad Exporters Design}
     \label{fig:exportes}
 \end{figure}
@@ -70,7 +70,7 @@ EbpfExporter 启动之后会加载编译好的ebpf代码，并将采集到的数
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{syscall_hook}
+    \includegraphics[width=1.0\textwidth]{syscall_hook}
     \bicaption{\quad eBPF Syscall插桩}{\quad eBPF Syscall Hooking}
     \label{fig:syscall_hook}
 \end{figure}
@@ -79,7 +79,7 @@ EbpfExporter 启动之后会加载编译好的ebpf代码，并将采集到的数
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{vhost_net}
+    \includegraphics[width=1.0\textwidth]{vhost_net}
     \bicaption{\quad Qemu vHost 网络}{\quad Qemu vHost Net}
     \label{fig:vhost_net}
 \end{figure}
@@ -118,14 +118,14 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
     \end{tabular}
 \end{table}
 
-\section{干扰实验设计与特征分析}
+\section{干扰实验设计}
 
 % 干扰的选择，干扰有效性及噪声控制
 
 在干扰应用的选择上，选择使用stress-ng来模拟产生不同类型的资源干扰。stress-ng是Linux系统中常用的压力测试工具，能够通过模拟各种负载来检测系统的稳定性和性能，实验中利用其模拟各种压力负载的特性来分别从CPU、内存、I/O、Cache、Network上制造干扰，观测应用在不同干扰下的劣化情况。stress-ng拥有诸多可调整的参数选项，用于定制化不同的压力场景，本课题选用如表~\ref{arg_list}所示参数制造上述类型的干扰。对于AVX干扰应用通过开发程序实现，根据传入的参数，循环执行AVX2/AVX512指令来产生不同强度的压力
 
 \begin{table}
-    \bicaption{\quad stress_ng 参数列表}{\quad stress_ng args list}% caption
+    \bicaption{\quad stress\_ng 参数列表}{\quad stress\_ng args list}% caption
     \label{tab:arg_list}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -158,5 +158,11 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
     \end{tabular}
 \end{table}
 
-\section{本章小结}
+% \section{画像分析与结论}
+
+% \subsection{无干扰实验下的应用资源使用倾向分析}
+
+% \subsection{有干扰实验下的应用资源敏感度分析}
+
+% \section{本章小结}
 
