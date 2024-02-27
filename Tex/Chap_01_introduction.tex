@@ -183,27 +183,27 @@ Linux社区对于涉及核心基础架构的修改十分审慎，EEVDF算法从�
 
 3）资源感知调度系统实现。本研究综合上述可观测性系统与沙箱机制，设计了一种分层的资源感知调度系统。系统中的调度分两层实现，首先，不同混部方案以Control Zone的形式在系统中并行，这一层的调度以资源划分为主，即通过软硬件的资源隔离技术，尽可能地提升虚拟机的隔离性，从而保障有资源需求Control Zone的资源供给。而在Control Zone之中，依据不同混部场景的特点，来定制化调度策略，这一层主要以任务调度的形式来实现对于目标应用的QoS保证。同时，在运行过程中，可观测性系统会持续监测应用及虚拟机的性能，并为调度提供更多的辅助信息，用来随时更改Control Zone中的调度策略。
 
-\section{论文结构安排}
+% \section{论文结构安排}
 
-本文的主要内容分为七章，总体结构如图~\ref{fig:paper_organization}所示:
+% 本文的主要内容分为七章，总体结构如图~\ref{fig:paper_organization}所示:
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1.0\textwidth]{paper_organization}
-    \bicaption{\quad 本文组织架构}{\quad Paper Organization}
-    \label{fig:paper_organization}
-\end{figure}
+% \begin{figure}[!htbp]
+%     \centering
+%     \includegraphics[width=1.0\textwidth]{paper_organization}
+%     \bicaption{\quad 本文组织架构}{\quad Paper Organization}
+%     \label{fig:paper_organization}
+% \end{figure}
 
-第一章，包含研究背景与国内外相关研究，阐述了本文研究背景，即混部场景下的QoS保障，同时分析了当前研究在可观测性、资源划分与任务调度上的先进成果，最后提出了本研究的解决思路。
+% 第一章，包含研究背景与国内外相关研究，阐述了本文研究背景，即混部场景下的QoS保障，同时分析了当前研究在可观测性、资源划分与任务调度上的先进成果，最后提出了本研究的解决思路。
 
-第二章，包含了本研究中的主要用的相关技术，其中eBPF技术主要在构建细粒度可观测性系统中使用，用来提取不同应用在系统维度的资源使用倾向。另一个则是Sched Ext技术，其所实现的插件化调度器为运行时可变内核调度奠定了基础。
+% 第二章，包含了本研究中的主要用的相关技术，其中eBPF技术主要在构建细粒度可观测性系统中使用，用来提取不同应用在系统维度的资源使用倾向。另一个则是Sched Ext技术，其所实现的插件化调度器为运行时可变内核调度奠定了基础。
 
-第三章，
+% 第三章，
 
-第四章，
+% 第四章，
 
-第五章，
+% 第五章，
 
-第六章，
+% 第六章，
 
-第七章，
+% 第七章，
