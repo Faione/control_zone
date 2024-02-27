@@ -62,6 +62,8 @@ czcli(Control Zone CLI)负责进行Control Zone的生命周期管理，也是Con
     \label{fig:cz_end}
 \end{figure}
 
+% 与可观测性基础设施的联动
+
 \section{本章小结}
 
 本章首先介绍了运行时调度可变的沙箱Control Zone的实现，然后再对其生命周期中的各个流程进行分析。Control Zone通过虚拟机粒度的沙箱，增强了不同混部方案之间的隔离性，同时在同一个沙箱中，允许设置自定义的调度策略。除提供沙箱这样基本的功能以外，Control Zone还提供了了一套性能监控与劣化监测的机制，用于为后续调度提供信息辅助。
