@@ -2,8 +2,8 @@ use anyhow::{Ok, Result};
 use regex::Regex;
 use std::{fs, path::Path};
 
-static KVM_DEBUG_FS: &str = "/sys/kernel/debug/kvm";
-static RE_KVM_DIR_PID: &str = r"^(\d+)-\d+$";
+const KVM_DEBUG_FS: &str = "/sys/kernel/debug/kvm";
+const RE_KVM_DIR_PID: &str = r"^(\d+)-\d+$";
 
 #[derive(Debug, Clone)]
 pub struct KVMInfo {

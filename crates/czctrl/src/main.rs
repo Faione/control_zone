@@ -19,7 +19,10 @@ struct Opts {
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
     let opts = Opts::parse();
     let cmd_result = match opts.subcmd {
         SubCommand::ControlZone(cmd) => match *cmd {
@@ -31,7 +34,7 @@ fn main() -> Result<()> {
     };
 
     if let Err(ref e) = cmd_result {
-        error!("error in executing command: {:?}", e);
+        error!("error in executing command: {e:?}");
     }
 
     cmd_result

@@ -6,16 +6,16 @@ use std::{
 use anyhow::{bail, Ok, Result};
 use regex::Regex;
 
-static PROC_FS: &str = "/proc";
-static RE_PROC_LIBVIRT_CMDLINE: &str = r"/domain-(?<vm_id>\d+)-(?<vm_name>.+)/master-key.aes";
+const PROC_FS: &str = "/proc";
+const RE_PROC_LIBVIRT_CMDLINE: &str = r"/domain-(?<vm_id>\d+)-(?<vm_name>.+)/master-key.aes";
 
 /// List tasks of Process pid
 pub fn tasks_of(pid: u32) -> Result<Vec<u32>> {
     let proc_dir = Path::new(PROC_FS);
-    let task_dir = proc_dir.join(PathBuf::from(format!("{}/task", pid)));
+    let task_dir = proc_dir.join(PathBuf::from(format!("{pid}/task")));
 
     if !task_dir.exists() || !task_dir.is_dir() {
-        bail!("process {} not exist", pid)
+        bail!("process {pid} not exist")
     }
 
     let tasks = fs::read_dir(task_dir)?
@@ -47,20 +47,12 @@ pub fn libvirt_info_of(pid: u32) -> Result<LibvirtInfo> {
 
     let cmdline = proc_root.join(PathBuf::from("cmdline"));
     if !cmdline.exists() || !cmdline.is_file() {
-        bail!(
-            "process {} don't have a libvirt cmdline on {:#?}",
-            pid,
-            cmdline
-        )
+        bail!("process {pid} don't have a libvirt cmdline on {cmdline:#?}",)
     }
 
     let cgroup = proc_root.join(PathBuf::from("cgroup"));
     if !cgroup.exists() || !cgroup.is_file() {
-        bail!(
-            "process {} don't have a libvirt cgroup on {:#?}",
-            pid,
-            cgroup
-        )
+        bail!("process {pid} don't have a libvirt cgroup on {cgroup:#?}",)
     }
 
     let cmdline_str = fs::read_to_string(cmdline)?;

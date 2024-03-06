@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::{Parser, ValueEnum};
+use libbpfmap::CgroupMapWrapper;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
@@ -81,34 +82,82 @@ pub fn observe(args: Observe) -> Result<()> {
     debug!("{:#?}", vm_monitor_infos);
     let vm_monitor_config = serde_yaml::to_string(&vm_monitor_infos)?;
 
-    // just print monitor config
-    if args.dry_run {
-        println!("{}", vm_monitor_config);
-        return Ok(());
-    }
-
     let monitor_set = match args.monitor {
         Some(monitors) => HashSet::from_iter(monitors.into_iter()),
         None => HashSet::from([Monitor::Resctrl, Monitor::Ebpf]),
     };
 
-    vm_monitor_infos.into_iter().for_each(|vm_monitor_info| {
+    // just print monitor config
+    if args.dry_run {
+        println!("--------VM Monitor Config--------\n");
+        println!("{}", vm_monitor_config);
+
         monitor_set.iter().for_each(|monitor| match monitor {
             Monitor::Resctrl => {
-                if let Err(e) = vm_monitor_info.init_resctrl_mgroup() {
-                    error!(
-                        "init resctrl mon group for {} failed: {}",
-                        vm_monitor_info.vm_name, e
-                    );
-                } else {
-                    info!(
-                        "resctrl mon group for {} initialized",
-                        vm_monitor_info.vm_name
-                    );
+                println!("\n--------Exist Resctrl Monitor Groups--------\n");
+                let resctl_mon_group_root = PathBuf::from(RESCTL_ROOT).join("mon_groups");
+                if !resctl_mon_group_root.exists() && !resctl_mon_group_root.is_dir() {
+                    error!("resctrl subsystem maybe not enabled");
                 }
+
+                let Some(readir) = fs::read_dir(resctl_mon_group_root)
+                    .map_err(|e| error!("read mon groups failed {e}"))
+                    .ok()
+                else {
+                    return;
+                };
+
+                let mon_groups: Vec<String> = readir
+                    .filter_map(|entry| entry.ok())
+                    .filter(|entry| entry.path().is_dir())
+                    .filter_map(|dir| {
+                        dir.path()
+                            .to_str()
+                            .and_then(|dir_str| Some(dir_str.to_owned()))
+                    })
+                    .collect();
+
+                println!("{mon_groups:#?}")
             }
             Monitor::Ebpf => {
-                if let Err(e) = vm_monitor_info.init_ebpf_cgroup() {
+                let Some(wrapper) = libbpfmap::CgroupMapWrapper::new()
+                    .map_err(|e| error!("init cgroup map error: {}", e))
+                    .ok()
+                else {
+                    return;
+                };
+
+                println!("\n--------Exist Cgroup Ebpf Map--------\n");
+                wrapper.list();
+            }
+        });
+        return Ok(());
+    }
+
+    monitor_set.iter().for_each(|monitor| match monitor {
+        Monitor::Resctrl => vm_monitor_infos.iter().for_each(|vm_monitor_info| {
+            if let Err(e) = vm_monitor_info.init_resctrl_mgroup() {
+                error!(
+                    "init resctrl mon group for {} failed: {}",
+                    vm_monitor_info.vm_name, e
+                );
+            } else {
+                info!(
+                    "resctrl mon group for {} initialized",
+                    vm_monitor_info.vm_name
+                );
+            }
+        }),
+        Monitor::Ebpf => {
+            let Some(wrapper) = libbpfmap::CgroupMapWrapper::new()
+                .map_err(|e| error!("init cgroup map error: {}", e))
+                .ok()
+            else {
+                return;
+            };
+
+            vm_monitor_infos.iter().for_each(|vm_monitor_info| {
+                if let Err(e) = vm_monitor_info.init_ebpf_cgroup(&wrapper) {
                     error!(
                         "init ebpf cgroup for {} failed: {}",
                         vm_monitor_info.vm_name, e
@@ -116,18 +165,18 @@ pub fn observe(args: Observe) -> Result<()> {
                 } else {
                     info!("ebpf cgroup for {} initialized", vm_monitor_info.vm_name);
                 }
-            }
-        })
+            });
+        }
     });
 
     let mut config_file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(args.output)?;
+        .open(&args.output)?;
 
-    write!(config_file, "{}", vm_monitor_config)?;
-
+    write!(config_file, "{vm_monitor_config}")?;
+    info!("monior conifg saved at {:#?}", args.output);
     Ok(())
 }
 
@@ -142,6 +191,7 @@ pub struct VmMonitorInfo {
 }
 
 static RESCTL_ROOT: &str = "/sys/fs/resctrl";
+static CGROUP_ROOT: &str = "/sys/fs/cgroup";
 
 impl VmMonitorInfo {
     /// init resctrl monitor group for Virtual Machine
@@ -165,17 +215,39 @@ impl VmMonitorInfo {
             .write(true)
             .open(mgroup_dir.join(PathBuf::from("tasks")))?;
 
+        let mut task_count = 0;
         for task in &self.tasks {
             if let Err(e) = write!(file, "{}", task) {
-                error!("write {} to tasks failed: {}", task, e);
+                error!("write {task} to tasks failed: {e}");
+            } else {
+                task_count += 1;
             }
         }
 
-        debug!("{} tasks added for resctrl mon group", self.tasks.len(),);
+        debug!(
+            "{} tasks added for resctrl mon group, {} added failed",
+            task_count,
+            self.tasks.len() - task_count
+        );
         Ok(())
     }
 
-    fn init_ebpf_cgroup(&self) -> Result<()> {
-        todo!()
+    fn init_ebpf_cgroup(&self, bpf_map: &CgroupMapWrapper) -> Result<()> {
+        let cgroup_root_dir = PathBuf::from(format!("{CGROUP_ROOT}{}", &self.vm_cgroup));
+        if !cgroup_root_dir.exists() || !cgroup_root_dir.is_dir() {
+            bail!("{} is not a cgroup dir", self.vm_cgroup);
+        }
+
+        let cgruop_dirs: Vec<String> = fs::read_dir(cgroup_root_dir)?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.path().is_dir())
+            .filter_map(|dir| {
+                dir.path()
+                    .to_str()
+                    .and_then(|dir_str| Some(dir_str.to_owned()))
+            })
+            .collect();
+
+        bpf_map.insert_list(&cgruop_dirs)
     }
 }
