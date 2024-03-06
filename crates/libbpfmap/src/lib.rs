@@ -61,4 +61,15 @@ impl<'a> CgroupMapWrapper<'a> {
         }
         Ok(())
     }
+
+    pub fn delete_list(&self, cgroup_paths: &Vec<String>) -> Result<()> {
+        let maps = self.skel.maps();
+        let cgroup_map = maps.cgroup_map();
+
+        for path in cgroup_paths {
+            let cgroup_id = read_cgroup_inode_id(path)?.to_le_bytes();
+            cgroup_map.delete(&cgroup_id)?;
+        }
+        Ok(())
+    }
 }
