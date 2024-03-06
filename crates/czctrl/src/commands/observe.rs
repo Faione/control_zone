@@ -59,40 +59,58 @@ pub fn observe(args: Observe) -> Result<()> {
         bail!("kvm not enabled or not a root user")
     }
 
-    let vm_monitor_infos: Vec<VmMonitorInfo> = if args.all || args.control_zones.len() == 0 {
-        // kvm info -> proc info -> libvirt info
-        libutil::kvm::get_kvm_infos()?
-            .into_iter()
-            .filter_map(|kvm_info| {
-                let Some(tasks) = libutil::process::tasks_of(kvm_info.pid)
-                    .map_err(|e| error!("parse tasks err: {}", e))
-                    .ok()
-                else {
-                    return None;
-                };
+    // kvm info -> proc info -> libvirt info
+    let mut vm_monitor_infos: Vec<VmMonitorInfo> = libutil::kvm::get_kvm_infos()?
+        .into_iter()
+        .filter_map(|kvm_info| {
+            let Some(tasks) = libutil::process::tasks_of(kvm_info.pid)
+                .map_err(|e| error!("parse tasks err: {}", e))
+                .ok()
+            else {
+                return None;
+            };
 
-                let Some(libvirt_info) = libutil::process::libvirt_info_of(kvm_info.pid)
-                    .map_err(|e| error!("parse libvirt info err: {}", e))
-                    .ok()
-                else {
-                    return None;
-                };
+            let Some(libvirt_info) = libutil::process::libvirt_info_of(kvm_info.pid)
+                .map_err(|e| error!("parse libvirt info err: {}", e))
+                .ok()
+            else {
+                return None;
+            };
 
-                Some(VmMonitorInfo {
-                    pid: kvm_info.pid,
-                    kvm_debug_dir: kvm_info.kvm_debug_dir,
-                    tasks: tasks,
-                    vm_id: libvirt_info.vm_id,
-                    vm_cgroup: libvirt_info.vm_cgroup,
-                    vm_name: libvirt_info.vm_name,
-                })
+            Some(VmMonitorInfo {
+                pid: kvm_info.pid,
+                kvm_debug_dir: kvm_info.kvm_debug_dir,
+                tasks: tasks,
+                vm_id: libvirt_info.vm_id,
+                vm_cgroup: libvirt_info.vm_cgroup,
+                vm_name: libvirt_info.vm_name,
             })
-            .collect()
-    } else {
-        todo!()
-    };
+        })
+        .collect();
 
-    debug!("{:#?}", vm_monitor_infos);
+    if !args.all && args.control_zones.len() != 0 {
+        let mut control_zones: HashSet<String> = HashSet::from_iter(args.control_zones.into_iter());
+        vm_monitor_infos = vm_monitor_infos
+            .into_iter()
+            .filter(|vm_monitor_info| {
+                let mut cz = None;
+
+                for control_zone in &control_zones {
+                    if vm_monitor_info.same_as(control_zone) {
+                        cz = Some(control_zone.clone());
+                        break;
+                    }
+                }
+
+                if let Some(control_zone) = cz {
+                    control_zones.remove(&control_zone);
+                    true
+                } else {
+                    false
+                }
+            })
+            .collect();
+    }
 
     let monitor_set = match args.monitor {
         Some(monitors) => HashSet::from_iter(monitors.into_iter()),
@@ -100,7 +118,6 @@ pub fn observe(args: Observe) -> Result<()> {
     };
 
     let mut action = Action::Init;
-
     if args.dry_run {
         action = Action::Show
     }
@@ -109,6 +126,7 @@ pub fn observe(args: Observe) -> Result<()> {
         action = Action::Clean
     }
 
+    debug!("{:#?}", vm_monitor_infos);
     let vm_monitor_config = serde_yaml::to_string(&vm_monitor_infos)?;
     match action {
         Action::Show => {
@@ -211,10 +229,7 @@ pub fn observe(args: Observe) -> Result<()> {
                             vm_monitor_info.vm_name, e
                         );
                     } else {
-                        info!(
-                            "resctrl mon group for {} initialized",
-                            vm_monitor_info.vm_name
-                        );
+                        info!("resctrl mon group for {} cleaned", vm_monitor_info.vm_name);
                     }
                 }),
                 Monitor::Ebpf => {
@@ -232,7 +247,7 @@ pub fn observe(args: Observe) -> Result<()> {
                                 vm_monitor_info.vm_name, e
                             );
                         } else {
-                            info!("ebpf cgroup for {} initialized", vm_monitor_info.vm_name);
+                            info!("ebpf cgroup for {} cleaned", vm_monitor_info.vm_name);
                         }
                     });
                 }
@@ -259,6 +274,15 @@ pub struct VmMonitorInfo {
     pub vm_id: u32,
     pub vm_name: String,
     pub vm_cgroup: String,
+}
+
+impl VmMonitorInfo {
+    fn same_as(&self, s: &str) -> bool {
+        match s.parse::<u32>() {
+            Result::Ok(vm_id) => self.vm_id == vm_id,
+            Err(_) => self.vm_name == s,
+        }
+    }
 }
 
 /// Resctrl Option
