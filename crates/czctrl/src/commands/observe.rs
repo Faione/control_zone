@@ -93,21 +93,13 @@ pub fn observe(args: Observe) -> Result<()> {
         vm_monitor_infos = vm_monitor_infos
             .into_iter()
             .filter(|vm_monitor_info| {
-                let mut cz = None;
+                let pre_len = control_zones.len();
+                control_zones.retain(|e| !vm_monitor_info.same_as(e));
 
-                for control_zone in &control_zones {
-                    if vm_monitor_info.same_as(control_zone) {
-                        cz = Some(control_zone.clone());
-                        break;
-                    }
-                }
-
-                if let Some(control_zone) = cz {
-                    control_zones.remove(&control_zone);
-                    true
-                } else {
-                    false
-                }
+                // if vm_monitor_info in args HashSet
+                // then it will be moved from HashSet
+                // and we will keep it in new vm_monitor_infos
+                pre_len != control_zones.len()
             })
             .collect();
     }

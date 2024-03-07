@@ -9,15 +9,15 @@ pub mod observe;
 
 #[derive(Parser, Debug)]
 pub enum ControlZoneCmd {
-    /// Apply a Control Zone VM
+    /// Apply Control Zone YAML
     Apply(Apply),
 
-    /// Start a Control Zone
+    /// Start Control Zone
     Down(Down),
 
     /// Generate Control Zone YAML
     Generate(Generate),
 
-    /// Monitor a Control Zone
+    /// Monitor Control Zone
     Observe(Observe),
 }
