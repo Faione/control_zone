@@ -3,6 +3,7 @@ use clap::Parser;
 use log::error;
 
 mod commands;
+mod control_zone;
 
 #[derive(Parser, Debug)]
 enum SubCommand {
@@ -30,6 +31,7 @@ fn main() -> Result<()> {
             commands::ControlZoneCmd::Down(down) => commands::down::down(down),
             commands::ControlZoneCmd::Generate(generate) => commands::generate::generate(generate),
             commands::ControlZoneCmd::Observe(observe) => commands::observe::observe(observe),
+            commands::ControlZoneCmd::List(list) => commands::list::list(list),
         },
     };
 

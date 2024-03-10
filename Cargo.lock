@@ -176,6 +176,7 @@ dependencies = [
  "env_logger",
  "libbpfmap",
  "libutil",
+ "libvm",
  "log",
  "serde",
  "serde_yaml",
@@ -346,6 +347,17 @@ dependencies = [
  "anyhow",
  "libc",
  "regex",
+]
+
+[[package]]
+name = "libvm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "log",
+ "thiserror",
+ "virt",
 ]
 
 [[package]]
@@ -704,6 +716,26 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
+
+[[package]]
+name = "virt"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bca379b1d06d60012e5d335bd839b26c2aa84bdbd358e4c02a6e151cf73db81"
+dependencies = [
+ "libc",
+ "virt-sys",
+]
+
+[[package]]
+name = "virt-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd39f6e0d0ab3fe7c371fac05c9b6ca72e186f06a2e666fb3b95441091eba2db"
+dependencies = [
+ "libc",
+ "pkg-config",
+]
 
 [[package]]
 name = "vsprintf"

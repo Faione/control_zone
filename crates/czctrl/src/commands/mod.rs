@@ -1,11 +1,14 @@
 use clap::Parser;
 
-use self::{apply::Apply, down::Down, generate::Generate, observe::Observe};
+use self::{apply::Apply, down::Down, generate::Generate, list::List, observe::Observe};
 
 pub mod apply;
 pub mod down;
 pub mod generate;
+pub mod list;
 pub mod observe;
+
+const DEFAUL_LIBVIRT_URI: &str = "qemu:///system";
 
 #[derive(Parser, Debug)]
 pub enum ControlZoneCmd {
@@ -17,6 +20,9 @@ pub enum ControlZoneCmd {
 
     /// Generate Control Zone YAML
     Generate(Generate),
+
+    /// List Control Zones
+    List(List),
 
     /// Monitor Control Zone
     Observe(Observe),
