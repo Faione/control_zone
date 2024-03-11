@@ -1,28 +1,40 @@
-use anyhow::Ok;
+use anyhow::{anyhow, Ok};
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
+use std::{collections::BTreeSet, fmt::Write, fs, path::PathBuf};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ControlZone {
-    name: String,
-    guestos: GuestOS,
-    resource: Resource,
+    pub name: String,
+    pub guestos: GuestOS,
+    pub resource: Resource,
+
+    #[serde(skip)]
+    pub meta: Option<Meta>,
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct Meta {
+    pub workdir: String,
+    pub rootfs: String,
+    pub share_folder: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct GuestOS {
-    kernel: String,
-    initrd: String,
-    rootfs: String,
-    share_path: String,
+    pub kernel: String,
+    pub initrd: String,
+    pub rootfs: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Resource {
-    cpuset: Option<String>,
-    cpus: Option<usize>,
-    memory: u32,
+    pub cpuset: Option<String>,
+    pub cpus: Option<usize>,
+    pub memory: u32,
+    pub share_path: String,
 }
+
+const WORKDIR_ROOT: &str = "/tmp/controlzones";
 
 impl ControlZone {
     pub fn to_xml(&self) -> anyhow::Result<String> {
@@ -31,7 +43,7 @@ impl ControlZone {
         writeln!(&mut buf, "<name>{}</name>", self.name)?;
         writeln!(
             &mut buf,
-            "<memory unit='KiB'>{}</memory>",
+            "<memory unit='MB'>{}</memory>",
             self.resource.memory
         )?;
 
@@ -64,6 +76,16 @@ impl ControlZone {
         writeln!(&mut buf, "<initrd>{}</initrd>", self.guestos.initrd)?;
 
         writeln!(&mut buf, "<cmdline>vmlinuz-virt initrd=initramfs-virt root=LABEL=root rootfstype=ext4 modules=kms,scsi,virtio console=ttyS0</cmdline>")?;
+
+        let rootfs = match &self.meta {
+            Some(meta) => meta.rootfs.to_owned(),
+            None => self.guestos.rootfs.to_owned(),
+        };
+
+        let sharefolder = match &self.meta {
+            Some(meta) => meta.share_folder.to_owned(),
+            None => String::from("/tmp/control_zone/controlzone"),
+        };
 
         write!(
             &mut buf,
@@ -116,49 +138,92 @@ impl ControlZone {
 <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
 </memballoon>
 <filesystem type='mount' accessmode='mapped'>
-<source dir='/tmp/control_zone/controlzone'/>
+<source dir='{}'/>
 <target dir='hostshare'/>
 <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
 </filesystem>
 </devices>
 </domain>",
-            self.guestos.rootfs, self.name,
+            rootfs, self.name, sharefolder
         )?;
 
         Ok(buf)
     }
+
+    /// init workdir for control zone
+    /// copy image from src to des
+    pub fn init_workdir(&mut self) -> anyhow::Result<()> {
+        let workdir = self.delete_workdir()?;
+        fs::create_dir_all(&workdir)?;
+
+        let src_rootfs = PathBuf::from(&self.guestos.rootfs);
+        let des_rootfs = workdir.join(PathBuf::from("cz.img"));
+
+        // copy image
+        fs::copy(src_rootfs, &des_rootfs)?;
+
+        // create sharefolder
+        let share_folder = workdir.join(PathBuf::from("controlzone"));
+        fs::create_dir(&share_folder)?;
+
+        let workdir_str = workdir.to_str().ok_or(anyhow!("parse workdir failed"))?;
+        let rootfs_str = des_rootfs.to_str().ok_or(anyhow!("parse rootfs failed"))?;
+        let share_folder_str = share_folder
+            .to_str()
+            .ok_or(anyhow!("parse share_folder failed"))?;
+
+        self.meta = Some(Meta {
+            workdir: workdir_str.to_owned(),
+            rootfs: rootfs_str.to_owned(),
+            share_folder: share_folder_str.to_owned(),
+        });
+
+        Ok(())
+    }
+
+    /// delete workdir of controlzone
+    pub fn delete_workdir(&self) -> anyhow::Result<PathBuf> {
+        let workdir = PathBuf::from(WORKDIR_ROOT).join(PathBuf::from(&self.name));
+
+        if workdir.exists() {
+            fs::remove_dir_all(&workdir)?;
+        }
+
+        Ok(workdir)
+    }
 }
 
-fn parse_cpuset(cpuset: &str) -> Vec<i32> {
+fn parse_cpuset(cpuset_config: &str) -> BTreeSet<u32> {
     let mut cpus = Vec::new();
 
-    for part in cpuset.split(',') {
+    for part in cpuset_config.split(',') {
         if part.contains('-') {
             let range: Vec<&str> = part.split('-').collect();
             if range.len() == 2 {
                 if let (Result::Ok(start), Result::Ok(end)) =
-                    (range[0].parse::<i32>(), range[1].parse::<i32>())
+                    (range[0].parse::<u32>(), range[1].parse::<u32>())
                 {
                     cpus.extend(start..=end);
                 }
             }
-        } else if let Result::Ok(num) = part.parse::<i32>() {
+        } else if let Result::Ok(num) = part.parse::<u32>() {
             cpus.push(num);
         }
     }
 
-    cpus
+    BTreeSet::from_iter(cpus.into_iter())
 }
 
 #[cfg(test)]
 mod test {
-    use serde::Serialize;
+
+    use std::collections::BTreeSet;
 
     use super::{parse_cpuset, ControlZone, GuestOS, Resource};
 
     const TARGET_XML: &str = "<domain type='kvm'>
 <name>controlzone01</name>
-<memory unit='KiB'>4194304</memory>
+<memory unit='MB'>4096</memory>
 <vcpu placement='static'>4</vcpu>
 <cputune>
 <vcpupin vcpu='0' cpuset='130'/>
@@ -235,13 +300,14 @@ mod test {
                 kernel: String::from("/tmp/control_zone/kernels/cfs-virt"),
                 initrd: String::from("/tmp/control_zone/initramfs-virt"),
                 rootfs: String::from("/tmp/control_zone/images/alpine-uefi.qcow2"),
-                share_path: String::from("/tmp/control_zone/controlzone"),
             },
             resource: Resource {
                 cpuset: Some(String::from("130-133")),
                 cpus: None,
-                memory: 4194304,
+                memory: 4096,
+                share_path: String::from("/tmp/control_zone/controlzone"),
             },
+            meta: None,
         };
 
         let xml = cz.to_xml().unwrap();
@@ -254,14 +320,18 @@ mod test {
     fn test_parse_cpuset() {
         let cpu_set = "0,3";
         let cpus = parse_cpuset(cpu_set);
-        assert_eq!(cpus, vec![0, 3]);
+        assert_eq!(cpus, BTreeSet::from_iter(vec![0, 3]));
 
         let cpu_set = "0-3";
         let cpus = parse_cpuset(cpu_set);
-        assert_eq!(cpus, vec![0, 1, 2, 3]);
+        assert_eq!(cpus, BTreeSet::from_iter(vec![0, 1, 2, 3]));
 
         let cpu_set = "0-3,4,6-7";
         let cpus = parse_cpuset(cpu_set);
-        assert_eq!(cpus, vec![0, 1, 2, 3, 4, 6, 7]);
+        assert_eq!(cpus, BTreeSet::from_iter(vec![0, 1, 2, 3, 4, 6, 7]));
+
+        let cpu_set = "0-3, 0-3";
+        let cpus = parse_cpuset(cpu_set);
+        assert_eq!(cpus, BTreeSet::from_iter(vec![0, 1, 2, 3]));
     }
 }

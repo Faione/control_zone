@@ -2,11 +2,7 @@
 use anyhow::{anyhow, bail, Ok, Result};
 use log::debug;
 use std::path::PathBuf;
-use virt::{
-    connect::Connect,
-    domain::{self, Domain},
-    sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE,
-};
+use virt::{connect::Connect, domain::Domain, sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE};
 
 /// Errors from this module.
 #[derive(Debug, thiserror::Error)]
@@ -150,6 +146,14 @@ impl ControlZoneWrapper {
         } else {
             Ok(())
         }
+    }
+
+    pub fn get_id(&self) -> Result<u32> {
+        self.domain.get_id().ok_or(anyhow!("get id failed"))
+    }
+
+    pub fn get_name(&self) -> Result<String> {
+        Ok(self.domain.get_name()?)
     }
 
     /// get the first interface's first addr of a exist control zone
