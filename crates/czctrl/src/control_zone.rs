@@ -22,8 +22,9 @@ pub struct Meta {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct GuestOS {
     pub kernel: String,
-    pub initrd: String,
+    pub initrd: Option<String>,
     pub rootfs: String,
+    pub kcmd: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -73,9 +74,16 @@ impl ControlZone {
             "<os>\n<type arch='x86_64' machine='pc-i440fx-jammy'>hvm</type>"
         )?;
         writeln!(&mut buf, "<kernel>{}</kernel>", self.guestos.kernel)?;
-        writeln!(&mut buf, "<initrd>{}</initrd>", self.guestos.initrd)?;
 
-        writeln!(&mut buf, "<cmdline>vmlinuz-virt initrd=initramfs-virt root=LABEL=root rootfstype=ext4 modules=kms,scsi,virtio console=ttyS0</cmdline>")?;
+        if let Some(initrd) = &self.guestos.initrd {
+            writeln!(&mut buf, "<initrd>{}</initrd>", initrd)?;
+        }
+
+        if let Some(kcmd) = &self.guestos.kcmd {
+            writeln!(&mut buf, "<cmdline>{}</cmdline>", kcmd)?;
+        } else {
+            writeln!(&mut buf, "<cmdline>vmlinuz-virt initrd=initramfs-virt root=LABEL=root rootfstype=ext4 modules=kms,scsi,virtio console=ttyS0</cmdline>")?;
+        }
 
         let rootfs = match &self.meta {
             Some(meta) => meta.rootfs.to_owned(),
@@ -298,8 +306,9 @@ mod test {
             name: String::from("controlzone01"),
             guestos: GuestOS {
                 kernel: String::from("/tmp/control_zone/kernels/cfs-virt"),
-                initrd: String::from("/tmp/control_zone/initramfs-virt"),
+                initrd: Some(String::from("/tmp/control_zone/initramfs-virt")),
                 rootfs: String::from("/tmp/control_zone/images/alpine-uefi.qcow2"),
+                kcmd: None,
             },
             resource: Resource {
                 cpuset: Some(String::from("130-133")),
