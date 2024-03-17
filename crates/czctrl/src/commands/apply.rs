@@ -1,10 +1,18 @@
-use std::{fs, path::PathBuf, thread::sleep, time::Duration};
+use std::{path::PathBuf, thread::sleep, time::Duration};
 
 use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
 use log::{debug, error, info};
 
-use crate::{commands::DEFAUL_LIBVIRT_URI, control_zone::ControlZone};
+use crate::{
+    commands::DEFAUL_LIBVIRT_URI,
+    control_zone::{self},
+};
+
+const TRY_COUNT: i8 = 10;
+
+// try interval (second)
+const TRY_INTERVAL: u64 = 1;
 
 #[derive(Parser, Debug)]
 pub struct Apply {
@@ -16,24 +24,26 @@ pub struct Apply {
 pub fn apply(args: Apply) -> Result<()> {
     let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
 
-    let config = fs::read_to_string(args.file)?;
-    let mut cz: ControlZone = serde_yaml::from_str(&config)?;
+    let mut cz = control_zone::ControlZoneInner::new_from_config(&args.file)?;
     if let Err(e) = cz.init_workdir() {
         error!("init control zone workdir failed: {e}")
     }
 
+    debug!("workdir initialized\n{:#?}", cz);
+
     let xml = cz.to_xml()?;
     let cz_wrapper = virt_cli.create_control_zone(&xml)?;
-    info!("{} created...", cz.name);
 
-    let mut try_count = 5;
+    info!("{} created...", cz.meta.name);
+
+    let mut try_count = TRY_COUNT;
     let ip = loop {
         match cz_wrapper.get_ip() {
             Result::Ok(ip) => break Ok(ip),
             Err(e) => {
                 if try_count > 0 {
                     debug!("try ip detecting: {try_count}...");
-                    sleep(Duration::from_secs(5));
+                    sleep(Duration::from_secs(TRY_INTERVAL));
                     try_count -= 1;
                     continue;
                 }
@@ -43,6 +53,6 @@ pub fn apply(args: Apply) -> Result<()> {
         }
     }?;
 
-    info!("{} initialized: {}", cz.name, ip);
+    info!("{} initialized: {}", cz.meta.name, ip);
     Ok(())
 }
