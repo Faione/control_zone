@@ -8,8 +8,6 @@ pub mod generate;
 pub mod list;
 pub mod observe;
 
-const DEFAUL_LIBVIRT_URI: &str = "qemu:///system";
-
 #[derive(Parser, Debug)]
 pub enum ControlZoneCmd {
     /// Apply Control Zone YAML

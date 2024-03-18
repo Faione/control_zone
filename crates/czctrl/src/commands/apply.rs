@@ -5,14 +5,9 @@ use clap::Parser;
 use log::{debug, error, info};
 
 use crate::{
-    commands::DEFAUL_LIBVIRT_URI,
-    control_zone::{self},
+    config::{DEFAUL_LIBVIRT_URI, TRY_COUNT, TRY_INTERVAL},
+    control_zone,
 };
-
-const TRY_COUNT: i8 = 10;
-
-// try interval (second)
-const TRY_INTERVAL: u64 = 1;
 
 #[derive(Parser, Debug)]
 pub struct Apply {

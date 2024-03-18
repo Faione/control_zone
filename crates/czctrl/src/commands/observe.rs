@@ -12,8 +12,7 @@ use libbpfmap::CgroupMapWrapper;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
-static RESCTL_ROOT: &str = "/sys/fs/resctrl";
-static CGROUP_ROOT: &str = "/sys/fs/cgroup";
+use crate::config::{CGROUP_ROOT, RESCTL_ROOT};
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, ValueEnum)]
 pub enum Monitor {

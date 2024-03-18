@@ -3,6 +3,7 @@ use clap::Parser;
 use log::error;
 
 mod commands;
+mod config;
 mod control_zone;
 
 #[derive(Parser, Debug)]

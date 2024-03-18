@@ -4,9 +4,10 @@ use anyhow::Result;
 use clap::Parser;
 use log::error;
 
-use crate::control_zone::{self};
-
-use super::DEFAUL_LIBVIRT_URI;
+use crate::{
+    config::DEFAUL_LIBVIRT_URI,
+    control_zone::{self},
+};
 
 #[derive(Parser, Debug)]
 pub struct Down {

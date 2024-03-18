@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use libvm::virt;
 
-use super::DEFAUL_LIBVIRT_URI;
+use crate::config::DEFAUL_LIBVIRT_URI;
 
 #[derive(Parser, Debug)]
 pub struct List {
