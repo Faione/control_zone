@@ -81,7 +81,6 @@ fn test_to_xml() {
             workdir: String::from("/tmp/control_zone/"),
             share_folder: String::from("/tmp/control_zone/controlzone"),
             full_config: String::from("nothing"),
-            state: PathBuf::from("hello")
         },
         os: CZOS{
             kernel: String::from("/tmp/control_zone/kernels/cfs-virt"),
@@ -95,6 +94,7 @@ fn test_to_xml() {
             cpuset: String::from("nothing"),
         },
         state: crate::controlzone::State::Created,
+        
     };
 
     let xml = controlzone.to_xml().unwrap();

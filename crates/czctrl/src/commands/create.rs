@@ -30,11 +30,11 @@ pub fn create(args: Create, global_opts: &GloablOpts) -> Result<()> {
         )
     }
 
-    // 3. init workdir
-    if let Err(e) = cz.init_workdir() {
-        bail!("init control zone workdir failed: {e}")
+    // 3. create control zone
+    if let Err(e) = cz.create() {
+        bail!("create control zone failed: {e}")
     }
 
-    info!("control zone created");
+    info!("{} created", cz.meta.name);
     Ok(())
 }

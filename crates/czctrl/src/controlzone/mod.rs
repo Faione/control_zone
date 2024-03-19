@@ -1,12 +1,15 @@
 use anyhow::{anyhow, bail, Ok};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, fmt::Write, fs, path::PathBuf};
+use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
+
+use crate::config::WORKDIR_ROOT;
 
 use self::{
     czos::CZOS,
     meta::{Meta, MetaBuilder},
     resource::Resource,
     state::State,
+    util::parse_cpuset,
 };
 
 mod czos;
@@ -17,6 +20,11 @@ mod util;
 
 #[cfg(test)]
 mod test;
+
+#[inline]
+pub fn default_workdir(cz_name: &str) -> PathBuf {
+    PathBuf::from(WORKDIR_ROOT).join(PathBuf::from(cz_name))
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ControlZone {
@@ -30,6 +38,24 @@ pub struct ControlZone {
 }
 
 impl ControlZone {
+    pub fn new_from_full_config(file: &PathBuf) -> anyhow::Result<Self> {
+        let config = fs::read_to_string(file)?;
+
+        let mut cz: ControlZone = serde_yaml::from_str(&config)?;
+        if !cz.meta.is_valid() {
+            bail!("not a created control zone")
+        }
+
+        let state_file = cz.state_file();
+        cz.state = if !state_file.exists() {
+            bail!("not a created control zone")
+        } else {
+            State::from_str(&fs::read_to_string(state_file)?)?
+        };
+        cz.resource.gen_cpus();
+        Ok(cz)
+    }
+
     pub fn new_from_config(file: &PathBuf) -> anyhow::Result<Self> {
         let config = fs::read_to_string(file)?;
         let mut cz: ControlZone = serde_yaml::from_str(&config)?;
@@ -41,11 +67,22 @@ impl ControlZone {
             .build()?;
 
         // init resource
-        cz.resource.cpus = util::parse_cpuset(&cz.resource.cpuset)
-            .into_iter()
-            .collect();
+        cz.resource.gen_cpus();
+
+        // init state
+        let state_file = cz.state_file();
+        cz.state = if !state_file.exists() {
+            State::Pending
+        } else {
+            State::from_str(&fs::read_to_string(state_file)?)?
+        };
 
         Ok(cz)
+    }
+
+    #[inline]
+    fn state_file(&self) -> PathBuf {
+        PathBuf::from(&self.meta.workdir).join(PathBuf::from("state"))
     }
 
     /// to libvirt virtual machine xml config
@@ -169,7 +206,7 @@ impl ControlZone {
     /// init workdir for control zone
     /// copy image from src to des
     pub fn init_workdir(&mut self) -> anyhow::Result<()> {
-        let workdir = self.test_exists().ok_or(anyhow!("workdir exists"))?;
+        let workdir = PathBuf::from(&self.meta.workdir);
         fs::create_dir_all(&workdir)?;
 
         // copy rootfs
@@ -185,27 +222,86 @@ impl ControlZone {
         let share_folder = PathBuf::from(&self.meta.share_folder);
         fs::create_dir(&share_folder)?;
 
-        // save full config
-        fs::write(&self.meta.full_config, serde_yaml::to_string(self)?)?;
+        Ok(())
+    }
 
+    fn sync_to_file(&self) -> anyhow::Result<()> {
+        fs::write(&self.meta.full_config, serde_yaml::to_string(self)?)?;
+        Ok(())
+    }
+
+    fn sync_state(&mut self, state: State) -> anyhow::Result<()> {
+        fs::write(self.state_file(), state.to_string())?;
+        self.state = state;
         Ok(())
     }
 }
 
 impl ControlZone {
-    fn update_state(&mut self, new_state: State) -> anyhow::Result<()> {
-        self.state = new_state;
-
-        Ok(())
-    }
-    pub fn create(mut self) -> anyhow::Result<Self> {
-        match self.state {
-            State::Pendding => {
-                self.init_workdir()?;
-            }
-            _ => bail!("invalied option"),
+    pub fn create(&mut self) -> anyhow::Result<()> {
+        let (state, stale) = self.state.check_update(State::Created)?;
+        if stale {
+            return Ok(());
         }
 
-        todo!()
+        if let Err(e) = self.init_workdir() {
+            self.delete_workdir()?;
+            bail!(e);
+        }
+
+        if let Err(e) = self.sync_to_file() {
+            self.delete_workdir()?;
+            bail!(e);
+        }
+
+        if let Err(e) = self.sync_state(state) {
+            self.delete_workdir()?;
+            bail!(e);
+        }
+        Ok(())
+    }
+
+    pub fn start<F>(&mut self, start_f: F) -> anyhow::Result<()>
+    where
+        F: Fn(&ControlZone) -> anyhow::Result<()>,
+    {
+        let (state, stale) = self.state.check_update(State::Running)?;
+        if stale {
+            return Ok(());
+        }
+        start_f(&self)?;
+        if let Err(e) = self.sync_state(state) {
+            bail!(e);
+        }
+        Ok(())
+    }
+
+    pub fn stop<F>(&mut self, stop_f: F) -> anyhow::Result<()>
+    where
+        F: Fn(&ControlZone) -> anyhow::Result<()>,
+    {
+        let (state, stale) = self.state.check_update(State::Stopped)?;
+        if stale {
+            return Ok(());
+        }
+
+        stop_f(&self)?;
+        if let Err(e) = self.sync_state(state) {
+            bail!(e);
+        }
+        Ok(())
+    }
+
+    pub fn remove(&mut self) -> anyhow::Result<()> {
+        let (state, stale) = self.state.check_update(State::Zombied)?;
+        if stale {
+            return Ok(());
+        }
+
+        if let Err(e) = self.delete_workdir() {
+            bail!(e);
+        }
+        self.state = state;
+        Ok(())
     }
 }

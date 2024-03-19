@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Ok};
 use serde::{Deserialize, Serialize};
 
-use crate::config::WORKDIR_ROOT;
+use crate::config::CZ_CONFIG;
+
+use super::default_workdir;
 
 #[derive(Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Meta {
@@ -17,9 +19,12 @@ pub struct Meta {
 
     #[serde(default)]
     pub full_config: String,
+}
 
-    #[serde(skip)]
-    pub state: PathBuf,
+impl Meta {
+    pub fn is_valid(&self) -> bool {
+        return self.workdir != "" && self.share_folder != "" && self.full_config != "";
+    }
 }
 
 pub struct MetaBuilder {
@@ -39,15 +44,13 @@ impl MetaBuilder {
         }
 
         if meta.workdir == "" {
-            meta.workdir = PathBuf::from(WORKDIR_ROOT)
-                .join(PathBuf::from(&meta.name))
+            meta.workdir = default_workdir(&meta.name)
                 .to_str()
                 .ok_or(anyhow!("parse workdir failed"))?
                 .to_owned();
         }
 
         let workdir = PathBuf::from(&meta.workdir);
-        meta.state = workdir.join(PathBuf::from("state"));
 
         Ok(MetaBuilder { meta, workdir })
     }
@@ -69,7 +72,7 @@ impl MetaBuilder {
         if self.meta.full_config == "" {
             self.meta.full_config = self
                 .workdir
-                .join(PathBuf::from("config.yaml"))
+                .join(PathBuf::from(CZ_CONFIG))
                 .to_str()
                 .ok_or(anyhow!("parse workdir failed"))?
                 .to_owned();

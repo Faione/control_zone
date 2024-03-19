@@ -45,14 +45,17 @@ fn main() -> Result<()> {
             commands::AdvanceCmd::Down(down) => commands::down::down(down),
             commands::AdvanceCmd::Observe(observe) => commands::observe::observe(observe),
             commands::AdvanceCmd::List(list) => commands::list::list(list),
-            _ => todo!(),
         },
 
         SubCommand::Basic(cmd) => match *cmd {
             commands::BasicCmd::Create(create) => {
                 commands::create::create(create, &opts.global_opts)
             }
-            _ => todo!(),
+            commands::BasicCmd::Start(start) => commands::start::start(start, &opts.global_opts),
+            commands::BasicCmd::Stop(stop) => commands::stop::stop(stop, &opts.global_opts),
+            commands::BasicCmd::Remove(remove) => {
+                commands::remove::remove(remove, &opts.global_opts)
+            }
         },
     };
 
