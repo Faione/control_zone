@@ -19,7 +19,7 @@ pub struct Apply {
 pub fn apply(args: Apply) -> Result<()> {
     let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
 
-    let mut cz = control_zone::ControlZoneInner::new_from_config(&args.file)?;
+    let mut cz = control_zone::ControlZone::new_from_config(&args.file)?;
     if let Err(e) = cz.init_workdir() {
         error!("init control zone workdir failed: {e}")
     }

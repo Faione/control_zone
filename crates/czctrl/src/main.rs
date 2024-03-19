@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{Args, Parser};
 use log::error;
 
 mod commands;
@@ -9,15 +9,28 @@ mod control_zone;
 #[derive(Parser, Debug)]
 enum SubCommand {
     #[clap(flatten)]
-    ControlZone(Box<commands::ControlZoneCmd>),
+    Advance(Box<commands::AdvanceCmd>),
+
+    #[clap(flatten)]
+    Basic(Box<commands::BasicCmd>),
 }
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Opts {
+    #[clap(flatten)]
+    global_opts: GloablOpts,
+
     #[clap(subcommand)]
     subcmd: SubCommand,
+}
+
+#[derive(Debug, Args)]
+struct GloablOpts {
+    /// just print the results
+    #[clap(short, long, global = true)]
+    dry_run: bool,
 }
 
 fn main() -> Result<()> {
@@ -27,12 +40,19 @@ fn main() -> Result<()> {
 
     let opts = Opts::parse();
     let cmd_result = match opts.subcmd {
-        SubCommand::ControlZone(cmd) => match *cmd {
-            commands::ControlZoneCmd::Apply(apply) => commands::apply::apply(apply),
-            commands::ControlZoneCmd::Down(down) => commands::down::down(down),
-            commands::ControlZoneCmd::Generate(generate) => commands::generate::generate(generate),
-            commands::ControlZoneCmd::Observe(observe) => commands::observe::observe(observe),
-            commands::ControlZoneCmd::List(list) => commands::list::list(list),
+        SubCommand::Advance(cmd) => match *cmd {
+            commands::AdvanceCmd::Apply(apply) => commands::apply::apply(apply),
+            commands::AdvanceCmd::Down(down) => commands::down::down(down),
+            commands::AdvanceCmd::Observe(observe) => commands::observe::observe(observe),
+            commands::AdvanceCmd::List(list) => commands::list::list(list),
+            _ => todo!(),
+        },
+
+        SubCommand::Basic(cmd) => match *cmd {
+            commands::BasicCmd::Create(create) => {
+                commands::create::create(create, &opts.global_opts)
+            }
+            _ => todo!(),
         },
     };
 

@@ -19,12 +19,12 @@ pub struct Down {
 pub fn down(args: Down) -> Result<()> {
     let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
 
-    let cz = control_zone::ControlZoneInner::new_from_config(&args.file)?;
+    let cz = control_zone::ControlZone::new_from_config(&args.file)?;
     let cz_wrapper = virt_cli.get_control_zone_by_name(&cz.meta.name)?;
     if let Err(e) = cz_wrapper.destroy() {
         error!("destroy control zone failed: {e}");
     };
 
-    cz.delete_workdir();
+    cz.delete_workdir()?;
     Ok(())
 }
