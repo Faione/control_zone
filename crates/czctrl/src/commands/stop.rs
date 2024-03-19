@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
-use log::{error, info};
+use log::info;
 
 use crate::{
     config::{CZ_CONFIG, DEFAUL_LIBVIRT_URI},

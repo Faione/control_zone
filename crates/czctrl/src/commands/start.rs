@@ -38,11 +38,15 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
+    start_inner(&mut cz, args.wait)
+}
+
+pub fn start_inner(cz: &mut ControlZone, wait: bool) -> Result<()> {
     let libvirt_start_f = |controlzone: &ControlZone| -> anyhow::Result<()> {
         let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
         let cz_wrapper = virt_cli.create_control_zone(&controlzone.to_xml()?)?;
 
-        if args.wait {
+        if wait {
             let mut try_count = TRY_COUNT;
             let ip = loop {
                 match cz_wrapper.get_ip() {

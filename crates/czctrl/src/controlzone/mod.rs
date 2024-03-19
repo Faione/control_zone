@@ -9,7 +9,6 @@ use self::{
     meta::{Meta, MetaBuilder},
     resource::Resource,
     state::State,
-    util::parse_cpuset,
 };
 
 mod czos;

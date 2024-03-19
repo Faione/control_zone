@@ -35,12 +35,18 @@ pub struct MetaBuilder {
 impl MetaBuilder {
     pub fn new(mut meta: Meta, file: &PathBuf) -> anyhow::Result<Self> {
         if meta.name == "" {
-            meta.name = file
+            let fname = file
                 .file_name()
                 .expect("not a valid file name")
                 .to_str()
                 .expect("filename convert to str failed")
                 .to_owned();
+
+            meta.name = if fname.ends_with(".yaml") {
+                fname[..fname.len() - 5].to_owned()
+            } else {
+                fname.to_owned()
+            };
         }
 
         if meta.workdir == "" {

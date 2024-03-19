@@ -5,9 +5,9 @@ use clap::Parser;
 use log::info;
 
 use crate::{
-    commands::stop::{self, stop_inner, Stop},
+    commands::stop::stop_inner,
     config::CZ_CONFIG,
-    controlzone::{self, default_workdir},
+    controlzone::{self, default_workdir, ControlZone},
     GloablOpts,
 };
 
@@ -38,8 +38,12 @@ pub fn remove(args: Remove, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    if args.force {
-        stop_inner(&mut cz)?
+    remove_inner(&mut cz, args.force)
+}
+
+pub fn remove_inner(cz: &mut ControlZone, force: bool) -> Result<()> {
+    if force {
+        stop_inner(cz)?
     }
 
     if let Err(e) = cz.remove() {
