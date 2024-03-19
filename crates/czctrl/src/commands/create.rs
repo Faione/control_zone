@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{control_zone, GloablOpts};
+use crate::{controlzone, GloablOpts};
 
 #[derive(Parser, Debug)]
 pub struct Create {
@@ -15,7 +15,7 @@ pub struct Create {
 
 pub fn create(args: Create, global_opts: &GloablOpts) -> Result<()> {
     // 1. check config
-    let mut cz = control_zone::ControlZone::new_from_config(&args.file)?;
+    let mut cz = controlzone::ControlZone::new_from_config(&args.file)?;
 
     if global_opts.dry_run {
         println!("{:#?}", cz);
