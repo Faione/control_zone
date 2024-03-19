@@ -1,6 +1,7 @@
 // ControlZone
 pub const WORKDIR_ROOT: &str = "/tmp/controlzones";
 pub const CZ_CONFIG: &str = "controlzone.yaml";
+pub const STATE_FILE: &str = "state";
 
 // apply
 pub const DEFAUL_LIBVIRT_URI: &str = "qemu:///system";

@@ -64,7 +64,7 @@ pub fn start_inner(cz: &mut ControlZone, wait: bool) -> Result<()> {
                 }
             }?;
 
-            info!("{} started, ip: {}", controlzone.meta.name, ip);
+            info!("{} ip: {}", controlzone.meta.name, ip);
         }
 
         Ok(())

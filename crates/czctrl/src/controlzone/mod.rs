@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Ok};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
 
-use crate::config::WORKDIR_ROOT;
+use crate::config::{STATE_FILE, WORKDIR_ROOT};
 
 use self::{
     czos::CZOS,
@@ -81,7 +81,7 @@ impl ControlZone {
 
     #[inline]
     fn state_file(&self) -> PathBuf {
-        PathBuf::from(&self.meta.workdir).join(PathBuf::from("state"))
+        PathBuf::from(&self.meta.workdir).join(PathBuf::from(STATE_FILE))
     }
 
     /// to libvirt virtual machine xml config
