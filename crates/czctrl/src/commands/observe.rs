@@ -12,7 +12,10 @@ use libbpfmap::CgroupMapWrapper;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
-use crate::config::{CGROUP_ROOT, RESCTL_ROOT};
+use crate::{
+    config::{CGROUP_ROOT, RESCTL_ROOT},
+    GloablOpts,
+};
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, ValueEnum)]
 pub enum Monitor {
@@ -22,10 +25,6 @@ pub enum Monitor {
 
 #[derive(Parser, Debug)]
 pub struct Observe {
-    /// Print Monitor Config Only
-    #[arg(short, long)]
-    dry_run: bool,
-
     /// Observe all Control Zones
     #[arg(short, long)]
     all: bool,
@@ -53,7 +52,7 @@ enum Action {
     Clean,
 }
 
-pub fn observe(args: Observe) -> Result<()> {
+pub fn observe(args: Observe, global_opts: &GloablOpts) -> Result<()> {
     if !libutil::kvm::check_kvm() {
         bail!("kvm not enabled or not a root user")
     }
@@ -108,14 +107,13 @@ pub fn observe(args: Observe) -> Result<()> {
         None => HashSet::from([Monitor::Resctrl, Monitor::Ebpf]),
     };
 
-    let mut action = Action::Init;
-    if args.dry_run {
-        action = Action::Show
-    }
-
-    if args.clean {
-        action = Action::Clean
-    }
+    let action = if global_opts.dry_run {
+        Action::Show
+    } else if args.clean {
+        Action::Clean
+    } else {
+        Action::Init
+    };
 
     debug!("{:#?}", vm_monitor_infos);
     let vm_monitor_config = serde_yaml::to_string(&vm_monitor_infos)?;

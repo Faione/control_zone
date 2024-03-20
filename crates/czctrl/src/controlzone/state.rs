@@ -18,9 +18,12 @@ impl Default for State {
 }
 
 impl State {
-    pub fn check_update(&self, new_state: State) -> anyhow::Result<(Self, bool)> {
+    // result means update check
+    // bool means stale
+    // state may not be changed and keep stale
+    pub fn check_update(&self, new_state: State) -> anyhow::Result<bool> {
         if *self == new_state {
-            return Ok((new_state, true));
+            return Ok(true);
         }
 
         match (self, new_state) {
@@ -30,9 +33,10 @@ impl State {
             (State::Running, State::Error) => {}
             (State::Stopped, State::Running) => {}
             (State::Stopped, State::Zombied) => {}
+            (State::Created, State::Zombied) => {}
 
             _ => bail!("can not change state from {:#?} to {:#?}", self, new_state),
         }
-        Ok((new_state, false))
+        Ok(false)
     }
 }

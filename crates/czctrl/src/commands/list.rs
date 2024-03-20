@@ -45,7 +45,7 @@ pub fn list(args: List) -> Result<()> {
         AddtionInfo::NoAddtion
     };
 
-    print!("{:16}{:10}{:10}{:10}", "NAME", "KERNEL", "CPUS", "STATUS");
+    print!("{:16}{:20}{:10}{:10}", "NAME", "KERNEL", "CPUS", "STATUS");
     let addtion_info_f: Box<dyn Fn(&ControlZone) -> Result<()>> = match addtion_mode {
         AddtionInfo::Libvirt => {
             println!("{:6}{:16}", "ID", "IP");
@@ -77,10 +77,9 @@ pub fn list(args: List) -> Result<()> {
             .to_owned();
 
         print!(
-            "{:16}{:10}{:10}{:10}",
+            "{:16}{:20}{:10}{:10}",
             cz.meta.name, kernel_name, cz.resource.cpuset, cz.state
         );
-
         addtion_info_f(cz)
     })
 }

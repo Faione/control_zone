@@ -2,7 +2,7 @@ use clap::Parser;
 
 use self::{
     apply::Apply, create::Create, down::Down, list::List, observe::Observe, remove::Remove,
-    start::Start, stop::Stop,
+    start::Start, stop::Stop, update::Update,
 };
 
 pub mod apply;
@@ -15,13 +15,14 @@ pub mod create;
 pub mod remove;
 pub mod start;
 pub mod stop;
+pub mod update;
 
 #[derive(Parser, Debug)]
 pub enum AdvanceCmd {
-    /// Apply Control Zone YAML
+    /// Apply Control Zone from Yaml
     Apply(Apply),
 
-    /// Start Control Zone
+    /// Down Control Zone from Yaml
     Down(Down),
 
     /// List Control Zones
@@ -36,12 +37,15 @@ pub enum BasicCmd {
     /// Create Control Zone
     Create(Create),
 
-    /// Start Created Control Zone
+    /// Start Control Zone
     Start(Start),
 
-    /// Stop Started Control Zone
+    /// Update Control ZOne
+    Update(Update),
+
+    /// Stop Control Zone
     Stop(Stop),
 
-    /// Removed Stopped Control Zone
+    /// Removed Control Zone
     Remove(Remove),
 }

@@ -43,7 +43,9 @@ fn main() -> Result<()> {
         SubCommand::Advance(cmd) => match *cmd {
             commands::AdvanceCmd::Apply(apply) => commands::apply::apply(apply),
             commands::AdvanceCmd::Down(down) => commands::down::down(down),
-            commands::AdvanceCmd::Observe(observe) => commands::observe::observe(observe),
+            commands::AdvanceCmd::Observe(observe) => {
+                commands::observe::observe(observe, &opts.global_opts)
+            }
             commands::AdvanceCmd::List(list) => commands::list::list(list),
         },
 
@@ -55,6 +57,9 @@ fn main() -> Result<()> {
             commands::BasicCmd::Stop(stop) => commands::stop::stop(stop, &opts.global_opts),
             commands::BasicCmd::Remove(remove) => {
                 commands::remove::remove(remove, &opts.global_opts)
+            }
+            commands::BasicCmd::Update(update) => {
+                commands::update::update(update, &opts.global_opts)
             }
         },
     };

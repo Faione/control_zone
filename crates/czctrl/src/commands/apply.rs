@@ -1,12 +1,14 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 
 use crate::{
     commands::{create::create_inner, start::start_inner},
-    controlzone,
+    controlzone::{self},
 };
+
+use super::update::update_innner;
 
 #[derive(Parser, Debug)]
 pub struct Apply {
@@ -20,7 +22,19 @@ pub struct Apply {
 }
 
 pub fn apply(args: Apply) -> Result<()> {
-    let mut cz = controlzone::ControlZone::new_from_config(&args.file)?;
-    create_inner(&mut cz)?;
-    start_inner(&mut cz, args.wait)
+    let mut new_cz = controlzone::ControlZone::new_from_config(&args.file)?;
+
+    match new_cz.state {
+        controlzone::State::Pending => {
+            create_inner(&mut new_cz)?;
+            start_inner(&mut new_cz, args.wait)
+        }
+        _ => {
+            let full_config = PathBuf::from(&new_cz.meta.full_config);
+            let mut curr_cz = controlzone::ControlZone::new_from_full_config(&full_config)
+                .map_err(|e| anyhow!("error parsing config {:#?}: {}", full_config, e))?;
+
+            update_innner(&mut curr_cz, new_cz, args.wait)
+        }
+    }
 }

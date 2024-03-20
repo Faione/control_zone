@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Ok};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
 
@@ -8,8 +9,9 @@ use self::{
     czos::CZOS,
     meta::{Meta, MetaBuilder},
     resource::Resource,
-    state::State,
 };
+
+pub use self::state::State;
 
 mod czos;
 mod meta;
@@ -23,6 +25,26 @@ mod test;
 #[inline]
 pub fn default_workdir(cz_name: &str) -> PathBuf {
     PathBuf::from(WORKDIR_ROOT).join(PathBuf::from(cz_name))
+}
+
+#[derive(Debug)]
+pub enum UpdateMode {
+    // Os changed
+    Reboot,
+    // Resource Changed but Os not changed
+    Hot,
+    // Nothing changed
+    Stale,
+}
+
+/// check state update and debug wrap
+macro_rules! check_update {
+    ($old_state:expr, $new_state:expr) => {
+        if $old_state.check_update($new_state)? {
+            debug!("control zone keep stale: {}", $old_state);
+            return Ok(());
+        }
+    };
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -224,7 +246,7 @@ impl ControlZone {
         Ok(())
     }
 
-    fn sync_to_file(&self) -> anyhow::Result<()> {
+    pub fn sync_to_file(&self) -> anyhow::Result<()> {
         fs::write(&self.meta.full_config, serde_yaml::to_string(self)?)?;
         Ok(())
     }
@@ -234,14 +256,34 @@ impl ControlZone {
         self.state = state;
         Ok(())
     }
+
+    pub fn update_config(&mut self, new_cz: Self) -> anyhow::Result<UpdateMode> {
+        if new_cz.meta != self.meta {
+            bail!("meta data must not be changed!")
+        }
+
+        let mut mode: UpdateMode = UpdateMode::Stale;
+        if new_cz.resource != self.resource {
+            debug!("update and keep running");
+            self.resource.update(new_cz.resource)?;
+            mode = UpdateMode::Hot
+        }
+
+        if new_cz.os != self.os {
+            debug!("update and reboot");
+            self.os.update(new_cz.os)?;
+            mode = UpdateMode::Reboot
+        }
+
+        self.sync_to_file()?;
+        Ok(mode)
+    }
 }
 
 impl ControlZone {
     pub fn create(&mut self) -> anyhow::Result<()> {
-        let (state, stale) = self.state.check_update(State::Created)?;
-        if stale {
-            return Ok(());
-        }
+        let state = State::Created;
+        check_update!(self.state, state);
 
         if let Err(e) = self.init_workdir() {
             self.delete_workdir()?;
@@ -264,25 +306,19 @@ impl ControlZone {
     where
         F: Fn(&ControlZone) -> anyhow::Result<()>,
     {
-        let (state, stale) = self.state.check_update(State::Running)?;
-        if stale {
-            return Ok(());
-        }
-        start_f(&self)?;
-        if let Err(e) = self.sync_state(state) {
-            bail!(e);
-        }
-        Ok(())
+        let state = State::Running;
+        check_update!(self.state, state);
+
+        start_f(self)?;
+        self.sync_state(state)
     }
 
     pub fn stop<F>(&mut self, stop_f: F) -> anyhow::Result<()>
     where
         F: Fn(&ControlZone) -> anyhow::Result<()>,
     {
-        let (state, stale) = self.state.check_update(State::Stopped)?;
-        if stale {
-            return Ok(());
-        }
+        let state = State::Stopped;
+        check_update!(self.state, state);
 
         stop_f(&self)?;
         if let Err(e) = self.sync_state(state) {
@@ -292,14 +328,13 @@ impl ControlZone {
     }
 
     pub fn remove(&mut self) -> anyhow::Result<()> {
-        let (state, stale) = self.state.check_update(State::Zombied)?;
-        if stale {
-            return Ok(());
-        }
+        let state = State::Zombied;
+        check_update!(self.state, state);
 
         if let Err(e) = self.delete_workdir() {
             bail!(e);
         }
+        // do not have to save state
         self.state = state;
         Ok(())
     }

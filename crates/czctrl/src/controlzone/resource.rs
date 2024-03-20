@@ -1,3 +1,4 @@
+use anyhow::Ok;
 use serde::{Deserialize, Serialize};
 
 use super::util::parse_cpuset;
@@ -14,5 +15,12 @@ pub struct Resource {
 impl Resource {
     pub fn gen_cpus(&mut self) {
         self.cpus = parse_cpuset(&self.cpuset).into_iter().collect();
+    }
+
+    pub fn update(&mut self, new: Self) -> anyhow::Result<()> {
+        self.cpuset = new.cpuset;
+        self.cpus = new.cpus;
+        self.memory = new.memory;
+        Ok(())
     }
 }
