@@ -46,7 +46,7 @@ pub enum BasicCmd {
     /// Stop Control Zone
     Stop(Stop),
 
-    /// Removed Control Zone
+    /// Remove Control Zone
     Remove(Remove),
 
     /// Inspect Control Zone
