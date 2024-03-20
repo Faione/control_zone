@@ -4,10 +4,9 @@ use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
 use libvm::virt;
 
-use crate::{
-    config::{CZ_CONFIG, DEFAUL_LIBVIRT_URI, WORKDIR_ROOT},
-    controlzone::{self, ControlZone},
-};
+use libcz::{ControlZone, CZ_CONFIG, WORKDIR_ROOT};
+
+use crate::config::DEFAUL_LIBVIRT_URI;
 
 #[derive(Parser, Debug)]
 pub struct List {
@@ -35,7 +34,7 @@ pub fn list(args: List) -> Result<()> {
                 return None;
             }
 
-            controlzone::ControlZone::new_from_full_config(&full_config).ok()
+            ControlZone::new_from_full_config(&full_config).ok()
         })
         .collect();
 

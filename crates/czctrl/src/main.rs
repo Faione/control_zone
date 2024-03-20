@@ -4,7 +4,6 @@ use log::error;
 
 mod commands;
 mod config;
-mod controlzone;
 
 #[derive(Parser, Debug)]
 enum SubCommand {

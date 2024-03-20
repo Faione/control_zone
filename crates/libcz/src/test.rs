@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::controlzone::{util::parse_cpuset, ControlZone, Meta, Resource, CZOS};
+use crate::{util::parse_cpuset, ControlZone, Meta, Resource, CZOS};
 
 const TARGET_XML: &str = "<domain type='kvm'>
 <name>controlzone01</name>
@@ -93,7 +93,7 @@ fn test_to_xml() {
             memory:4096,
             cpuset: String::from("nothing"),
         },
-        state: crate::controlzone::State::Created,
+        state: crate::State::Created,
         
     };
 

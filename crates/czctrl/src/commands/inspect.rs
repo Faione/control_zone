@@ -3,11 +3,9 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
 
-use crate::{
-    config::CZ_CONFIG,
-    controlzone::{self, default_workdir},
-    GloablOpts,
-};
+use crate::GloablOpts;
+
+use libcz::{default_workdir, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Inspect {
@@ -25,7 +23,7 @@ pub fn inspect(args: Inspect, _: &GloablOpts) -> Result<()> {
         None => default_workdir(&args.control_zone).join(CZ_CONFIG),
     };
 
-    let cz = controlzone::ControlZone::new_from_full_config(&full_config)
+    let cz = ControlZone::new_from_full_config(&full_config)
         .map_err(|e| anyhow!("error parsing config {:#?}: {}", full_config, e))?;
     serde_yaml::to_string(&cz).map(|cz_str| println!("{}", cz_str))?;
     Ok(())

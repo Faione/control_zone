@@ -122,6 +122,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
+
+[[package]]
 name = "clap"
 version = "4.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,17 +181,23 @@ dependencies = [
  "clap",
  "env_logger",
  "libbpfmap",
+ "libcz",
  "libutil",
  "libvm",
  "log",
  "serde",
  "serde_yaml",
- "strum",
 ]
 
 [[package]]
 name = "czdaemon"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "log",
+ "nix 0.28.0",
+]
 
 [[package]]
 name = "env_filter"
@@ -319,7 +331,7 @@ dependencies = [
  "lazy_static",
  "libbpf-sys",
  "libc",
- "nix",
+ "nix 0.27.1",
  "num_enum",
  "strum_macros 0.24.3",
  "thiserror",
@@ -333,7 +345,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6e68987fe8f2dd7b76930f800a4e5b958c766171fc3a7c33dd67c06a0f1e801"
 dependencies = [
  "cc",
- "nix",
+ "nix 0.27.1",
  "num_cpus",
  "pkg-config",
 ]
@@ -353,6 +365,17 @@ name = "libc"
 version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
+
+[[package]]
+name = "libcz"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "serde",
+ "serde_yaml",
+ "strum",
+]
 
 [[package]]
 name = "libutil"
@@ -418,6 +441,19 @@ checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
 dependencies = [
  "bitflags",
  "cfg-if",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "cfg_aliases",
  "libc",
  "memoffset",
 ]

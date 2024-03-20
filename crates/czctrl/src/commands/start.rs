@@ -5,10 +5,11 @@ use clap::Parser;
 use log::{debug, info};
 
 use crate::{
-    config::{CZ_CONFIG, DEFAUL_LIBVIRT_URI, TRY_COUNT, TRY_INTERVAL},
-    controlzone::{self, default_workdir, ControlZone},
+    config::{DEFAUL_LIBVIRT_URI, TRY_COUNT, TRY_INTERVAL},
     GloablOpts,
 };
+
+use libcz::{default_workdir, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Start {
@@ -30,7 +31,7 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
         None => default_workdir(&args.control_zone).join(CZ_CONFIG),
     };
 
-    let mut cz = controlzone::ControlZone::new_from_full_config(&full_config)
+    let mut cz = ControlZone::new_from_full_config(&full_config)
         .map_err(|e| anyhow!("error parsing config {:#?}: {}", full_config, e))?;
 
     if global_opts.dry_run {

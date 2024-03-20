@@ -1,5 +1,5 @@
 [package]
-name = "czdaemon"
+name = "libcz"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.80"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_yaml = "0.9.32"
 log = "0.4.21"
-env_logger = "0.11.2"
-nix = {version = "0.28.0", features = ["net"]}
+strum = { version = "0.21.0", features = ["derive"] }

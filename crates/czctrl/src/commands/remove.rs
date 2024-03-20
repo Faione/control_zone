@@ -4,12 +4,9 @@ use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{
-    commands::stop::stop_inner,
-    config::CZ_CONFIG,
-    controlzone::{self, default_workdir, ControlZone},
-    GloablOpts,
-};
+use crate::{commands::stop::stop_inner, GloablOpts};
+
+use libcz::{default_workdir, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Remove {
@@ -31,7 +28,7 @@ pub fn remove(args: Remove, global_opts: &GloablOpts) -> Result<()> {
         None => default_workdir(&args.control_zone).join(CZ_CONFIG),
     };
 
-    let mut cz = controlzone::ControlZone::new_from_full_config(&full_config)
+    let mut cz = ControlZone::new_from_full_config(&full_config)
         .map_err(|e| anyhow!("error parsing config {:#?}: {}", full_config, e))?;
 
     if global_opts.dry_run {

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Ok};
 use serde::{Deserialize, Serialize};
 
-use crate::config::CZ_CONFIG;
+use crate::CZ_CONFIG;
 
 use super::default_workdir;
 

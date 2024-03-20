@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 
-use crate::controlzone;
-
 use super::remove::remove_inner;
+use libcz::ControlZone;
 
 #[derive(Parser, Debug)]
 pub struct Down {
@@ -15,6 +14,6 @@ pub struct Down {
 }
 
 pub fn down(args: Down) -> Result<()> {
-    let mut cz = controlzone::ControlZone::new_from_config(&args.file)?;
+    let mut cz = ControlZone::new_from_config(&args.file)?;
     remove_inner(&mut cz, true)
 }

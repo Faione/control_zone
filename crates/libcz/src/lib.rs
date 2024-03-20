@@ -3,8 +3,6 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
 
-use crate::config::{CZ_IMAGE, INFO_DIR, POD_DIR, STATE_FILE, WORKDIR_ROOT};
-
 use self::{
     czos::CZOS,
     meta::{Meta, MetaBuilder},
@@ -21,6 +19,17 @@ mod util;
 
 #[cfg(test)]
 mod test;
+
+// ControlZone
+pub const WORKDIR_ROOT: &str = "/tmp/controlzones";
+pub const CZ_CONFIG: &str = "controlzone.yaml";
+pub const CZ_IMAGE: &str = "cz.img";
+
+pub const POD_DIR: &str = "pod";
+
+pub const INFO_DIR: &str = "info";
+// sharefolder/info/state
+pub const STATE_FILE: &str = "state";
 
 #[inline]
 pub fn default_workdir(cz_name: &str) -> PathBuf {
