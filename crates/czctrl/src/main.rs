@@ -61,6 +61,10 @@ fn main() -> Result<()> {
             commands::BasicCmd::Update(update) => {
                 commands::update::update(update, &opts.global_opts)
             }
+
+            commands::BasicCmd::Inspect(inspect) => {
+                commands::inspect::inspect(inspect, &opts.global_opts)
+            }
         },
     };
 

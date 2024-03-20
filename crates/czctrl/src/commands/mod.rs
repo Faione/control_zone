@@ -1,17 +1,17 @@
 use clap::Parser;
 
 use self::{
-    apply::Apply, create::Create, down::Down, list::List, observe::Observe, remove::Remove,
-    start::Start, stop::Stop, update::Update,
+    apply::Apply, create::Create, down::Down, inspect::Inspect, list::List, observe::Observe,
+    remove::Remove, start::Start, stop::Stop, update::Update,
 };
 
 pub mod apply;
-
 pub mod down;
 pub mod list;
 pub mod observe;
 
 pub mod create;
+pub mod inspect;
 pub mod remove;
 pub mod start;
 pub mod stop;
@@ -48,4 +48,7 @@ pub enum BasicCmd {
 
     /// Removed Control Zone
     Remove(Remove),
+
+    /// Inspect Control Zone
+    Inspect(Inspect),
 }

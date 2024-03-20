@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::collections::BTreeSet;
 
 use crate::controlzone::{util::parse_cpuset, ControlZone, Meta, Resource, CZOS};
 
