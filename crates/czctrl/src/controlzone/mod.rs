@@ -3,7 +3,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
 
-use crate::config::{STATE_FILE, WORKDIR_ROOT};
+use crate::config::{CZ_IMAGE, INFO_DIR, POD_DIR, STATE_FILE, WORKDIR_ROOT};
 
 use self::{
     czos::CZOS,
@@ -24,7 +24,7 @@ mod test;
 
 #[inline]
 pub fn default_workdir(cz_name: &str) -> PathBuf {
-    PathBuf::from(WORKDIR_ROOT).join(PathBuf::from(cz_name))
+    PathBuf::from(WORKDIR_ROOT).join(cz_name)
 }
 
 #[derive(Debug)]
@@ -103,7 +103,9 @@ impl ControlZone {
 
     #[inline]
     fn state_file(&self) -> PathBuf {
-        PathBuf::from(&self.meta.workdir).join(PathBuf::from(STATE_FILE))
+        PathBuf::from(&self.meta.share_folder)
+            .join(INFO_DIR)
+            .join(STATE_FILE)
     }
 
     /// to libvirt virtual machine xml config
@@ -232,7 +234,7 @@ impl ControlZone {
 
         // copy rootfs
         let src_rootfs = PathBuf::from(&self.os.rootfs);
-        let des_rootfs = workdir.join(PathBuf::from("cz.img"));
+        let des_rootfs = workdir.join(CZ_IMAGE);
         fs::copy(src_rootfs, &des_rootfs)?;
         self.os.rootfs = des_rootfs
             .to_str()
@@ -242,6 +244,14 @@ impl ControlZone {
         // create sharefolder
         let share_folder = PathBuf::from(&self.meta.share_folder);
         fs::create_dir(&share_folder)?;
+
+        // create pod dir
+        fs::create_dir(share_folder.join(POD_DIR))?;
+
+        // create info dir
+        fs::create_dir(share_folder.join(INFO_DIR))?;
+
+        // create scripts dir
 
         Ok(())
     }

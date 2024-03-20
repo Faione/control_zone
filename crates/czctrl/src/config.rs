@@ -1,6 +1,12 @@
 // ControlZone
 pub const WORKDIR_ROOT: &str = "/tmp/controlzones";
 pub const CZ_CONFIG: &str = "controlzone.yaml";
+pub const CZ_IMAGE: &str = "cz.img";
+
+pub const POD_DIR: &str = "pod";
+
+pub const INFO_DIR: &str = "info";
+// sharefolder/info/state
 pub const STATE_FILE: &str = "state";
 
 // apply
