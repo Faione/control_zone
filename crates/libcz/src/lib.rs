@@ -26,10 +26,19 @@ pub const CZ_CONFIG: &str = "controlzone.yaml";
 pub const CZ_IMAGE: &str = "cz.img";
 
 pub const POD_DIR: &str = "pod";
+// pod/apply
+pub const POD_APPLY_DIR: &str = "apply";
+// pod/apply
+pub const POD_DOWN_DIR: &str = "down";
+// pod/log
+pub const POD_CRUNTIME_LOG: &str = "log";
 
+// sharefolder/info/
 pub const INFO_DIR: &str = "info";
 // sharefolder/info/state
 pub const STATE_FILE: &str = "state";
+// sharefolder/info/ip
+pub const IP_FILE: &str = "ip";
 
 #[inline]
 pub fn default_workdir(cz_name: &str) -> PathBuf {

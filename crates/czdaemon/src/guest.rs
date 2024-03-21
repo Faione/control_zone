@@ -1,8 +1,8 @@
 use anyhow::{bail, Ok};
 
+#[derive(Debug)]
 pub struct Info {
-    ip: String,
-    cruntime: String,
+    pub ip: String,
 }
 
 fn first_ip_on_first_nic() -> anyhow::Result<String> {
@@ -28,7 +28,7 @@ pub fn fetch_info() -> anyhow::Result<Info> {
 
     let ip = first_ip_on_first_nic()?;
 
-    todo!()
+    Ok(Info { ip })
 }
 
 #[cfg(test)]
