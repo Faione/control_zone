@@ -8,7 +8,8 @@ use std::{
     time::Duration,
 };
 
-use log::debug;
+use anyhow::Ok;
+use log::{debug, info};
 use notify::{event::CreateKind, RecursiveMode, Watcher};
 
 use crate::worker::{Event, PodOps};
@@ -20,18 +21,20 @@ use std::sync::mpsc;
 #[cfg(feature = "poll_watcher")]
 use notify::event::RemoveKind;
 
+fn init_signal(flag: Arc<AtomicBool>) -> anyhow::Result<()> {
+    signal_hook::flag::register(signal_hook::consts::SIGINT, flag.clone())?;
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, flag.clone())?;
+    Ok(())
+}
+
 #[cfg(feature = "poll_watcher")]
 pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Result<()> {
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    })?;
+    let want_to_stop = Arc::new(AtomicBool::new(false));
+    init_signal(want_to_stop.clone())?;
 
     let root = pod_root.clone();
     let event_handler = move |res: Result<notify::Event, notify::Error>| match res {
-        Ok(event) => match event.kind {
+        Result::Ok(event) => match event.kind {
             notify::EventKind::Create(CreateKind::Any) => {
                 let src_file = &event.paths[0];
                 let Some(parent) = src_file.parent().and_then(|d| d.file_name()) else {
@@ -96,24 +99,21 @@ pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Resul
     };
     watcher.watch(&pod_root, RecursiveMode::Recursive)?;
 
-    while running.load(Ordering::SeqCst) {
+    while !want_to_stop.load(Ordering::SeqCst) {
         if let Err(e) = watcher.poll() {
             debug!("{e}");
         }
         sleep(Duration::new(1, 0));
     }
 
+    info!("watcher loop exit");
     Ok(())
 }
 
 #[cfg(not(feature = "poll_watcher"))]
 pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Result<()> {
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
-
-    ctrlc::set_handler(move || {
-        r.store(false, Ordering::SeqCst);
-    })?;
+    let want_to_stop = Arc::new(AtomicBool::new(false));
+    init_signal(want_to_stop.clone())?;
 
     let event_handler = move |res: Result<notify::Event, notify::Error>| match res {
         Ok(event) => match event.kind {
@@ -167,9 +167,9 @@ pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Resul
     };
     let mut watcher = notify::recommended_watcher(event_handler)?;
     watcher.watch(&pod_root, RecursiveMode::Recursive)?;
-    while running.load(Ordering::SeqCst) {
+    while !want_to_stop.load(Ordering::SeqCst) {
         sleep(Duration::new(1, 0));
     }
-
+    info!("watcher loop exit");
     Ok(())
 }

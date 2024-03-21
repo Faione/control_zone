@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, sync::mpsc};
+use std::{fs, path::PathBuf, str::FromStr, sync::mpsc};
 
 use anyhow::bail;
 use clap::Parser;
@@ -34,15 +34,15 @@ fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     let share_root = opts.dir.clone();
 
+    // sync info
     if let Ok(info) = fetch_info() {
-        let ip_file = share_root.join(INFO_DIR).join(IP_FILE);
-        fs::write(ip_file, info.ip)?;
+        fs::write(share_root.join(INFO_DIR).join(IP_FILE), info.ip)?;
     } else {
         warn!("fetch info failed")
     }
 
+    // init pod watcher
     let pod_root = share_root.join(POD_DIR);
-
     let Some(log_file) = pod_root
         .join(POD_CRUNTIME_LOG)
         .to_str()
@@ -55,12 +55,15 @@ fn main() -> anyhow::Result<()> {
         cruntime: opts.cruntime,
         log_file,
     };
-
     worker.run(rx);
-    info!("worker init");
-    fs::write(
-        share_root.join(INFO_DIR).join(STATE_FILE),
-        State::Running.to_string(),
-    )?;
+    info!("worker initialized");
+
+    // sync state
+    let state_file = share_root.join(INFO_DIR).join(STATE_FILE);
+    let state = State::from_str(&fs::read_to_string(&state_file)?)?;
+    if !state.check_update(State::Running)? {
+        fs::write(state_file, State::Running.to_string())?;
+    };
+
     watcher_loop(pod_root, tx)
 }
