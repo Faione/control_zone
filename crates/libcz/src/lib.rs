@@ -268,6 +268,7 @@ impl ControlZone {
 
         // create info dir
         fs::create_dir(share_folder.join(INFO_DIR))?;
+        fs::write(share_folder.join(INFO_DIR).join(IP_FILE), "Non")?;
 
         // create scripts dir
 

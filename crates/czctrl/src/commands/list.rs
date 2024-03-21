@@ -4,7 +4,8 @@ use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
 use libvm::virt;
 
-use libcz::{ControlZone, CZ_CONFIG, WORKDIR_ROOT};
+use libcz::{ControlZone, CZ_CONFIG, INFO_DIR, IP_FILE, WORKDIR_ROOT};
+use log::error;
 
 use crate::config::DEFAUL_LIBVIRT_URI;
 
@@ -17,7 +18,7 @@ pub struct List {
 
 enum AddtionInfo {
     Libvirt,
-    NoAddtion,
+    Origin,
 }
 
 pub fn list(args: List) -> Result<()> {
@@ -41,7 +42,7 @@ pub fn list(args: List) -> Result<()> {
     let addtion_mode = if args.libvirt {
         AddtionInfo::Libvirt
     } else {
-        AddtionInfo::NoAddtion
+        AddtionInfo::Origin
     };
 
     print!("{:16}{:20}{:10}{:10}", "NAME", "KERNEL", "CPUS", "STATUS");
@@ -58,10 +59,18 @@ pub fn list(args: List) -> Result<()> {
                 Ok(())
             })
         }
-        AddtionInfo::NoAddtion => {
-            println!("");
-            Box::new(|_: &ControlZone| -> Result<()> {
-                println!("");
+        AddtionInfo::Origin => {
+            println!("{:16}", "IP");
+            Box::new(|controlzone: &ControlZone| -> Result<()> {
+                let ip_file = PathBuf::from(&controlzone.meta.share_folder)
+                    .join(INFO_DIR)
+                    .join(IP_FILE);
+
+                if !ip_file.exists() {
+                    error!("control zone may not initialized")
+                }
+
+                println!("{}", fs::read_to_string(ip_file)?);
                 Ok(())
             })
         }
