@@ -65,8 +65,16 @@ impl Worker {
                         continue;
                     };
 
-                    if let Err(e) = cmd_fd.wait() {
-                        error!("command run failed: {e}");
+                    let success = match cmd_fd.wait() {
+                        Ok(code) => code.success(),
+                        Err(e) => {
+                            error!("could not wait for command: {e}");
+                            false
+                        }
+                    };
+
+                    if !success {
+                        error!("command run failed");
                         continue;
                     }
 

@@ -1,15 +1,19 @@
-use std::{path::PathBuf, thread::sleep, time::Duration};
+use std::{fs, path::PathBuf, str::FromStr, sync::mpsc, time::Duration};
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
-use log::{debug, info};
+use log::{debug, error, info};
+use notify::{
+    event::{AccessKind, AccessMode},
+    Watcher,
+};
 
 use crate::{
     config::{DEFAUL_LIBVIRT_URI, TRY_COUNT, TRY_INTERVAL},
     GloablOpts,
 };
 
-use libcz::{default_workdir, ControlZone, CZ_CONFIG};
+use libcz::{default_workdir, ControlZone, State, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Start {
@@ -45,33 +49,37 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
 pub fn start_inner(cz: &mut ControlZone, wait: bool) -> Result<()> {
     let libvirt_start_f = |controlzone: &ControlZone| -> anyhow::Result<()> {
         let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
-        let cz_wrapper = virt_cli.create_control_zone(&controlzone.to_xml()?)?;
-
-        if wait {
-            let mut try_count = TRY_COUNT;
-            let ip = loop {
-                match cz_wrapper.get_ip() {
-                    Result::Ok(ip) => break Ok(ip),
-                    Err(e) => {
-                        if try_count > 0 {
-                            debug!("try ip detecting: {try_count}...");
-                            sleep(Duration::from_secs(TRY_INTERVAL));
-                            try_count -= 1;
-                            continue;
-                        }
-
-                        break Err(anyhow!("{e}"));
-                    }
-                }
-            }?;
-
-            info!("{} ip: {}", controlzone.meta.name, ip);
-        }
+        virt_cli.create_control_zone(&controlzone.to_xml()?)?;
 
         Ok(())
     };
 
-    if let Err(e) = cz.start(libvirt_start_f) {
+    let wait_f = |state_f: &PathBuf| -> anyhow::Result<State> {
+        let (tx, rx) = mpsc::channel();
+        let mut watcher = notify::recommended_watcher(
+            move |res: std::prelude::v1::Result<notify::Event, notify::Error>| match res {
+                Result::Ok(event) => match event.kind {
+                    notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+                        debug!("control zone state modified",);
+                        if let Err(e) = tx.send({}) {
+                            error!("failed to notify file change: {e}");
+                        }
+                    }
+                    _ => {}
+                },
+                Err(_) => {}
+            },
+        )?;
+
+        watcher.watch(state_f, notify::RecursiveMode::NonRecursive)?;
+        rx.recv_timeout(Duration::from_secs((TRY_INTERVAL * TRY_COUNT) as u64))?;
+        watcher.unwatch(state_f)?;
+        debug!("stop watch state");
+        Ok(State::from_str(&fs::read_to_string(state_f)?)?)
+    };
+
+    let wf_op = if wait { Some(wait_f) } else { None };
+    if let Err(e) = cz.start(libvirt_start_f, wf_op) {
         bail!("start {} failed: {e}", cz.meta.name)
     }
 

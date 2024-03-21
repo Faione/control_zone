@@ -206,6 +206,7 @@ dependencies = [
  "libutil",
  "libvm",
  "log",
+ "notify",
  "serde",
  "serde_yaml",
 ]

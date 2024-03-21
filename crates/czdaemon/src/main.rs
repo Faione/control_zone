@@ -3,8 +3,10 @@ use std::{fs, path::PathBuf, str::FromStr, sync::mpsc};
 use anyhow::bail;
 use clap::Parser;
 
-use libcz::{State, INFO_DIR, IP_FILE, POD_CRUNTIME_LOG, POD_DIR, STATE_FILE};
-use log::{info, warn};
+use libcz::{
+    State, INFO_DIR, IP_FILE, POD_APPLY_DIR, POD_CRUNTIME_LOG, POD_DIR, POD_DOWN_DIR, STATE_FILE,
+};
+use log::{debug, info, warn};
 use watcher::watcher_loop;
 use worker::Worker;
 
@@ -33,6 +35,7 @@ fn main() -> anyhow::Result<()> {
     );
     let opts = Opts::parse();
     let share_root = opts.dir.clone();
+    debug!("controlzone daemon starting");
 
     // sync info
     if let Ok(info) = fetch_info() {
@@ -40,16 +43,29 @@ fn main() -> anyhow::Result<()> {
     } else {
         warn!("fetch info failed")
     }
+    debug!("info fetched");
 
-    // init pod watcher
+    // init worker
     let pod_root = share_root.join(POD_DIR);
     let Some(log_file) = pod_root
         .join(POD_CRUNTIME_LOG)
         .to_str()
         .and_then(|s| Some(s.to_owned()))
     else {
-        bail!("gen log file failed")
+        bail!("fail to genrate pod")
     };
+
+    let apply_dir = pod_root.join(POD_APPLY_DIR);
+    if !apply_dir.exists() {
+        fs::create_dir(apply_dir)?;
+    }
+
+    let down_dir = pod_root.join(POD_DOWN_DIR);
+    if !down_dir.exists() {
+        fs::create_dir(down_dir)?;
+    }
+    debug!("pod dir ready");
+
     let (tx, rx) = mpsc::channel();
     let worker = Worker {
         cruntime: opts.cruntime,
@@ -64,6 +80,8 @@ fn main() -> anyhow::Result<()> {
     if !state.check_update(State::Running)? {
         fs::write(state_file, State::Running.to_string())?;
     };
+    info!("controlzone state updated");
 
+    // start dir watcher
     watcher_loop(pod_root, tx)
 }

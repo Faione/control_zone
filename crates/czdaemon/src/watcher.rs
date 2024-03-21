@@ -116,12 +116,19 @@ pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Resul
     init_signal(want_to_stop.clone())?;
 
     let event_handler = move |res: Result<notify::Event, notify::Error>| match res {
-        Ok(event) => match event.kind {
+        Result::Ok(event) => match event.kind {
             notify::EventKind::Create(CreateKind::File) => {
-                let Some(yaml) = PathBuf::from(&event.paths[0])
-                    .to_str()
-                    .and_then(|s| Some(s.to_owned()))
-                else {
+                let path = &event.paths[0];
+
+                let Some(parent) = path.parent().and_then(|d| d.file_name()) else {
+                    return;
+                };
+
+                if parent != POD_APPLY_DIR {
+                    return;
+                }
+
+                let Some(yaml) = path.to_str().and_then(|s| Some(s.to_owned())) else {
                     return;
                 };
 
@@ -132,34 +139,32 @@ pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Resul
                     debug!("send event failed: {e}")
                 };
             }
-            notify::EventKind::Modify(kind) => {
-                if let ModifyKind::Name(RenameMode::Both) = kind {
-                    let src_file = &event.paths[0];
-                    let des_file = &event.paths[1];
+            notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                let src_file = &event.paths[0];
+                let des_file = &event.paths[1];
 
-                    let Some(src_parent) = src_file.parent().and_then(|d| d.file_name()) else {
-                        return;
-                    };
+                let Some(src_parent) = src_file.parent().and_then(|d| d.file_name()) else {
+                    return;
+                };
 
-                    let Some(des_parent) = des_file.parent().and_then(|d| d.file_name()) else {
-                        return;
-                    };
+                let Some(des_parent) = des_file.parent().and_then(|d| d.file_name()) else {
+                    return;
+                };
 
-                    if !(src_parent == POD_APPLY_DIR && des_parent == POD_DOWN_DIR) {
-                        return;
-                    }
-
-                    let Some(yaml) = des_file.to_str().and_then(|s| Some(s.to_owned())) else {
-                        return;
-                    };
-
-                    if let Err(e) = tx.send(Event {
-                        ops: PodOps::Down,
-                        yaml,
-                    }) {
-                        debug!("send event failed: {e}")
-                    };
+                if !(src_parent == POD_APPLY_DIR && des_parent == POD_DOWN_DIR) {
+                    return;
                 }
+
+                let Some(yaml) = des_file.to_str().and_then(|s| Some(s.to_owned())) else {
+                    return;
+                };
+
+                if let Err(e) = tx.send(Event {
+                    ops: PodOps::Down,
+                    yaml,
+                }) {
+                    debug!("send event failed: {e}")
+                };
             }
             _ => {}
         },

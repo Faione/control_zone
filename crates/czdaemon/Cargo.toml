@@ -7,7 +7,7 @@ edition = "2021"
 
 [features]
 poll_watcher = []
-default = ["poll_watcher"]
+
 
 [dependencies]
 libcz = {path = "../libcz"}

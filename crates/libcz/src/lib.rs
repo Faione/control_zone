@@ -330,15 +330,20 @@ impl ControlZone {
         Ok(())
     }
 
-    pub fn start<F>(&mut self, start_f: F) -> anyhow::Result<()>
+    pub fn start<Fs, Fw>(&mut self, start_f: Fs, wait_f: Option<Fw>) -> anyhow::Result<()>
     where
-        F: Fn(&ControlZone) -> anyhow::Result<()>,
+        Fs: Fn(&ControlZone) -> anyhow::Result<()>,
+        Fw: Fn(&PathBuf) -> anyhow::Result<State>,
     {
         let state = State::Running;
         check_update!(self.state, state);
 
         start_f(self)?;
-        self.sync_state(state)
+
+        if let Some(wait_f) = wait_f {
+            self.state = wait_f(&self.state_file())?;
+        }
+        Ok(())
     }
 
     pub fn stop<F>(&mut self, stop_f: F) -> anyhow::Result<()>
