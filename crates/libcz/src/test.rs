@@ -30,10 +30,6 @@ const TARGET_XML: &str = "<domain type='kvm'>
 <on_poweroff>destroy</on_poweroff>
 <on_reboot>restart</on_reboot>
 <on_crash>destroy</on_crash>
-<memoryBacking>
-<source type='memfd'/>
-<access mode='shared'/>
-</memoryBacking>
 <devices>
 <emulator>/usr/bin/qemu-system-x86_64</emulator>
 <disk type='file' device='disk'>
@@ -69,8 +65,7 @@ const TARGET_XML: &str = "<domain type='kvm'>
 <memballoon model='virtio'>
 <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
 </memballoon>
-<filesystem type='mount' accessmode='passthrough'>
-<driver type='virtiofs' queue='1024'/>
+<filesystem type='mount' accessmode='mapped'>
 <source dir='/tmp/control_zone/controlzone'/>
 <target dir='hostshare'/>
 <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>

@@ -202,10 +202,10 @@ impl ControlZone {
         // Init Sharefolder
         let sharefolder = format!(
             "\
-            <filesystem type='mount' accessmode='passthrough'>\n\
-            <driver type='virtiofs' queue='1024'/>\n\
+            <filesystem type='mount' accessmode='mapped'>\n\
             <source dir='{}'/>\n\
             <target dir='hostshare'/>\n\
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>\n\
             </filesystem>",
             self.meta.share_folder
         );
@@ -236,10 +236,6 @@ impl ControlZone {
 <on_poweroff>destroy</on_poweroff>
 <on_reboot>restart</on_reboot>
 <on_crash>destroy</on_crash>
-<memoryBacking>
-<source type='memfd'/>
-<access mode='shared'/>
-</memoryBacking>
 <devices>
 <emulator>/usr/bin/qemu-system-x86_64</emulator>
 {}
