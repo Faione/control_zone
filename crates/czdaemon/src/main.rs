@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, str::FromStr, sync::mpsc};
+use std::{fs, io::Write, path::PathBuf, str::FromStr, sync::mpsc};
 
 use anyhow::bail;
 use clap::Parser;
@@ -78,7 +78,9 @@ fn main() -> anyhow::Result<()> {
     let state_file = share_root.join(INFO_DIR).join(STATE_FILE);
     let state = State::from_str(&fs::read_to_string(&state_file)?)?;
     if !state.check_update(State::Running)? {
-        fs::write(state_file, State::Running.to_string())?;
+        let mut f = fs::File::create(state_file)?;
+        f.write_all(State::Running.to_string().as_bytes())?;
+        f.sync_all()?;
     };
     info!("controlzone state updated");
 

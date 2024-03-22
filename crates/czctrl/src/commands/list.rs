@@ -4,10 +4,10 @@ use anyhow::{anyhow, Ok, Result};
 use clap::Parser;
 use libvm::virt;
 
-use libcz::{ControlZone, CZ_CONFIG, INFO_DIR, IP_FILE, WORKDIR_ROOT};
+use libcz::{ControlZone, CZ_CONFIG, INFO_DIR, IP_FILE};
 use log::error;
 
-use crate::config::DEFAUL_LIBVIRT_URI;
+use crate::{config::DEFAUL_LIBVIRT_URI, GloablOpts};
 
 #[derive(Parser, Debug)]
 pub struct List {
@@ -21,8 +21,9 @@ enum AddtionInfo {
     Origin,
 }
 
-pub fn list(args: List) -> Result<()> {
-    let controlzones: Vec<ControlZone> = fs::read_dir(WORKDIR_ROOT)?
+pub fn list(args: List, global_opts: &GloablOpts) -> Result<()> {
+    let root_dir = global_opts.root_dir();
+    let controlzones: Vec<ControlZone> = fs::read_dir(root_dir)?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();

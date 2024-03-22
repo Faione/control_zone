@@ -1,8 +1,8 @@
 use clap::Parser;
 
 use self::{
-    apply::Apply, create::Create, down::Down, inspect::Inspect, list::List, observe::Observe,
-    remove::Remove, start::Start, stop::Stop, update::Update,
+    apply::Apply, create::Create, down::Down, inspect::Inspect, list::List, log::Log,
+    observe::Observe, remove::Remove, start::Start, stop::Stop, update::Update,
 };
 
 pub mod apply;
@@ -12,6 +12,7 @@ pub mod observe;
 
 pub mod create;
 pub mod inspect;
+pub mod log;
 pub mod remove;
 pub mod start;
 pub mod stop;
@@ -51,4 +52,7 @@ pub enum BasicCmd {
 
     /// Inspect Control Zone
     Inspect(Inspect),
+
+    /// Log From Control Zone
+    Log(Log),
 }
