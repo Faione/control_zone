@@ -6,7 +6,7 @@ use log::info;
 
 use crate::{commands::stop::stop_inner, GloablOpts};
 
-use libcz::{default_workdir, ControlZone, CZ_CONFIG};
+use libcz::{default_workdir, ControlZone, State, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Remove {
@@ -39,7 +39,7 @@ pub fn remove(args: Remove, global_opts: &GloablOpts) -> Result<()> {
 }
 
 pub fn remove_inner(cz: &mut ControlZone, force: bool) -> Result<()> {
-    if force {
+    if cz.state == State::Running && force {
         stop_inner(cz)?
     }
 
