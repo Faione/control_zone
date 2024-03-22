@@ -122,7 +122,7 @@ impl ControlZone {
     }
 
     #[inline]
-    fn state_file(&self) -> PathBuf {
+    pub fn state_file(&self) -> PathBuf {
         PathBuf::from(&self.meta.share_folder)
             .join(INFO_DIR)
             .join(STATE_FILE)
@@ -373,7 +373,7 @@ impl ControlZone {
     pub fn start<Fs, Fw>(&mut self, start_f: Fs, wait_f: Option<Fw>) -> anyhow::Result<()>
     where
         Fs: Fn(&ControlZone) -> anyhow::Result<()>,
-        Fw: Fn(&PathBuf) -> anyhow::Result<State>,
+        Fw: Fn(&ControlZone) -> anyhow::Result<State>,
     {
         let state = State::Running;
         check_update!(self.state, state);
@@ -381,7 +381,7 @@ impl ControlZone {
         start_f(self)?;
 
         if let Some(wait_f) = wait_f {
-            self.state = wait_f(&self.state_file())?;
+            self.state = wait_f(self)?;
         }
         Ok(())
     }

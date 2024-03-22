@@ -6,6 +6,7 @@ use log::{debug, info};
 
 use crate::{
     commands::{start::start_inner, stop::stop_inner},
+    vruntime::VRuntime,
     GloablOpts,
 };
 
@@ -41,16 +42,22 @@ pub fn update(args: Update, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    update_innner(&mut curr_cz, new_cz, args.wait)
+    let vruntime: VRuntime = global_opts.vruntime.into();
+    update_innner(&mut curr_cz, new_cz, args.wait, &vruntime)
 }
 
-pub fn update_innner(curr_cz: &mut ControlZone, new_cz: ControlZone, wait: bool) -> Result<()> {
+pub fn update_innner(
+    curr_cz: &mut ControlZone,
+    new_cz: ControlZone,
+    wait: bool,
+    vruntime: &VRuntime,
+) -> Result<()> {
     let update_mod = curr_cz.update_config(new_cz)?;
     debug!("control zone update mode: {:?}", update_mod);
     match update_mod {
         UpdateMode::Reboot => {
-            stop_inner(curr_cz)?;
-            start_inner(curr_cz, wait)?;
+            stop_inner(curr_cz, vruntime)?;
+            start_inner(curr_cz, wait, vruntime)?;
 
             info!("control zone {} have updated", curr_cz.meta.name);
             Ok(())

@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{config::DEFAUL_LIBVIRT_URI, GloablOpts};
+use crate::{vruntime::VRuntime, GloablOpts};
 
 use libcz::{default_workdir, ControlZone, CZ_CONFIG};
 
@@ -31,17 +31,12 @@ pub fn stop(args: Stop, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    stop_inner(&mut cz)
+    let vruntime: VRuntime = global_opts.vruntime.into();
+    stop_inner(&mut cz, &vruntime)
 }
 
-pub fn stop_inner(cz: &mut ControlZone) -> Result<()> {
-    let libvirt_stop_f = |controlzone: &ControlZone| -> anyhow::Result<()> {
-        let virt_cli = libvm::virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
-        let cz_wrapper = virt_cli.get_control_zone_by_name(&controlzone.meta.name)?;
-        cz_wrapper.destroy()
-    };
-
-    if let Err(e) = cz.stop(libvirt_stop_f) {
+pub fn stop_inner(cz: &mut ControlZone, vruntime: &VRuntime) -> Result<()> {
+    if let Err(e) = cz.stop(&vruntime.stop_f) {
         bail!("stop {} failed: {e}", cz.meta.name)
     }
 

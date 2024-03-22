@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Parser;
 
+use crate::{vruntime::VRuntime, GloablOpts};
+
 use super::remove::remove_inner;
 use libcz::ControlZone;
 
@@ -13,7 +15,8 @@ pub struct Down {
     file: PathBuf,
 }
 
-pub fn down(args: Down) -> Result<()> {
+pub fn down(args: Down, global_opts: &GloablOpts) -> Result<()> {
     let mut cz = ControlZone::new_from_config(&args.file)?;
-    remove_inner(&mut cz, true)
+    let vruntime: VRuntime = global_opts.vruntime.into();
+    remove_inner(&mut cz, true, &vruntime)
 }

@@ -4,10 +4,12 @@ use anyhow::Result;
 use clap::{Args, Parser};
 use libcz::WORKDIR_ROOT;
 use log::error;
+use vruntime::VRuntimeType;
 
 mod commands;
 mod config;
 mod pod;
+mod vruntime;
 
 #[derive(Parser, Debug)]
 enum SubCommand {
@@ -36,11 +38,14 @@ struct Opts {
 #[derive(Debug, Args)]
 struct GloablOpts {
     /// just print the results
-    #[clap(short, long, global = true)]
+    #[arg(short, long, global = true)]
     dry_run: bool,
 
-    #[clap(long, global = true)]
+    #[arg(long, global = true)]
     root: Option<PathBuf>,
+
+    #[arg(long, value_enum, default_value_t = VRuntimeType::Libvirt ,global = true)]
+    vruntime: VRuntimeType,
 }
 
 impl GloablOpts {
@@ -61,8 +66,8 @@ fn main() -> Result<()> {
     let opts = Opts::parse();
     let cmd_result = match opts.subcmd {
         SubCommand::Advance(cmd) => match *cmd {
-            commands::AdvanceCmd::Apply(apply) => commands::apply::apply(apply),
-            commands::AdvanceCmd::Down(down) => commands::down::down(down),
+            commands::AdvanceCmd::Apply(apply) => commands::apply::apply(apply, &opts.global_opts),
+            commands::AdvanceCmd::Down(down) => commands::down::down(down, &opts.global_opts),
             commands::AdvanceCmd::Observe(observe) => {
                 commands::observe::observe(observe, &opts.global_opts)
             }

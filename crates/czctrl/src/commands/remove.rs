@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{commands::stop::stop_inner, GloablOpts};
+use crate::{commands::stop::stop_inner, vruntime::VRuntime, GloablOpts};
 
 use libcz::{default_workdir, ControlZone, State, CZ_CONFIG};
 
@@ -35,12 +35,13 @@ pub fn remove(args: Remove, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    remove_inner(&mut cz, args.force)
+    let vruntime: VRuntime = global_opts.vruntime.into();
+    remove_inner(&mut cz, args.force, &vruntime)
 }
 
-pub fn remove_inner(cz: &mut ControlZone, force: bool) -> Result<()> {
+pub fn remove_inner(cz: &mut ControlZone, force: bool, vruntime: &VRuntime) -> Result<()> {
     if cz.state == State::Running && force {
-        stop_inner(cz)?
+        stop_inner(cz, vruntime)?
     }
 
     if let Err(e) = cz.remove() {
