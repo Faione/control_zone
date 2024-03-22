@@ -39,6 +39,8 @@ pub const INFO_DIR: &str = "info";
 pub const STATE_FILE: &str = "state";
 // sharefolder/info/ip
 pub const IP_FILE: &str = "ip";
+// sharefolder/info/static_net
+pub const STATIC_NET_FILE: &str = "static_net";
 
 #[inline]
 pub fn default_workdir(cz_name: &str) -> PathBuf {
@@ -152,6 +154,62 @@ impl ControlZone {
         }
         writeln!(&mut buf, "</cputune>")?;
 
+        // Init Rootfs
+        let rootfs = format!(
+            "\
+            <disk type='file' device='disk'>\n\
+            <driver name='qemu' type='qcow2'/>\n\
+            <source file='{}'/>\n\
+            #<target dev='vda' bus='virtio'/>\n\
+            <alias name='ua-box-volume-0'/>\n\
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>\n\
+            </disk>",
+            self.os.rootfs
+        );
+
+        // Init Network
+        // if static ip configured, then only using bridge network
+        let network = match &self.resource.static_net {
+            Some(_) => String::from(
+                "\
+                <interface type='bridge'>\n\
+                <source bridge='br0'/>\n\
+                <model type='virtio'/>\n\
+                <alias name='ua-net-1'/>\n\
+                <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>\n\
+                </interface>",
+            ),
+            None => format!(
+                "\
+                    <interface type='network'>\n\
+                    <domain name='{}'/>\n\
+                    <source network='default'/>\n\
+                    <model type='virtio'/>\n\
+                    <driver iommu='off'/>\n\
+                    <alias name='ua-net-0'/>\n\
+                    <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>\n\
+                    </interface>\n\
+                    <interface type='bridge'>\n\
+                    <source bridge='br0'/>\n\
+                    <model type='virtio'/>\n\
+                    <alias name='ua-net-1'/>\n\
+                    <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>\n\
+                    </interface>",
+                self.meta.name
+            ),
+        };
+
+        // Init Sharefolder
+        let sharefolder = format!(
+            "\
+            <filesystem type='mount' accessmode='mapped'>\n\
+            <source dir='{}'/>\n\
+            <target dir='hostshare'/>\n\
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>\n\
+            </filesystem>",
+            self.meta.share_folder
+        );
+
         // Init OS
         writeln!(
             &mut buf,
@@ -180,27 +238,8 @@ impl ControlZone {
 <on_crash>destroy</on_crash>
 <devices>
 <emulator>/usr/bin/qemu-system-x86_64</emulator>
-<disk type='file' device='disk'>
-<driver name='qemu' type='qcow2'/>
-<source file='{}'/>
-#<target dev='vda' bus='virtio'/>
-<alias name='ua-box-volume-0'/>
-<address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
-</disk>
-<interface type='network'>
-<domain name='{}'/>
-<source network='default'/>
-<model type='virtio'/>
-<driver iommu='off'/>
-<alias name='ua-net-0'/>
-<address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
-</interface>
-<interface type='bridge'>
-<source bridge='br0'/>
-<model type='virtio'/>
-<alias name='ua-net-1'/>
-<address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
-</interface>
+{}
+{}
 <serial type='pty'>
 <target type='isa-serial' port='0'>
 <model name='isa-serial'/>
@@ -213,14 +252,10 @@ impl ControlZone {
 <memballoon model='virtio'>
 <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
 </memballoon>
-<filesystem type='mount' accessmode='mapped'>
-<source dir='{}'/>
-<target dir='hostshare'/>
-<address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
-</filesystem>
+{}
 </devices>
 </domain>",
-            self.os.rootfs, self.meta.name, self.meta.share_folder
+            rootfs, network, sharefolder
         )?;
         Ok(buf)
     }
@@ -269,8 +304,12 @@ impl ControlZone {
         // create info dir
         fs::create_dir(share_folder.join(INFO_DIR))?;
         fs::write(share_folder.join(INFO_DIR).join(IP_FILE), "Non")?;
-
-        // create scripts dir
+        if let Some(static_ip) = &self.resource.static_net {
+            fs::write(
+                share_folder.join(INFO_DIR).join(STATIC_NET_FILE),
+                static_ip.to_interface_cfg()?,
+            )?;
+        }
 
         Ok(())
     }

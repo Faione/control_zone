@@ -14,6 +14,10 @@ pub struct Apply {
     #[arg(short, long)]
     wait: bool,
 
+    /// asign static ip and using bridge network
+    #[arg(short, long)]
+    ip: Option<String>,
+
     /// Control Zone Config
     #[arg(short, long, required = true)]
     file: PathBuf,

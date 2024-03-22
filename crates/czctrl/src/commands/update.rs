@@ -21,6 +21,10 @@ pub struct Update {
     #[arg(short, long, required = true)]
     file: PathBuf,
 
+    /// asign static ip and using bridge network
+    #[arg(short, long)]
+    ip: Option<String>,
+
     /// Name of Control Zone
     control_zone: String,
 }

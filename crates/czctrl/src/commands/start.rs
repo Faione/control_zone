@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, str::FromStr, sync::mpsc, time::Duration};
+use std::{path::PathBuf, sync::mpsc, time::Duration};
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
@@ -24,6 +24,10 @@ pub struct Start {
     /// Wait untail Vm Boot
     #[arg(short, long)]
     wait: bool,
+
+    /// asign static ip and using bridge network
+    #[arg(short, long)]
+    ip: Option<String>,
 
     /// Name of Control Zone
     control_zone: String,
@@ -75,10 +79,14 @@ pub fn start_inner(cz: &mut ControlZone, wait: bool) -> Result<()> {
         rx.recv_timeout(Duration::from_secs((TRY_INTERVAL * TRY_COUNT) as u64))?;
         watcher.unwatch(state_f)?;
         debug!("stop watch state");
-        Ok(State::from_str(&fs::read_to_string(state_f)?)?)
+
+        // TODO: check state and avoid race
+        Ok(State::Running)
     };
 
     let wf_op = if wait { Some(wait_f) } else { None };
+
+    info!("starting controlzone...");
     if let Err(e) = cz.start(libvirt_start_f, wf_op) {
         bail!("start {} failed: {e}", cz.meta.name)
     }
