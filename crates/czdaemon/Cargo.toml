@@ -8,7 +8,6 @@ edition = "2021"
 [features]
 poll_watcher = []
 
-
 [dependencies]
 libcz = {path = "../libcz"}
 anyhow = "1.0.80"

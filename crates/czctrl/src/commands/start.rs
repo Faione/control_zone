@@ -62,15 +62,18 @@ pub fn start_inner(cz: &mut ControlZone, wait: bool) -> Result<()> {
         let (tx, rx) = mpsc::channel();
         let mut watcher = notify::recommended_watcher(
             move |res: std::prelude::v1::Result<notify::Event, notify::Error>| match res {
-                Result::Ok(event) => match event.kind {
-                    notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
-                        debug!("control zone state modified",);
-                        if let Err(e) = tx.send({}) {
-                            error!("failed to notify file change: {e}");
+                Result::Ok(event) => {
+                    debug!("{:?}", event);
+                    match event.kind {
+                        notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
+                            debug!("control zone state modified",);
+                            if let Err(e) = tx.send({}) {
+                                error!("failed to notify file change: {e}");
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
-                },
+                }
                 Err(_) => {}
             },
         )?;

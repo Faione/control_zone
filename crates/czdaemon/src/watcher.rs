@@ -116,58 +116,61 @@ pub fn watcher_loop(pod_root: PathBuf, tx: mpsc::Sender<Event>) -> anyhow::Resul
     init_signal(want_to_stop.clone())?;
 
     let event_handler = move |res: Result<notify::Event, notify::Error>| match res {
-        Result::Ok(event) => match event.kind {
-            notify::EventKind::Create(CreateKind::File) => {
-                let path = &event.paths[0];
+        Result::Ok(event) => {
+            debug!("{:?}", event);
+            match event.kind {
+                notify::EventKind::Create(CreateKind::File) => {
+                    let path = &event.paths[0];
 
-                let Some(parent) = path.parent().and_then(|d| d.file_name()) else {
-                    return;
-                };
+                    let Some(parent) = path.parent().and_then(|d| d.file_name()) else {
+                        return;
+                    };
 
-                if parent != POD_APPLY_DIR {
-                    return;
+                    if parent != POD_APPLY_DIR {
+                        return;
+                    }
+
+                    let Some(yaml) = path.to_str().and_then(|s| Some(s.to_owned())) else {
+                        return;
+                    };
+
+                    if let Err(e) = tx.send(Event {
+                        ops: PodOps::Apply,
+                        yaml,
+                    }) {
+                        debug!("send event failed: {e}")
+                    };
                 }
+                notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+                    let src_file = &event.paths[0];
+                    let des_file = &event.paths[1];
 
-                let Some(yaml) = path.to_str().and_then(|s| Some(s.to_owned())) else {
-                    return;
-                };
+                    let Some(src_parent) = src_file.parent().and_then(|d| d.file_name()) else {
+                        return;
+                    };
 
-                if let Err(e) = tx.send(Event {
-                    ops: PodOps::Apply,
-                    yaml,
-                }) {
-                    debug!("send event failed: {e}")
-                };
-            }
-            notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
-                let src_file = &event.paths[0];
-                let des_file = &event.paths[1];
+                    let Some(des_parent) = des_file.parent().and_then(|d| d.file_name()) else {
+                        return;
+                    };
 
-                let Some(src_parent) = src_file.parent().and_then(|d| d.file_name()) else {
-                    return;
-                };
+                    if !(src_parent == POD_APPLY_DIR && des_parent == POD_DOWN_DIR) {
+                        return;
+                    }
 
-                let Some(des_parent) = des_file.parent().and_then(|d| d.file_name()) else {
-                    return;
-                };
+                    let Some(yaml) = des_file.to_str().and_then(|s| Some(s.to_owned())) else {
+                        return;
+                    };
 
-                if !(src_parent == POD_APPLY_DIR && des_parent == POD_DOWN_DIR) {
-                    return;
+                    if let Err(e) = tx.send(Event {
+                        ops: PodOps::Down,
+                        yaml,
+                    }) {
+                        debug!("send event failed: {e}")
+                    };
                 }
-
-                let Some(yaml) = des_file.to_str().and_then(|s| Some(s.to_owned())) else {
-                    return;
-                };
-
-                if let Err(e) = tx.send(Event {
-                    ops: PodOps::Down,
-                    yaml,
-                }) {
-                    debug!("send event failed: {e}")
-                };
+                _ => {}
             }
-            _ => {}
-        },
+        }
         Err(e) => println!("watch error: {:?}", e),
     };
     let mut watcher = notify::recommended_watcher(event_handler)?;
