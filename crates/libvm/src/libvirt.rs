@@ -23,7 +23,7 @@ pub struct Libvirt {
 }
 
 impl Libvirt {
-    pub fn connect(url: &str) -> anyhow::Result<Self> {
+    pub fn new(url: &str) -> anyhow::Result<Self> {
         debug!("connecting to libvirtd {}", url);
         let conn = Connect::open(url).map_err(VirtError::Connect)?;
         Ok(Self { conn })

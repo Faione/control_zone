@@ -45,8 +45,7 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
                     error!("{:?} Invalid Contorl Zone", global_opts.vruntime);
                 }
             }
-            crate::vruntime::VRuntimeType::Qemu => todo!(),
-            crate::vruntime::VRuntimeType::CloudHyper => todo!(),
+            _ => {}
         }
         return Ok(());
     }

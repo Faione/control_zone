@@ -6,15 +6,13 @@ use libcz::vruntime::DVRuntime;
 pub enum VRuntimeType {
     Libvirt,
     Qemu,
-    CloudHyper,
 }
 
 impl From<VRuntimeType> for DVRuntime {
     fn from(t: VRuntimeType) -> Self {
         match t {
-            VRuntimeType::Libvirt => Box::new(libvm::new_libvirt_vruntime(DEFAUL_LIBVIRT_URI)),
-            VRuntimeType::Qemu => todo!(),
-            VRuntimeType::CloudHyper => todo!(),
+            VRuntimeType::Libvirt => libvm::new_libvirt_vruntime(DEFAUL_LIBVIRT_URI),
+            VRuntimeType::Qemu => libvm::new_qemu_vruntime(),
         }
     }
 }

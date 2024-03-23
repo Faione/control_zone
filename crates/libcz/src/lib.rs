@@ -246,7 +246,6 @@ impl ControlZone {
         check_update!(self.state, state);
 
         vruntime.start(self)?;
-
         if wait {
             vruntime.wait(self)?;
         }
