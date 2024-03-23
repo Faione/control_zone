@@ -11,3 +11,6 @@ libc = "0.2.153"
 log = "0.4.21"
 thiserror = "1.0.57"
 virt = "0.3.1"
+libcz = {path = "../libcz"}
+
+serde_yaml = "0.9.32"

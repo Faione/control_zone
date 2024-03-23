@@ -1,7 +1,8 @@
 use anyhow::{anyhow, bail, Ok};
 use log::debug;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Write, fs, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf, str::FromStr};
+use vruntime::DVRuntime;
 
 use self::{
     czos::CZOS,
@@ -9,12 +10,14 @@ use self::{
     resource::Resource,
 };
 
-pub use self::state::State;
+use self::state::State;
 
-mod czos;
-mod meta;
-mod resource;
-mod state;
+pub mod state;
+pub mod vruntime;
+
+pub mod czos;
+pub mod meta;
+pub mod resource;
 mod util;
 
 #[cfg(test)]
@@ -127,138 +130,6 @@ impl ControlZone {
             .join(INFO_DIR)
             .join(STATE_FILE)
     }
-
-    /// to libvirt virtual machine xml config
-    pub fn to_xml(&self) -> anyhow::Result<String> {
-        let mut buf = String::from("<domain type='kvm'>\n");
-
-        // Init name
-        writeln!(&mut buf, "<name>{}</name>", self.meta.name)?;
-
-        // Init memory
-        writeln!(
-            &mut buf,
-            "<memory unit='MB'>{}</memory>",
-            self.resource.memory
-        )?;
-
-        // Init static CPU
-        writeln!(
-            &mut buf,
-            "<vcpu placement='static'>{}</vcpu>",
-            self.resource.cpus.len()
-        )?;
-        writeln!(&mut buf, "<cputune>")?;
-        for (i, cpu) in self.resource.cpus.iter().enumerate() {
-            writeln!(&mut buf, "<vcpupin vcpu='{}' cpuset='{}'/>", i, cpu)?;
-        }
-        writeln!(&mut buf, "</cputune>")?;
-
-        // Init Rootfs
-        let rootfs = format!(
-            "\
-            <disk type='file' device='disk'>\n\
-            <driver name='qemu' type='qcow2'/>\n\
-            <source file='{}'/>\n\
-            #<target dev='vda' bus='virtio'/>\n\
-            <alias name='ua-box-volume-0'/>\n\
-            <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>\n\
-            </disk>",
-            self.os.rootfs
-        );
-
-        // Init Network
-        // if static ip configured, then only using bridge network
-        let network = match &self.resource.static_net {
-            Some(_) => String::from(
-                "\
-                <interface type='bridge'>\n\
-                <source bridge='br0'/>\n\
-                <model type='virtio'/>\n\
-                <alias name='ua-net-1'/>\n\
-                <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>\n\
-                </interface>",
-            ),
-            None => format!(
-                "\
-                    <interface type='network'>\n\
-                    <domain name='{}'/>\n\
-                    <source network='default'/>\n\
-                    <model type='virtio'/>\n\
-                    <driver iommu='off'/>\n\
-                    <alias name='ua-net-0'/>\n\
-                    <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>\n\
-                    </interface>\n\
-                    <interface type='bridge'>\n\
-                    <source bridge='br0'/>\n\
-                    <model type='virtio'/>\n\
-                    <alias name='ua-net-1'/>\n\
-                    <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>\n\
-                    </interface>",
-                self.meta.name
-            ),
-        };
-
-        // Init Sharefolder
-        let sharefolder = format!(
-            "\
-            <filesystem type='mount' accessmode='mapped'>\n\
-            <source dir='{}'/>\n\
-            <target dir='hostshare'/>\n\
-            <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>\n\
-            </filesystem>",
-            self.meta.share_folder
-        );
-
-        // Init OS
-        writeln!(
-            &mut buf,
-            "<os>\n<type arch='x86_64' machine='pc-i440fx-jammy'>hvm</type>"
-        )?;
-        writeln!(&mut buf, "<kernel>{}</kernel>", self.os.kernel)?;
-        if let Some(initrd) = &self.os.initram_fs {
-            writeln!(&mut buf, "<initrd>{}</initrd>", initrd)?;
-        }
-        writeln!(&mut buf, "<cmdline>{}</cmdline>", self.os.kcmdline)?;
-
-        write!(
-            &mut buf,
-            "<boot dev='hd'/>
-<bootmenu enable='no'/>
-</os>
-<features>
-<acpi/>
-<apic/>
-<pae/>
-</features>
-<cpu mode='host-model' check='partial'/>
-<clock offset='utc'/>
-<on_poweroff>destroy</on_poweroff>
-<on_reboot>restart</on_reboot>
-<on_crash>destroy</on_crash>
-<devices>
-<emulator>/usr/bin/qemu-system-x86_64</emulator>
-{}
-{}
-<serial type='pty'>
-<target type='isa-serial' port='0'>
-<model name='isa-serial'/>
-</target>
-</serial>
-<console type='pty'>
-<target type='serial' port='0'/>
-</console>
-<input type='mouse' bus='ps2'/>
-<memballoon model='virtio'>
-<address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
-</memballoon>
-{}
-</devices>
-</domain>",
-            rootfs, network, sharefolder
-        )?;
-        Ok(buf)
-    }
 }
 
 impl ControlZone {
@@ -370,30 +241,24 @@ impl ControlZone {
         Ok(())
     }
 
-    pub fn start<Fs, Fw>(&mut self, start_f: Fs, wait_f: Option<Fw>) -> anyhow::Result<()>
-    where
-        Fs: Fn(&ControlZone) -> anyhow::Result<()>,
-        Fw: Fn(&ControlZone) -> anyhow::Result<State>,
-    {
+    pub fn start(&mut self, wait: bool, vruntime: &DVRuntime) -> anyhow::Result<()> {
         let state = State::Running;
         check_update!(self.state, state);
 
-        start_f(self)?;
+        vruntime.start(self)?;
 
-        if let Some(wait_f) = wait_f {
-            self.state = wait_f(self)?;
+        if wait {
+            vruntime.wait(self)?;
         }
+
         Ok(())
     }
 
-    pub fn stop<F>(&mut self, stop_f: F) -> anyhow::Result<()>
-    where
-        F: Fn(&ControlZone) -> anyhow::Result<()>,
-    {
+    pub fn stop(&mut self, vruntime: &DVRuntime) -> anyhow::Result<()> {
         let state = State::Stopped;
         check_update!(self.state, state);
 
-        stop_f(&self)?;
+        vruntime.stop(self)?;
         if let Err(e) = self.sync_state(state) {
             bail!(e);
         }

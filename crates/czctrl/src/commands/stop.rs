@@ -4,9 +4,9 @@ use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{vruntime::VRuntime, GloablOpts};
+use crate::GloablOpts;
 
-use libcz::{default_workdir, ControlZone, CZ_CONFIG};
+use libcz::{default_workdir, vruntime::DVRuntime, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Stop {
@@ -31,12 +31,12 @@ pub fn stop(args: Stop, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    let vruntime: VRuntime = global_opts.vruntime.into();
+    let vruntime: DVRuntime = global_opts.vruntime.into();
     stop_inner(&mut cz, &vruntime)
 }
 
-pub fn stop_inner(cz: &mut ControlZone, vruntime: &VRuntime) -> Result<()> {
-    if let Err(e) = cz.stop(&vruntime.stop_f) {
+pub fn stop_inner(cz: &mut ControlZone, vruntime: &DVRuntime) -> Result<()> {
+    if let Err(e) = cz.stop(&vruntime) {
         bail!("stop {} failed: {e}", cz.meta.name)
     }
 

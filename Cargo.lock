@@ -465,6 +465,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "notify",
  "serde",
  "serde_yaml",
  "strum",
@@ -485,7 +486,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "libc",
+ "libcz",
  "log",
+ "serde_yaml",
  "thiserror",
  "virt",
 ]

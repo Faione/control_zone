@@ -1,24 +1,20 @@
 use std::{fs, path::PathBuf};
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Result};
 use clap::Parser;
-use libvm::virt;
 
-use libcz::{ControlZone, CZ_CONFIG, INFO_DIR, IP_FILE};
-use log::error;
+use libcz::{
+    vruntime::{addition_info_bar, addition_info_per, DVRuntime},
+    ControlZone, CZ_CONFIG,
+};
 
-use crate::{config::DEFAUL_LIBVIRT_URI, GloablOpts};
+use crate::GloablOpts;
 
 #[derive(Parser, Debug)]
 pub struct List {
     /// List all Control Zones
     #[arg(short, long)]
-    libvirt: bool,
-}
-
-enum AddtionInfo {
-    Libvirt,
-    Origin,
+    use_vruntime: bool,
 }
 
 pub fn list(args: List, global_opts: &GloablOpts) -> Result<()> {
@@ -40,41 +36,13 @@ pub fn list(args: List, global_opts: &GloablOpts) -> Result<()> {
         })
         .collect();
 
-    let addtion_mode = if args.libvirt {
-        AddtionInfo::Libvirt
-    } else {
-        AddtionInfo::Origin
-    };
-
+    let vruntime: DVRuntime = global_opts.vruntime.into();
     print!("{:16}{:20}{:10}{:10}", "NAME", "KERNEL", "CPUS", "STATUS");
-    let addtion_info_f: Box<dyn Fn(&ControlZone) -> Result<()>> = match addtion_mode {
-        AddtionInfo::Libvirt => {
-            println!("{:6}{:16}", "ID", "IP");
 
-            let virt_cli = virt::Libvirt::connect(DEFAUL_LIBVIRT_URI)?;
-            Box::new(move |controlzone: &ControlZone| -> Result<()> {
-                let cz_wrapper = virt_cli.get_control_zone_by_name(&controlzone.meta.name)?;
-                let id = cz_wrapper.get_id()?;
-                let ip = cz_wrapper.get_ip()?;
-                println!("{:<6}{:16}", id, ip);
-                Ok(())
-            })
-        }
-        AddtionInfo::Origin => {
-            println!("{:16}", "IP");
-            Box::new(|controlzone: &ControlZone| -> Result<()> {
-                let ip_file = PathBuf::from(&controlzone.meta.share_folder)
-                    .join(INFO_DIR)
-                    .join(IP_FILE);
-
-                if !ip_file.exists() {
-                    error!("control zone may not initialized")
-                }
-
-                println!("{}", fs::read_to_string(ip_file)?);
-                Ok(())
-            })
-        }
+    if args.use_vruntime {
+        vruntime.addi_bar()
+    } else {
+        addition_info_bar()
     };
 
     controlzones.iter().try_for_each(|cz| {
@@ -89,7 +57,12 @@ pub fn list(args: List, global_opts: &GloablOpts) -> Result<()> {
             "{:16}{:20}{:10}{:10}",
             cz.meta.name, kernel_name, cz.resource.cpuset, cz.state
         );
-        addtion_info_f(cz)
+
+        if args.use_vruntime {
+            vruntime.addi_infoper(cz)
+        } else {
+            addition_info_per(cz)
+        }
     })
 }
 

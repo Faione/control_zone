@@ -4,7 +4,8 @@ use anyhow::bail;
 use clap::Parser;
 
 use libcz::{
-    State, INFO_DIR, IP_FILE, POD_APPLY_DIR, POD_CRUNTIME_LOG, POD_DIR, POD_DOWN_DIR, STATE_FILE,
+    state::State, INFO_DIR, IP_FILE, POD_APPLY_DIR, POD_CRUNTIME_LOG, POD_DIR, POD_DOWN_DIR,
+    STATE_FILE,
 };
 use log::{debug, info, warn};
 use watcher::watcher_loop;

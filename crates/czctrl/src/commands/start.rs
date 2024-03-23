@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
-use log::info;
+use libvm::cz_to_xml;
+use log::{error, info};
 
-use crate::{vruntime::VRuntime, GloablOpts};
+use crate::GloablOpts;
 
-use libcz::{default_workdir, ControlZone, CZ_CONFIG};
+use libcz::{default_workdir, vruntime::DVRuntime, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Start {
@@ -36,18 +37,27 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
         .map_err(|e| anyhow!("error parsing config {:#?}: {}", full_config, e))?;
 
     if global_opts.dry_run {
-        println!("{}", cz.to_xml()?);
+        match global_opts.vruntime {
+            crate::vruntime::VRuntimeType::Libvirt => {
+                if let anyhow::Result::Ok(xml) = cz_to_xml(&cz) {
+                    println!("{}", xml);
+                } else {
+                    error!("{:?} Invalid Contorl Zone", global_opts.vruntime);
+                }
+            }
+            crate::vruntime::VRuntimeType::Qemu => todo!(),
+            crate::vruntime::VRuntimeType::CloudHyper => todo!(),
+        }
         return Ok(());
     }
 
-    let vruntime: VRuntime = global_opts.vruntime.into();
+    let vruntime: DVRuntime = global_opts.vruntime.into();
     start_inner(&mut cz, args.wait, &vruntime)
 }
 
-pub fn start_inner(cz: &mut ControlZone, wait: bool, vruntime: &VRuntime) -> Result<()> {
-    let wf_op = if wait { Some(&vruntime.wait_f) } else { None };
+pub fn start_inner(cz: &mut ControlZone, wait: bool, vruntime: &DVRuntime) -> Result<()> {
     info!("starting controlzone...");
-    if let Err(e) = cz.start(&vruntime.start_f, wf_op) {
+    if let Err(e) = cz.start(wait, vruntime) {
         bail!("start {} failed: {e}", cz.meta.name)
     }
 

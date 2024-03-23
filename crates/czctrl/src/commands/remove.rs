@@ -4,9 +4,9 @@ use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
 use log::info;
 
-use crate::{commands::stop::stop_inner, vruntime::VRuntime, GloablOpts};
+use crate::{commands::stop::stop_inner, GloablOpts};
 
-use libcz::{default_workdir, ControlZone, State, CZ_CONFIG};
+use libcz::{default_workdir, state::State, vruntime::DVRuntime, ControlZone, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Remove {
@@ -35,11 +35,11 @@ pub fn remove(args: Remove, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    let vruntime: VRuntime = global_opts.vruntime.into();
+    let vruntime: DVRuntime = global_opts.vruntime.into();
     remove_inner(&mut cz, args.force, &vruntime)
 }
 
-pub fn remove_inner(cz: &mut ControlZone, force: bool, vruntime: &VRuntime) -> Result<()> {
+pub fn remove_inner(cz: &mut ControlZone, force: bool, vruntime: &DVRuntime) -> Result<()> {
     if cz.state == State::Running && force {
         stop_inner(cz, vruntime)?
     }

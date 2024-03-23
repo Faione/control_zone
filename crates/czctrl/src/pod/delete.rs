@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{anyhow, bail, Ok, Result};
 use clap::Parser;
-use libcz::{ControlZone, State, CZ_CONFIG, POD_APPLY_DIR, POD_DIR, POD_DOWN_DIR};
+use libcz::{state::State, ControlZone, CZ_CONFIG, POD_APPLY_DIR, POD_DIR, POD_DOWN_DIR};
 
 use crate::GloablOpts;
 

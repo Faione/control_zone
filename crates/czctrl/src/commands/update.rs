@@ -6,11 +6,10 @@ use log::{debug, info};
 
 use crate::{
     commands::{start::start_inner, stop::stop_inner},
-    vruntime::VRuntime,
     GloablOpts,
 };
 
-use libcz::{default_workdir, ControlZone, UpdateMode, CZ_CONFIG};
+use libcz::{default_workdir, vruntime::DVRuntime, ControlZone, UpdateMode, CZ_CONFIG};
 
 #[derive(Parser, Debug)]
 pub struct Update {
@@ -42,7 +41,7 @@ pub fn update(args: Update, global_opts: &GloablOpts) -> Result<()> {
         return Ok(());
     }
 
-    let vruntime: VRuntime = global_opts.vruntime.into();
+    let vruntime: DVRuntime = global_opts.vruntime.into();
     update_innner(&mut curr_cz, new_cz, args.wait, &vruntime)
 }
 
@@ -50,7 +49,7 @@ pub fn update_innner(
     curr_cz: &mut ControlZone,
     new_cz: ControlZone,
     wait: bool,
-    vruntime: &VRuntime,
+    vruntime: &DVRuntime,
 ) -> Result<()> {
     let update_mod = curr_cz.update_config(new_cz)?;
     debug!("control zone update mode: {:?}", update_mod);
