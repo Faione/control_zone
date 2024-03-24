@@ -25,6 +25,7 @@ mod test;
 
 // ControlZone
 pub const WORKDIR_ROOT: &str = "/tmp/controlzones";
+pub const CZ_PRIO_KEY: &str = "cz_pri_key";
 pub const CZ_CONFIG: &str = "controlzone.yaml";
 pub const CZ_IMAGE: &str = "cz.img";
 

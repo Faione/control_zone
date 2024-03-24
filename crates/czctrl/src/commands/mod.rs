@@ -1,11 +1,12 @@
 use clap::Parser;
 
 use self::{
-    apply::Apply, create::Create, down::Down, inspect::Inspect, list::List, log::Log,
+    apply::Apply, conn::Conn, create::Create, down::Down, inspect::Inspect, list::List, log::Log,
     observe::Observe, remove::Remove, start::Start, stop::Stop, update::Update,
 };
 
 pub mod apply;
+pub mod conn;
 pub mod down;
 pub mod list;
 pub mod observe;
@@ -31,6 +32,9 @@ pub enum AdvanceCmd {
 
     /// Monitor Control Zone
     Observe(Observe),
+
+    /// Connect to Control Zone
+    Conn(Conn),
 }
 
 #[derive(Parser, Debug)]

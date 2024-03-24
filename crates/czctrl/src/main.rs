@@ -72,6 +72,7 @@ fn main() -> Result<()> {
                 commands::observe::observe(observe, &opts.global_opts)
             }
             commands::AdvanceCmd::List(list) => commands::list::list(list, &opts.global_opts),
+            commands::AdvanceCmd::Conn(conn) => commands::conn::conn(conn, &opts.global_opts),
         },
 
         SubCommand::Basic(cmd) => match *cmd {
