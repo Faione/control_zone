@@ -5,6 +5,8 @@ use log::debug;
 use std::fmt::Write;
 use virt::{connect::Connect, domain::Domain, sys::VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE};
 
+const DEFUAL_OBSERVE: bool = true;
+
 /// Errors from this module.
 #[derive(Debug, thiserror::Error)]
 pub enum VirtError {
@@ -30,7 +32,7 @@ impl Libvirt {
     }
 }
 
-pub fn cz_to_xml(cz: &ControlZone) -> anyhow::Result<String> {
+pub fn cz_to_xml(cz: &ControlZone, observity: bool) -> anyhow::Result<String> {
     let mut buf = String::from("<domain type='kvm'>\n");
 
     // Init name
@@ -122,6 +124,29 @@ pub fn cz_to_xml(cz: &ControlZone) -> anyhow::Result<String> {
     }
     writeln!(&mut buf, "<cmdline>{}</cmdline>", cz.os.kcmdline)?;
 
+    // Init Perf
+    let perf = if observity {
+        format!(
+            "\n\
+        <perf>\n\
+        <event name='cpu_cycles' enabled='yes'/>\n\
+        <event name='instructions' enabled='yes'/>\n\
+        <event name='cache_misses' enabled='yes'/>\n\
+        <event name='branch_instructions' enabled='yes'/>\n\
+        <event name='branch_misses' enabled='yes'/>\n\
+        <event name='context_switches' enabled='yes'/>\n\
+        </perf>"
+        )
+    } else {
+        String::from("")
+    };
+
+    let mem_refresh = if observity {
+        format!("\n<stats period='4'/>")
+    } else {
+        String::from("")
+    };
+
     write!(
         &mut buf,
         "<boot dev='hd'/>
@@ -136,11 +161,11 @@ pub fn cz_to_xml(cz: &ControlZone) -> anyhow::Result<String> {
 <clock offset='utc'/>
 <on_poweroff>destroy</on_poweroff>
 <on_reboot>restart</on_reboot>
-<on_crash>destroy</on_crash>
+<on_crash>destroy</on_crash>{perf}
 <devices>
 <emulator>/usr/bin/qemu-system-x86_64</emulator>
-{}
-{}
+{rootfs}
+{network}
 <serial type='pty'>
 <target type='isa-serial' port='0'>
 <model name='isa-serial'/>
@@ -150,13 +175,12 @@ pub fn cz_to_xml(cz: &ControlZone) -> anyhow::Result<String> {
 <target type='serial' port='0'/>
 </console>
 <input type='mouse' bus='ps2'/>
-<memballoon model='virtio'>
+<memballoon model='virtio'>{mem_refresh}
 <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
 </memballoon>
-{}
+{sharefolder}
 </devices>
 </domain>",
-        rootfs, network, sharefolder
     )?;
     Ok(buf)
 }
@@ -179,7 +203,7 @@ fn first_ip(domain: &Domain) -> anyhow::Result<String> {
 
 impl VRuntime for Libvirt {
     fn start(&self, cz: &mut ControlZone) -> anyhow::Result<()> {
-        let config = cz_to_xml(cz)?;
+        let config = cz_to_xml(cz, DEFUAL_OBSERVE)?;
         Domain::create_xml(&self.conn, &config, 0)?;
         Ok(())
     }
@@ -199,7 +223,10 @@ impl VRuntime for Libvirt {
     fn addi_infoper(&self, cz: &ControlZone) -> anyhow::Result<()> {
         let domain = Domain::lookup_by_name(&self.conn, &cz.meta.name)?;
         let id = domain.get_id().ok_or(anyhow!("get id failed"))?;
-        let ip = first_ip(&domain)?;
+        let ip = match first_ip(&domain) {
+            Result::Ok(ip) => ip,
+            Err(_) => String::from("Non"),
+        };
         println!("{:<6}{:16}", id, ip);
         Ok(())
     }

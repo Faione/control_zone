@@ -38,8 +38,8 @@ pub struct Observe {
     monitor: Option<Vec<Monitor>>,
 
     /// Path to save obeserv conifg
-    #[arg(short, long, default_value = "vm_infos.yaml")]
-    output: PathBuf,
+    #[arg(short, long)]
+    output: Option<PathBuf>,
 
     /// Control Zones
     control_zones: Vec<String>,
@@ -199,14 +199,18 @@ pub fn observe(args: Observe, global_opts: &GloablOpts) -> Result<()> {
                 }
             });
 
+            let Some(output) = args.output else {
+                return Ok(());
+            };
+
             let mut config_file = OpenOptions::new()
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open(&args.output)?;
+                .open(&output)?;
 
             write!(config_file, "{vm_monitor_config}")?;
-            info!("monior conifg saved at {:#?}", args.output);
+            info!("monior conifg saved at {:#?}", output);
             Ok(())
         }
         Action::Clean => {
@@ -242,14 +246,18 @@ pub fn observe(args: Observe, global_opts: &GloablOpts) -> Result<()> {
                 }
             });
 
+            let Some(output) = args.output else {
+                return Ok(());
+            };
+
             let mut config_file = OpenOptions::new()
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open(&args.output)?;
+                .open(&output)?;
 
             write!(config_file, "")?;
-            info!("monior conifg cleaned at {:#?}", args.output);
+            info!("monior conifg cleaned at {:#?}", &output);
             Ok(())
         }
     }

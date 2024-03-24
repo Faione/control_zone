@@ -39,7 +39,7 @@ pub fn start(args: Start, global_opts: &GloablOpts) -> Result<()> {
     if global_opts.dry_run {
         match global_opts.vruntime {
             crate::vruntime::VRuntimeType::Libvirt => {
-                if let anyhow::Result::Ok(xml) = cz_to_xml(&cz) {
+                if let anyhow::Result::Ok(xml) = cz_to_xml(&cz, true) {
                     println!("{}", xml);
                 } else {
                     error!("{:?} Invalid Contorl Zone", global_opts.vruntime);
