@@ -37,30 +37,36 @@ czcli(Control Zone CLI)负责进行Control Zone的生命周期管理，也是Con
 
 启动Control Zone的流程如图~\ref{fig:cz_start}所示，czcli首先会对配置进行检验，随后生成虚拟机及要运行容器的相关配置，其中虚拟机配置通过libvirt接口请求KVM创建目标虚拟机，等待虚拟机启动完毕之后，首先按配置中的容器启动要求先后启动调度器与混部容器，在这过程中，对于虚拟机的监控会伴随虚拟机的启动而开始，而对于服务的QoS监控则会等到所有容器都启动完毕后再开始。
 
-\begin{figure}[!htbp]
+\begin{figure}[ht]
     \centering
-    \includegraphics[width=0.7\textwidth]{cz_start}
-    \bicaption{\quad Control Zone启动流程}{\quad Control Zone Starting}
-    \label{fig:cz_start}
+    
+    \begin{subfigure}{.7\textwidth}
+        \centering
+        \includegraphics[width=0.9\linewidth]{cz_start}
+        \bicaption{\quad Control Zone启动流程}{\quad Control Zone Starting}
+        \label{fig:cz_start}
+    \end{subfigure}%
+    \begin{subfigure}{.3\textwidth}
+        \centering
+        \includegraphics[width=1.0\linewidth]{cz_update}
+        \bicaption{\quad Control Zone更新流程}{\quad Control Zone Updating}
+        \label{fig:cz_update}
+    \end{subfigure}
+
+    \begin{subfigure}{0.9\textwidth}
+        \centering
+        \includegraphics[width=0.7\textwidth]{cz_end}
+        \bicaption{\quad Control Zone回收流程}{\quad Control Zone Destroying}
+        \label{fig:cz_end}
+    \end{subfigure}
+    
+    \caption{Control Zone流程管理}
+    \label{fig:test}
 \end{figure}
 
 更新Control Zone的流程如图~\ref{fig:cz_update}所示，czcli同样会验证相关配置，并根据所要修改的内容， 按照虚拟机、调度器、混部容器的顺序依次进行配置的更新。
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.7\textwidth]{cz_update}
-    \bicaption{\quad Control Zone更新流程}{\quad Control Zone Updating}
-    \label{fig:cz_update}
-\end{figure}
-
 回收Control Zone的流程如图~\ref{fig:cz_end}所示，czcli首先会根据配置判断Control Zone是否存在，然后按照与启动相反的顺序，首先关闭混部容器，同时停止相关的服务监控，然后卸载调度容器，当所有业务相关容器均关闭时，首先停止对Control Zone的性能监控， 最后再回收其他资源并关闭虚拟机。
-
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.7\textwidth]{cz_end}
-    \bicaption{\quad Control Zone回收流程}{\quad Control Zone Destroying}
-    \label{fig:cz_end}
-\end{figure}
 
 % 与可观测性基础设施的联动
 

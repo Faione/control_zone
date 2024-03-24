@@ -2,7 +2,61 @@
 
 % \section{可观测性}
 
+\section{Linux调度子系统}
+
+% 内核Core调度流程
+% 影响内核调度的关键因素
+% - HZ
+% - 调度类/机制
+% - 调度策略/算法
+% - 高质量的操作系统组件，如调度器，则可能需要数十年的时间来完善\citep{agache2020firecracker}
+
+调度子系统是Linux内核的一个重要组成部分，其主要负责在多任务场景下，为系统中的每个进程分配CPU资源。Linux调度子系统通常可分为三层，各层为更上层提供了基本机制，各层的协作为复杂的调度机制的实现提供了可能，如图~\ref{fig:sched_arch}所示，位于最底层的Core调度机制提供了最基本的调度实现，包括抢占调度与非抢占调度，调度类层则针对不同调度目标，提供了包括实时调度、公平调度等特性，并且不同的调度类间存在优先级差异，最上层的调度策略则考虑到不同任务的差异，允许在调度类的基础之上，进一步划分任务的优先级，如在公平调度类中，就区分了NORMAL与BATCH类型的调度策略，同时也提供了系统调用来更灵活地设置任务静态优先级。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{sched_arch}
+    \bicaption{\quad 调度子系统架构}{\quad Scheduling subsystem architecture}
+    \label{fig:sched_arch}
+\end{figure}
+
+Core提供了最基本的调度框架，是所有调度机制的基本入口。Core调度可分为非抢占式调度与非抢占式两个部分，其中非抢占式调度部分来自于批处理调度，在这一场景中，任务依次执行直到退出。如图~\ref{fig:core_batch_sched}所示，Core调度器需要为新fork出来的任务选择合适的CPU并进行入队，而当任务exit或主动出让CPU之后，则需要重新进行出入队管理，并切换到下一个任务执行，这一过程即是调度循环，如图所示~\ref{fig:shcedule_loop}，调度循环通常由中断或系统调用驱动，并在处理完毕到返回用户态之前的时候，通过判断标志位，来决定是否进入到调度循环的主逻辑。抢占调度部分则来自于时间片轮转调度，主要基于时钟中断机制来决策相同队列之上的任务切换，如图~\ref{fig:schedule_tick}所示，在时钟中断处理函数中，会触发Core中的task_tick的执行，其中就会触发各个抢占式调度类的entity_tick函数，来对当前任务的记账信息进行更新，当决策判断需要进行抢占时，就会通过Core提供的resched_curr来设置抢占标记位，从而触发一次调度循环来进行任务抢占。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{core_batch_sched}
+    \bicaption{\quad Core任务调度}{\quad Core scheduling tasks}
+    \label{fig:core_batch_sched}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{shcedule_loop}
+    \bicaption{\quad 调度循环}{\quad Schedule Loop}
+    \label{fig:shcedule_loop}
+\end{figure}
+
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{schedule_tick}
+    \bicaption{\quad 抢占调度时钟滴答}{\quad Schedule Tick}
+    \label{fig:schedule_tick}
+\end{figure}
+
+
+调度类层基于Core所提供的基本框架进行设计。当前Linux中主要包含有Stop、Deadline、Realtime、Fair、Idle五大调度类\citep{scheduler}，其中Stop调度类的实现最为简单，而其与Core调度的结合便是最早的批处理调度。Fair调度类最为复杂，使用到了大量如红黑树的高级数据结构，并采用了较为复杂的启发式算法与记账逻辑，最终实现了以公平为目标的调度，而其优异的特性使得其一般作为Linux中任务的默认调度类。其余调度类同样以不同的目标进行设计，同时Linux为这些调度类设置了不同的优先级，如图所示~\ref{fig:sched_ext_priorty}, 在每个调度循环中，会从最优先的调度类开始遍历，并依次调度任务执行。
+
+调度策略层围绕优先级机制实现，在各个调度类中的实现各不相同。在Realtime调度类中，优先级体现为多个调度队列，选取任务时会从最高优先级的任务队列开始，这保证了高优先级的任务被优先执行，而在同一个任务队列中，调度策略则区分了任务轮换的形式，如FIFO采用先来先执行的逻辑，而RR则通过时间片轮转依次执行任务。而在Fair调度类中，优先级机制的实现则完全不同，这与Fair调度类的算法实现相关，Fair调度类中会为每个任务维护一个vruntime，并在调度时选则vruntime最小的任务执行，优先级体现为vruntime积累的差异，即高优先级的任务积累vruntime的速度会更慢，而基于此Fair调度类提供了NORMAL与BATCH两种调度策略，实质对应为不同的优先级，来提供使用。
+
+调度器作为一种质量要求较高的系统组件，通常需要数十年的得带来进行完善\citep{agache2020firecracker}，如EEVDF从算法提出到在Linux 6.6中被正式加入就经过29年，并且仍然在不断地被完善。同时调度器作为内核的核心机制，通常牵扯到许多内核中的复杂机制，如各种复杂的同步原语，同时内核环境也为开发者提出了诸多限制，因此在开发、测试与调试上都充满困难\citep{humphries2021ghost}。最后，即便调度器开发完毕，在部署上也存在很高的难度，由于内核无法在运行的状态中对调度器进行修改，因此调度器的部署通常都涉及到任务的迁移，而一旦调度出现错误，则很容易造成较大的损失。
+
 \section{BPF技术}
+
+% 定制内核的需求: 多样的硬件/多样的网络处理模式
+% 内核模块: 灵活性高，但不安全，容易引发内核crash风险
+% BPF在网络子系统引入，自定义网络包的处理流程
+% 逐渐拓展到各个子系统中，但由于内核的审慎地设计，其他子系统中通常用来进行只读操作，如进行监测
 
 eBPF（Extended Berkeley Packet Filter）是Linux内核中的一个轻量级、快速的64位的类RISC虚拟机\citep{sharaf2022extended}。当前eBPF当前已经成为在Linux内核运行时执行不可信的、由用户定义的专用代码的最佳实践与事实标准。其强大的性能、可移植性、灵活性与安全性得到了工业界和学术界的认可，并被广泛地用于更多的领域。
 
@@ -30,7 +84,7 @@ BPF本身是一种指令集，最初设计时考虑到安全性与易用性，�
 
 然而BPF技术也存在设计上的不足。由于在设计时首要考虑的是安全性，因此BPF程序在编写受到了种种限制，实际上，编写BPF程序所能使用的C语言子集是非图灵完备的，同时BPF程序在栈空间上也有严格的要求。这些限制都极大削弱了BPF程序的表达能力，使得其能够编写的逻辑十分有限。内核社区关注到这一点，并在近期的版本更新中逐步地减少对BPF程序的限制。
 
-\section{Sched Ext}
+\section{可扩展调度类Sched Ext}
 
 Sched Ext是一种可扩展的内核调度器设计\citep{schedext}，由Meta以及内核社区的工程师共同设计实现，并已经在Meta的集群中运行与测试。Sched Ext最早提出于2022年，当前尚未合并入内核主线，但Meta与内核社区开发者十分活跃，Sched Ext当前仍然正在积极更新并持续地向内核社区提交Patch。
 
@@ -80,6 +134,8 @@ Sched Ext调度类实现了所有调度类方法，但是在每个方法的实�
 \section{沙箱技术}
 
 % 系统级沙箱(虚拟机)，容器级沙箱(进程)
+% 安全性: 虚拟机 > 沙箱
+% - 容器类沙箱缺乏调度机制的支持，而对调度机制的修改需要更安全的沙箱环境来限制风险的传播
 
 沙箱技术是一种安全机制，用于隔离运行环境，以便在受限的环境中执行不受信任的程序或代码，并防止这些程序或代码对主机上其他任务造成影响或危害。沙箱是通过在受限的操作系统环境中执行软件来实现的，并对软件所能使用的资源，如CPU、内存、网络等进行限制。沙箱技术为在数据中心中安全地运行各种各样的应用提供了基础，而在数据中心中，常见的沙箱技术包括虚拟机技术与容器技术。
 
