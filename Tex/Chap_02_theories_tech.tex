@@ -22,7 +22,7 @@ Core提供了最基本的调度框架，是所有调度机制的基本入口。C
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{core_batch_sched}
+    \includegraphics[width=0.8\textwidth]{core_batch_sched}
     \bicaption{\quad Core任务调度}{\quad Core scheduling tasks}
     \label{fig:core_batch_sched}
 \end{figure}
@@ -40,7 +40,7 @@ Core提供了最基本的调度框架，是所有调度机制的基本入口。C
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{schedule_tick}
+    \includegraphics[width=0.9\textwidth]{schedule_tick}
     \bicaption{\quad 抢占调度时钟滴答}{\quad Schedule Tick}
     \label{fig:schedule_tick}
 \end{figure}
@@ -116,7 +116,7 @@ Sched Ext与其他调度类一致，实现了调度类所需要的全部方法�
     \label{fig:sched_ext_helpers}
 \end{figure}
 
-Sched Ext调度类的调度过程与Linux Core调度框架类似，调度类本身实现了基本的调度类函数，用以承担基础的调度任务，同时作为调度的入口，允许BPF Scheduler在调度的各个关键路径上辅助进行决策。而为实现以上设计，Sched Ext中定义了sched\_ext\_ops抽象，每个BPF Schedueler都需实现其中的全部或部分函数，从而能够在调度的过程中发挥用。
+Sched Ext调度类的调度过程与Linux Core调度框架类似，如图~\ref{fig:sched_ext_arch}所示，Sched Ext调度类本身实现了基本的调度类函数，用以承担基础的调度任务，同时作为调度的入口，允许BPF Scheduler在调度的各个关键路径上辅助进行决策。而为实现以上设计，Sched Ext中定义了sched\_ext\_ops抽象，每个BPF Schedueler都需实现其中的全部或部分函数，从而能够在调度的过程中发挥用。
 
 1）select\_cpu：为唤醒的任务选择一个CPU。这一过程通常发送在SMP系统中，需要考虑任务的特性以及CPU的负载情况，选择的结果会影响到系统总体的性能，因此BPF所实现的逻辑不一定是最终的调度结果，实际的调度决策还会结合调度类本身的决策与BPF的决策。
 
