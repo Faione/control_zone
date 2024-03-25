@@ -93,39 +93,44 @@ Sched Ext是一种可扩展的内核调度器设计\citep{schedext}，由Meta以
 
 Sched Ext启发自ghOSt\citep{humphries2021ghost}，考虑到内核调度器在开发与部署上的困难与当前数据中心对于定制调度器的需求的不匹配，因此期望设计一种插件化的调度器来提升内核调度器开发的灵活性。相较于ghOSt，Sched Ext在实现灵活调度的机制上存在两点差异，首先，Sched Ext设计之初就尽可能地保持与Linux现有调度机制的兼容性，如图~\ref{fig:sched_ext_priorty}所示的调度类优先级上，Sched EXt的默认优先级在Fair调度类与Idle调度类之间，同时Sched Ext调度类在没有BPF调度器加载时，默认将任务交给Fair调度类处理，通过以上两种处理，使得在使能Sched Ext时几乎不会对现有的调度机制产生影响。其次，Sched Ext调度的实现不局限于用户态，Sched Ext选择BPF来作为调度类的可扩展机制，通过增加BPF的特性，如增加Helper函数，扩展Map类型等，来使得其能满足编写调度器的基本要求，这样的设计使得一方面，开发者可以利用BPF的表达能力在内核态定制调度机制，另一方面也可以利用BPF程序与用户程序的互通性，在用户态设计调度器从而避开内核态编程的限制。
 
-Sched Ext与其他调度类一致，实现了调度类所需要的全部方法。但与其他调度类不同的是，Sched Ext的调度过程需要与BPF Scheduler进行协作完成。而为让BPF Scheduler介入调度过程，Sched Ext调度类中首先定义了调度队列DSQ，通常每个CPU上都会有自己的Local DSQ，BPF Scheduler则可以拥有数个DSQ，task在不同的DSQ之间流转，而只有在CPU Local DSQ上时，才有被执行的机会，同时，Sched Ext围绕DSQ管理以及BPF与CPU的互动定义了一些列BPF Helper函数，这些Helper函数支持BPF Scheduler完成整个调度过程：
+Sched Ext与其他调度类一致，实现了调度类所需要的全部方法。但与其他调度类不同的是，Sched Ext的调度过程需要与BPF Scheduler进行协作完成。而为让BPF Scheduler介入调度过程，Sched Ext调度类中首先定义了调度队列DSQ，通常每个CPU上都会有自己的Local DSQ，BPF Scheduler则可以拥有数个DSQ，任务在不同的DSQ之间流转，而只有在CPU Local DSQ上时，才有被执行的机会，同时，Sched Ext围绕DSQ管理以及BPF与CPU的互动定义了一些列BPF Helper函数，如图~\ref{fig:sched_ext_helpers}所示，这些Helper函数支持BPF Scheduler完成整个调度过程：
 
-1）scx_bpf_create_dsq： 定义一个DSQ（调度队列）来对task进行管理。DSQ是BPF Scheduler管理task的核心， BPF程序中可以保有不止一个DSQ，DSQ之间通过ID来进行区分，同时通过NUMA亲和性能够来保证访问DSQ内存的效率。
+1）scx\_bpf\_create\_dsq： 定义一个DSQ（调度队列）来对任务进行管理。DSQ是BPF Scheduler管理任务的核心， BPF程序中可以保有不止一个DSQ，DSQ之间通过ID来进行区分，同时通过NUMA亲和性能够来保证访问DSQ内存的效率。
 
-2）scx_bpf_dispatch、scx_bpf_dispatch_vtime：将task调度到DSQ中。调度逻辑中可通过ID来指定目标DSQ以及task的运行slice，其中slice可以设置为无限，此时task不会被同队列中的其他任务抢占，而由BPF程序来决策抢占的时机。调度的任务通常以FIFO的形式入队，Sched Ext也提供了基于vtime的类CFS队列，以满足不同的BPF调度器的设计需求。
+2）scx\_bpf\_dispatch、scx\_bpf\_dispatch\_vtime：将任务调度到DSQ中。调度逻辑中可通过ID来指定目标DSQ以及任务的运行slice，其中slice可以设置为无限，此时任务不会被同队列中的其他任务抢占，而由BPF程序来决策抢占的时机。调度的任务通常以FIFO的形式入队，Sched Ext也提供了基于vtime的类CFS队列，以满足不同的BPF调度器的设计需求。
 
-4）scx_bpf_dispatch_nr_slots：查看CPU可调度的task槽数。允许BPF程序检查当前CPU上可承载的task余量，避免BPF Scheduler向目标CPU调度过多的任务。
+4）scx\_bpf\_dispatch\_nr\_slots：查看CPU可调度的任务槽数。允许BPF程序检查当前CPU上可承载的任务余量，避免BPF Scheduler向目标CPU调度过多的任务。
 
-5）scx_bpf_dispatch_cancel：撤销最近向CPU调度的一个task。当task的CPU亲和性发生变化时，BPF Scheduler原先调度的task就应当进行变化，而此Helper函数便于BPF Scheduler撤销先前的调度决策。
+5）scx\_bpf\_dispatch\_cancel：撤销最近向CPU调度的一个任务。当任务的CPU亲和性发生变化时，BPF Scheduler原先调度的任务就应当进行变化，而此Helper函数便于BPF Scheduler撤销先前的调度决策。
 
-6）scx_bpf_consume：将BPF scheduler管理的task调度给CPU。Sched Ext中的task需要经过从BPF Scheduler的调度队列到CPU本地调度对队列的过程，这一过程的通过此Helper函数完成。
+6）scx\_bpf\_consume：将BPF scheduler管理的任务调度给CPU。Sched Ext中的任务需要经过从BPF Scheduler的调度队列到CPU本地调度对队列的过程，这一过程的通过此Helper函数完成。
 
-7）scx_bpf_kick_cpu：激活CPU的重调度。BPF程序能够通过此Helper函数唤醒一个idle CPU或者让繁忙的CPU进入调度循环中，其中为避免唤醒的时间过程，采用向中断队列添加延时任务的形式异步地设置唤醒任务，而在唤醒的过程主要通过Core中提供的resched_curr完成。
+7）scx\_bpf\_kick\_cpu：激活CPU的重调度。BPF程序能够通过此Helper函数唤醒一个idle CPU或者让繁忙的CPU进入调度循环中，其中为避免唤醒的时间过程，采用向中断队列添加延时任务的形式异步地设置唤醒任务，而在唤醒的过程主要通过Core中提供的resched\_curr完成。
 
-8）scx_bpf_pick_idle_cpu：找到一个空闲的CPU。根据不同的调度目标，调度器应当避免任务过度的集中于同一个CPU，BPF Scheduler可以通过此Helper函数找到一个空闲CPU，将task调度到此CPU上，并结合其他Helper函数来唤醒CPU。
+8）scx\_bpf\_pick\_idle\_cpu：找到一个空闲的CPU。根据不同的调度目标，调度器应当避免任务过度的集中于同一个CPU，BPF Scheduler可以通过此Helper函数找到一个空闲CPU，将任务调度到此CPU上，并结合其他Helper函数来唤醒CPU。
 
-Sched Ext中实现的基本逻辑中已经具备足够的调度功能，作为基准的来保证基本的调度功能。BPF实现的调度逻辑被定义为sched_ext_ops保存在调度类中，随后在Sched Ext的执行过程中，BPF实现的调度操作会在进行调度决策的关键路径中触发，与Sched Ext的基准代码协作进行调度决策。
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\textwidth]{sched_ext_helpers}
+    \bicaption{\quad Sched Ext BPF Helper 函数}{\quad Sched Ext BPF Helpers}
+    \label{fig:sched_ext_helpers}
+\end{figure}
 
-1）select_cpu：为唤醒的task选择一个CPU。这一过程通常发送在SMP系统中，需要考虑任务的特性以及CPU的负载情况，选择的结果会影响到系统总体的性能，因此BPF所实现的逻辑不一定是最终的调度结果，实际的调度决策还会结合调度类本身的决策与BPF的决策。
+Sched Ext调度类的调度过程与Linux Core调度框架类似，调度类本身实现了基本的调度类函数，用以承担基础的调度任务，同时作为调度的入口，允许BPF Scheduler在调度的各个关键路径上辅助进行决策。而为实现以上设计，Sched Ext中定义了sched\_ext\_ops抽象，每个BPF Schedueler都需实现其中的全部或部分函数，从而能够在调度的过程中发挥用。
 
-2）enqueue：处理task的入队。调度类所管理的任务就绪时，会在入队的关键路径上触发BPF enqueue的执行，BPF中可将task通过Helper函数发送到DSQ中，并进行后续的管理。
+1）select\_cpu：为唤醒的任务选择一个CPU。这一过程通常发送在SMP系统中，需要考虑任务的特性以及CPU的负载情况，选择的结果会影响到系统总体的性能，因此BPF所实现的逻辑不一定是最终的调度结果，实际的调度决策还会结合调度类本身的决策与BPF的决策。
 
-3）dequeue：处理task的出队。当需要对task的调度属性，如优先级，进行修改时，便会触发task出队逻辑，此时BPF中可以自定义优先级的更改逻辑，从而实现自定义的优先级功能。
+2）enqueue：处理任务的入队。调度类所管理的任务就绪时，会在入队的关键路径上触发BPF enqueue的执行，BPF中可将任务通过Helper函数发送到DSQ中，并进行后续的管理。
 
-4）dispatch：处理task的调度。BPF可以通过创建DSQ来持有task，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务，当CPU的Local DSQ为空时，就会触发BPF的任务调度，期望从BPF的DSQ中获取将要执行的任务。BPF可以一次性调度多个任务，从而增加调度的效率，而任务的选择则完全由BPF程序决定。
+3）dequeue：处理任务的出队。当需要对任务的调度属性，如优先级，进行修改时，便会触发任务出队逻辑，此时BPF中可以自定义优先级的更改逻辑，从而实现自定义的优先级功能。
 
-5）runnable、running、stopping、quiescent：追踪task的状态。task通常会在如下三种情况进入Runnable状态，首先是被唤醒时，如从等待IO的状态中恢复，其次是从其他CPU迁入时，以及从队列中暂移后恢复时，如修改task优先级时，这些情况通过flag进行区分，并触发runnable的执行，quiescent的触发与上述时机完全相反，其他函数则在更细致的时机触发以反映task的状态，其中running对应task将要在CPU上运行时，stopping对应task将要停止运行时。BPF通过这些函数来追踪task的状态变化，从而辅助进行自定义的调度过程。
+4）dispatch：处理任务的调度。BPF可以通过创建DSQ来持有任务，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务，当CPU的Local DSQ为空时，就会触发BPF的任务调度，期望从BPF的DSQ中获取将要执行的任务。BPF可以一次性调度多个任务，从而增加调度的效率，而任务的选择则完全由BPF程序决定。
 
-6）yield：让出CPU资源。Linux提供了sched_yield系统调用，允许task主动放弃CPU资源，通常用于多线程中。sched_yield并不保证线程组中的其他线程立即执行，而是将决策交给调度器，Sched Ext中此决策过程可完全由BPF程序实现。
+5）runnable、running、stopping、quiescent：追踪任务的状态。任务通常会在如下三种情况进入Runnable状态，首先是被唤醒时，如从等待IO的状态中恢复，其次是从其他CPU迁入时，以及从队列中暂移后恢复时，如修改任务优先级时，这些情况通过flag进行区分，并触发runnable的执行，quiescent的触发与上述时机完全相反，其他函数则在更细致的时机触发以反映任务的状态，其中running对应任务将要在CPU上运行时，stopping对应任务将要停止运行时。BPF通过这些函数来追踪任务的状态变化，从而辅助进行自定义的调度过程。
 
-7）init_task、exit_task： 追踪task的创建与退出。调度类中每当有task新创建或退出时触发，BPF可追踪这些事件，从而能够在BPF Scheduler中为每个任务定义额外的信息用于后续的调度过程。
+6）yield：让出CPU资源。Linux提供了sched\_yield系统调用，允许任务主动放弃CPU资源，通常用于多线程中。sched\_yield并不保证线程组中的其他线程立即执行，而是将决策交给调度器，Sched Ext中此决策过程可完全由BPF程序实现。
 
-如图~\ref{fig:sched_ext_arch}所示，Sched Ext基于BPF的可编程设计提供了丰富的手段来定制化调度过程。首先最直接的就是通过BPF程序定制调度逻辑，，这种方式的好处就在于所有的调度过程仍然在内核中进行，因此不会有用户态与内核态频繁切换的开销，而开发者仅需要提交BPF程序。其次，开发者可以直接操作任务队列来控制调度过程，Sched Ext将调度中核心的任务队列暴漏了出来，并允许通过BPF Help函数直接操作任务队列，这使得在调度程序完全能够在用户态进行实现，同时Sched Ext还提供了基于C与Rust语言的库函数，方便了开发者进行调度器设计，这种方式虽然引入了地址空间切换的开销，但也极大增加了调度器设计的灵活性。
+7）init\_task、exit\_task： 追踪任务的创建与退出。调度类中每当有任务新创建或退出时触发，BPF可追踪这些事件，从而能够在BPF Scheduler中为每个任务定义额外的信息用于后续的调度过程。
 
 \begin{figure}[!htbp]
     \centering
@@ -134,7 +139,7 @@ Sched Ext中实现的基本逻辑中已经具备足够的调度功能，作为�
     \label{fig:sched_ext_arch}
 \end{figure}
 
-默认情况下仅由Sched Ext类的任务会被BPF调度程序处理，而如果BPF调度程序尚未加载，Sched Ext调度类的任务仍然会交给Sched Normal进行处理，以避免任务得不到执行。同时，Sched Ext还允许通过特殊的BPF Helper函数，将SCHED NORMAL即以下的任务全部交给SCHED EXT进行处理，这种情况下，Sched Ext调度类就能够参与系统中核心的调度过程。
+BPF Schedueler的引入为开发者提供了丰富的手段来定制Sched Ext调度类的调度行为。首先最直接也是最为简单的就是仅设置Ext调度策略，即不加载任何BPF Scheduler类，此时即便任务的调度策略是Ext，但由于并未加载有效的BPF Scheduler，Sched Ext会将任务的调度类会默认设置为Fair调度类，并在Fair调度类的调度队列中进行调度，而Sched Ext仅会维持一些追踪任务的必要信息，从而保证了任务的执行。其次，开发者可以编写BPF Scheduler，并经由系统调用将BPF程序加载到内核，BPF Scheduler通常需要JIT来保证运行性能，Sched Ext调度类在初始化开发者定义的BPF Scheduler时，会对所有Ext调度策略的任务进行初始化，并交由BPF Scheduler进行管理，同时，为了管理方便，开发者也可以设置初始化参数，以接管所有Fair调度类的任务。最后，即便JIT之后的BPF程序运行在内核态运行效率非常高，但受限与内核编程环境，无法实现较为复杂的逻辑，然而BPF程序的优势在于能够与用户态程序进行交互，Sched Ext也为此设计了一套用户态调度器的开发框架，用户态程序通过监听BPF MAP来获取BPF Scheduler中的调度信息，并在用户态进行决策，将结果写回BPF Map，而BPF Scheduler在合适的时机将调度结果进行实施，通过这种用户态与内核态BPF Scheduler协作的方式，使得大部分的调度逻辑能够在用户态完成，从而支持更灵活的调度策略。
 
 \section{沙箱技术}
 
