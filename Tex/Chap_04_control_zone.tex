@@ -74,7 +74,7 @@
 % - chsd的策略控制
 % - sched ext的策略控制
 
-Control Zone Yaml提供了丰富的资源隔离配置~\ref{table:cz_config}，隔离性围绕三个层次进行设计，首先，虚拟机本质上是一种特殊的进程，Linux中提供了Cgroup技术来隔离进程的资源，因此在配置文件中，允许声明Cgroup配置参数，来限制如虚拟机能够使用的CPU核心等，同时作为进程，也能够被Linux Resctrl子系统管理，从而构造LLC与内存带宽的隔离。其次，虚拟机本身还由Hypervisor管理，而大部分Hypervisor都提供了额外的资源隔离机制，主要体现在硬件模拟上，如对于CPU，可以限制提供给虚拟机使用的CPU feature，而对于其他设备，则提供了对virtio net设备的收发速度及virtio blk设备的读写速度的控制。最后，虚拟机内的guest os本身也能够提供一些隔离机制，在Control Zone中能够通过调度子系统来对不同的任务进行隔离，如将任务划分到不同优先级的调度队列中， 从而在相同调度队列上构造任务粒度的隔离性，这一配置通常与混部任务一同设置。
+Control Zone Yaml提供了丰富的资源隔离配置~\ref{tab:cz_config}，隔离性围绕三个层次进行设计，首先，虚拟机本质上是一种特殊的进程，Linux中提供了Cgroup技术来隔离进程的资源，因此在配置文件中，允许声明Cgroup配置参数，来限制如虚拟机能够使用的CPU核心等，同时作为进程，也能够被Linux Resctrl子系统管理，从而构造LLC与内存带宽的隔离。其次，虚拟机本身还由Hypervisor管理，而大部分Hypervisor都提供了额外的资源隔离机制，主要体现在硬件模拟上，如对于CPU，可以限制提供给虚拟机使用的CPU feature，而对于其他设备，则提供了对virtio net设备的收发速度及virtio blk设备的读写速度的控制。最后，虚拟机内的guest os本身也能够提供一些隔离机制，在Control Zone中能够通过调度子系统来对不同的任务进行隔离，如将任务划分到不同优先级的调度队列中， 从而在相同调度队列上构造任务粒度的隔离性，这一配置通常与混部任务一同设置。
 
 \begin{table}
     \bicaption{\quad Control Zone配置列表}{\quad Control Zone Config}% caption
@@ -119,70 +119,54 @@ Control Zone Yaml提供了丰富的资源隔离配置~\ref{table:cz_config}，�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{cz_state}
+    \includegraphics[width=0.6\textwidth]{cz_state}
     \bicaption{\quad Control Zone状态迁移}{\quad State of Control Zone}
     \label{fig:cz_state}
 \end{figure}
-
 
 Control Zone的创建流程如图~\ref{fig:cz_create}所示，过程中首先进行配置的合法性监测，创建过程中的检测主要判断资源是否重复分配，如对于cpuset，czmanager会检查全局的cpu mask来判断cpuset的设置是否合法。随后进行工作目录的创建，用来单独保存每个Control Zone的关键数据，如根文件系统等。创建过程仅为虚拟机的启动做好准备，而并不会启动虚拟机，相当于为虚拟机的启动预留了空间。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{cz_create}
+    \includegraphics[width=0.5\textwidth]{cz_create}
     \bicaption{\quad Control Zone创建流程}{\quad Create Control Zone}
     \label{fig:cz_create}
 \end{figure}
 
 Control Zone的启动流程如图~\ref{fig:cz_start}所示，过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配，对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用目标虚拟化运行时来启动虚拟机，而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化，czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
 
-Control Zone的停止过程如图~\ref{fig:cz_stop}所示，考虑停止之后存在重新启动的可能，因此沙箱采用了较为保守的关闭策略。关闭过程中需要czmanager与czdaemon协同合作，在验证配置之后，czmanager首先会通知czdaemon进行关闭处理，而czdaemon在接收到关闭信号之后，会对当前系统的状态进行保存，如必要的信息、混部应用状态等，再将托管的任务关闭，随后再通知czmanager， 直到此时czmanager才会真正地调用执行器来关闭虚拟机，并在必要时通知可观测性基础设置停止监测。Control Zone停止之后仍然会保有相关的资源记录，便于后续重新启动。
-
-\begin{figure}[ht]
-    \centering
-    
-    \begin{subfigure}{.5\textwidth}
+\begin{figure}[!htbp]
         \centering
-        \includegraphics[width=0.9\linewidth]{cz_start}
+        \includegraphics[width=0.6\linewidth]{cz_start}
         \bicaption{\quad Control Zone启动流程}{\quad Start Control Zone}
         \label{fig:cz_start}
-    \end{subfigure}%
+\end{figure}
 
+Control Zone的停止过程如图~\ref{fig:cz_stop}所示，考虑停止之后存在重新启动的可能，因此沙箱采用了较为保守的关闭策略。关闭过程中需要czmanager与czdaemon协同合作，在验证配置之后，czmanager首先会通知czdaemon进行关闭处理，而czdaemon在接收到关闭信号之后，会对当前系统的状态进行保存，如必要的信息、混部应用状态等，再将托管的任务关闭，随后再通知czmanager， 直到此时czmanager才会真正地调用执行器来关闭虚拟机，并在必要时通知可观测性基础设置停止监测。Control Zone停止之后仍然会保有相关的资源记录，便于后续重新启动。
 
-    \begin{subfigure}{.5\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{cz_stop}
-        \bicaption{\quad Control Zone关闭流程}{\quad Stop Control Zone}
-        \label{fig:cz_stop}
-    \end{subfigure}
-
-    \caption{Control Zone流程管理}
-    \label{fig:test}
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.6\textwidth]{cz_stop}
+    \bicaption{\quad Control Zone关闭流程}{\quad Stop Control Zone}
+    \label{fig:cz_stop}
 \end{figure}
 
 Control Zone的更新过程如图~\ref{fig:cz_update}所示，Control Zone Yaml中的绝大部分字段都允许被更新，一些字段的更新由czmanager调用资源管理接口完成，如修改cgroup或resctrl等字段中的内容，czmanager发现只有这些字段被修改时，就会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。 而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改，czmanager检测到这些字段发生修改后，就会进如重新启动的流程，并在关闭虚拟机之后，实施相关更新内容，再启动虚拟机。更新完毕后，观测配置可能会过时，因此必要时czmanager还会与可观测性基础设施同步观测配置的变化。
 
-Control Zone的删除过程如图~\ref{}所示，通常只有已经停止的Control Zone能够被删除，而为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，在进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
-
-\begin{figure}[ht]
+\begin{figure}[!htbp]
     \centering
+    \includegraphics[width=0.7\textwidth]{cz_update}
+    \bicaption{\quad Control Zone更新流程}{\quad Stop Control Zone}
+    \label{fig:cz_update}
+\end{figure}
 
-    \begin{subfigure}{.5\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{cz_update}
-        \bicaption{\quad Control Zone更新流程}{\quad Stop Control Zone}
-        \label{fig:cz_update}
-    \end{subfigure}%
+Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经停止的Control Zone能够被删除，而为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，在进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
-    \begin{subfigure}{.5\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{cz_remove}
-        \bicaption{\quad Control Zone删除流程}{\quad Remove Control Zone}
-        \label{fig:cz_remove}
-    \end{subfigure}%
-
-    \caption{Control Zone流程管理}
-    \label{fig:test}
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{cz_remove}
+    \bicaption{\quad Control Zone删除流程}{\quad Remove Control Zone}
+    \label{fig:cz_remove}
 \end{figure}
 
 \section{Control Zone实现}
@@ -191,13 +175,22 @@ Control Zone的删除过程如图~\ref{}所示，通常只有已经停止的Cont
 % 内核裁切
 % hypervisor选择
 % 系统功能要求
+% 镜像共享
 
 % 1）czyaml: 定义一个Control Zone。完整的czyaml包含三个部分，第一个部分是Meta，其与Control Zone的管理密切相关，核心是Control Zone的ID、Name、Label、以及vRun，其中ID与Name用以区分不同的Control Zone，而标签由用户自定义，用来描述Control Zone的属性，最后VRun用来指定Control Zone所使用的虚拟化环境，默认使用轻量级虚拟化环境CloudHypervisor。第二个部分是GuestEnv，用来声明Control Zone所使用的运行环境，包括内核、BPF调度器、根文件系统、以及可选的initramfs，内核可以来自于镜像存储服务，也可以选择基于基准配置自行编译的本地内核，BPF调度器则来自于镜像存储服务，需要对其初始化参数进行相关的配置。第三个部分是Resource，用来声明Control Zone要占用的资源，除常规的虚拟机资源如CPU、Memory、BLK IO、Net IO之外，还包括了Resctrl子系统中的末级缓存路数以及内存带宽。
 
-Control Zone引入虚拟化出于两个原因。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源，有限的竞争应用等，其次，修改任务的调度信息是较为风险的行为，如过设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。而为减少引入虚拟化所产生的开销，沙箱从两个方面入手。一方面，沙箱提供了一个精简的Linux内核，这个最小内核只保留了容器运行以及BPF、Sched Ext的最小功能，而去除了大量无关的驱动以及其他内核模块，同时由于Control Zone场景足够简单，因此启动时不需要initramfs的参与，而对应地在根文件系统上，Control Zone采用轻量级Linux发行版alpine作为基础镜像，该镜像采用精简的musl库与busybox，使得根文件系统初始非常小，其次由于Control Zone不需要从文件系统上启动，因此根文件系统中不必安装内核，也不需要EFI分区。另一方面，考虑一部分的虚拟化开销来自于Hypervisor，因此Control Zone中使用了CloudHypervisor作为默认的虚拟化运行时，相较于Qemu，CloudHypervisor去除了大量无关设备的模拟，并优化了虚拟机的启动逻辑，这大大加快了虚拟机的启动速度，并减少了u虚拟机运行时的额外内存开销。
+Control Zone引入虚拟化出于两个原因。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源，有限的竞争应用等，其次，修改任务的调度信息是较为风险的行为，如过设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。
 
-而为满足多样的使用需求，沙箱也兼容了Libvirt的使用。Libvirt并不是一个虚拟化运行时，而是针对多种虚拟化技术的抽象层，提供了更标准的API来对虚拟机进行管理。通过兼容Libvirt，Control Zone能够获取更多的特性，尤其在可观测性上，借助Libvirt提供的监测接口，可观测性基础设施能够以虚拟机为粒度采集多种指标信息。
+而为减少引入虚拟化所产生的开销，沙箱从两个方面入手。一方面，沙箱提供了一个精简的Linux内核，这个最小内核只保留了容器运行以及BPF、Sched Ext的最小功能，而去除了大量无关的驱动以及其他内核模块，同时由于Control Zone场景足够简单，因此启动时不需要initramfs的参与，而对应地在根文件系统上，Control Zone采用轻量级Linux发行版alpine作为基础镜像，该镜像采用精简的musl库与busybox，使得根文件系统初始非常小，其次由于Control Zone不需要从文件系统上启动，因此根文件系统中不必安装内核，也不需要EFI分区。另一方面，考虑一部分的虚拟化开销来自于Hypervisor，因此Control Zone中使用了CloudHypervisor作为默认的虚拟化运行时，相较于Qemu，CloudHypervisor去除了大量无关设备的模拟，并优化了虚拟机的启动逻辑，这大大加快了虚拟机的启动速度，并减少了u虚拟机运行时的额外内存开销。
+
+同时为满足多样的使用需求，沙箱也兼容了Libvirt的使用。Libvirt并不是一个虚拟化运行时，而是针对多种虚拟化技术的抽象层，提供了更标准的API来对虚拟机进行管理。通过兼容Libvirt，Control Zone能够获取更多的特性，尤其在可观测性上，借助Libvirt提供的监测接口，可观测性基础设施能够以虚拟机为粒度采集多种指标信息。
 
 \section{本章小结}
 
-本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部BPF Scheduler任务调度，随后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程，同时由于Control Zone中的BPF Scheduler也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务调度策略共同部署，同定制化调度来解决混部下的性能劣化问题。最后则介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
+本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部BPF Scheduler任务调度。
+
+随后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程。
+
+由于Control Zone中的BPF Scheduler也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务与调度策略共同部署，通过定制化调度来解决混部下的性能劣化问题。
+
+最后则介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
