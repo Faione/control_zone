@@ -179,9 +179,18 @@ Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经
 
 % 1）czyaml: 定义一个Control Zone。完整的czyaml包含三个部分，第一个部分是Meta，其与Control Zone的管理密切相关，核心是Control Zone的ID、Name、Label、以及vRun，其中ID与Name用以区分不同的Control Zone，而标签由用户自定义，用来描述Control Zone的属性，最后VRun用来指定Control Zone所使用的虚拟化环境，默认使用轻量级虚拟化环境CloudHypervisor。第二个部分是GuestEnv，用来声明Control Zone所使用的运行环境，包括内核、BPF调度器、根文件系统、以及可选的initramfs，内核可以来自于镜像存储服务，也可以选择基于基准配置自行编译的本地内核，BPF调度器则来自于镜像存储服务，需要对其初始化参数进行相关的配置。第三个部分是Resource，用来声明Control Zone要占用的资源，除常规的虚拟机资源如CPU、Memory、BLK IO、Net IO之外，还包括了Resctrl子系统中的末级缓存路数以及内存带宽。
 
+\subsection{虚拟化开销优化}
+
 Control Zone引入虚拟化出于两个原因。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源，有限的竞争应用等，其次，修改任务的调度信息是较为风险的行为，如过设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。
 
-而为减少引入虚拟化所产生的开销，沙箱从两个方面入手。一方面，沙箱提供了一个精简的Linux内核，这个最小内核只保留了容器运行以及BPF、Sched Ext的最小功能，而去除了大量无关的驱动以及其他内核模块，同时由于Control Zone场景足够简单，因此启动时不需要initramfs的参与，而对应地在根文件系统上，Control Zone采用轻量级Linux发行版alpine作为基础镜像，该镜像采用精简的musl库与busybox，使得根文件系统初始非常小，其次由于Control Zone不需要从文件系统上启动，因此根文件系统中不必安装内核，也不需要EFI分区。另一方面，考虑一部分的虚拟化开销来自于Hypervisor，因此Control Zone中使用了CloudHypervisor作为默认的虚拟化运行时，相较于Qemu，CloudHypervisor去除了大量无关设备的模拟，并优化了虚拟机的启动逻辑，这大大加快了虚拟机的启动速度，并减少了u虚拟机运行时的额外内存开销。
+而为减少引入虚拟化所产生的开销，沙箱实现时从两个方面入手。一方面，围绕虚拟机系统环境进行裁切，首先，对于内核，Control Zone内核中只保留了必要的virtio驱动，以及运行容器、BPF子系统与Sched Ext调度类的最小支持，其次，对于启动过程，由于Control Zone内核环境足够简单且不用考虑灵活性，因此在启动过程中跳过initramfs阶段，并直接挂载根文件系统，最后，对于根文件系统，Control Zone根文件系统基于轻量Linux发行版Aline\citep{alpine}构建，使用busybox作为基础工具，并同时使用轻量级C标准库的musl，而在容器运行时上，选择基于C语言的crun\citep{crun}作为容器运行时，相较于使用Go语言开发的runc，crun在启动容器上的开销降低了49.4\percent，同时占用的内存也更少。另一方面，在虚拟化运行时上，沙箱默认使用更轻量化的虚拟化运行时CloudHypervisor，CloudHypervisor使用Rust语言开发，相较于Qemu，主要优化了设备虚拟化的部分，去除了大量与云场景无关设备模拟，提示了Hypervisor的初始化速度，并减少了运行时的额外内存开销。如图~\ref{fig:boot_time}所示,经过如上优化之后，相较于使用Qemu启动的Alpine默认内核，使用Cloud Hypervisor启动的Control Zone内核在启动开销上降低了86\percent，裁切力度更激进的Firecracker内核相较于Control Zone进一步降低36\percent的启动开销，对比内核启动日志，这部分开销主要来自于Control Zone中支持容器及BPF子系统的额外功能，这些功能对于本设计而言是必须的，实际上在实验环境中，这部分时间约为0.15秒。不同于Firecracker，Control Zone在设计中并不与应用完全耦合，即便任务退出，Control Zone仍然会保留一段时间，在任务数量足够多时，Control Zone并不会频繁地启动，因此这部分开销是可以接受的。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{boot_time}
+    \bicaption{\quad 启动时间为引导至运行init程序的时间，比较Firecracker（FC）、Control Zone（CZ）、Alpine（AL）内核，使用Cloud Hypervisor与Qemu}{\quad Boot time is the time it takes to boot to the init program. Compare Firecracker(FC), Control Zone(CZ), and Alpine(AL) kernels using Cloud Hypervisor and Qemu.}
+    \label{fig:boot_time}
+\end{figure}
 
 同时为满足多样的使用需求，沙箱也兼容了Libvirt的使用。Libvirt并不是一个虚拟化运行时，而是针对多种虚拟化技术的抽象层，提供了更标准的API来对虚拟机进行管理。通过兼容Libvirt，Control Zone能够获取更多的特性，尤其在可观测性上，借助Libvirt提供的监测接口，可观测性基础设施能够以虚拟机为粒度采集多种指标信息。
 
