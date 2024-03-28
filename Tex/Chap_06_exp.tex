@@ -1,7 +1,43 @@
 \chapter{实验设计与结果分析}\label{chap:exp}
 
+% 说明实验环境
+% - 硬件环境
+% - 软件环境
+% - 使用偏好(Master Node)
+% 软硬件说明
+% - redis、mysql
+% 基准测试
+% - 开销分析
+% 不同内核配置实验
+% 隔离性实验
+%  - 资源限制效果说明
+% 调度策略实验
+%  - 互斥调度
+% 
+
 \section{概述}
 
 \section{实验环境}
 
-实验中使用2台服务，服务器配置如表~\ref{}所示，
+研究中使用两台服务作为实验环境，服务硬件信息如~\ref{exp_env}表所示。计算资源上，服务器CPU支持Intel RDT，具备cdp与mba特性，能够监测LLC与Memory Bandwidth且支持LLC路数限制。网络资源上，服务器网卡支持SRIOV，对网络性能有要求的虚拟机能够利用硬件直通来实现高性能网络。
+
+\begin{table}
+    \bicaption{\quad 服务硬件参数}{\quad Server Hardware Information}% caption
+    \label{tab:exp_env}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lcc}
+        \hline
+        CPU & Intel Xeon Gold 6148 (40cores) * 2 \\
+        Processor Core Frequency & 2.4GHz，Turbo 3.7 GHz \\
+        L1 Caches & 32KB * 40,  8-way set associative, split D/I \\
+        L2 Caches & 1024KB * 40, 16-way set associative \\
+        L3 Caches & 28160KB, 11-way set associative \\
+        Main Memory & 32GB * 8, 2666MHz DDR4 \\
+        NIC & Intel Corporation Ethernet Connection X722 for 10GbE SFP+(10Gbit) \\
+        \hline
+    \end{tabular}
+\end{table}
+
