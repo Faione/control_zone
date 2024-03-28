@@ -19,18 +19,20 @@
 
 \section{实验环境}
 
-研究中使用两台服务作为实验环境，服务硬件信息如~\ref{exp_env}表所示。计算资源上，服务器CPU支持Intel RDT，具备cdp与mba特性，能够监测LLC与Memory Bandwidth且支持LLC路数限制。网络资源上，服务器网卡支持SRIOV，对网络性能有要求的虚拟机能够利用硬件直通来实现高性能网络。
+实验环境有两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
 
 \begin{table}
-    \bicaption{\quad 服务硬件参数}{\quad Server Hardware Information}% caption
+    \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
     \label{tab:exp_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
     \renewcommand{\arraystretch}{1.5}% row space 
     \centering
-    \begin{tabular}{lcc}
+    \begin{tabular}{lc}
         \hline
-        CPU & Intel Xeon Gold 6148 (40cores) * 2 \\
+        硬件资源 & 硬件信息 \\
+        \hline
+        CPU & Intel Xeon Gold 6148 (40 cores) * 2 \\
         Processor Core Frequency & 2.4GHz，Turbo 3.7 GHz \\
         L1 Caches & 32KB * 40,  8-way set associative, split D/I \\
         L2 Caches & 1024KB * 40, 16-way set associative \\
@@ -41,3 +43,42 @@
     \end{tabular}
 \end{table}
 
+每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS，Ubuntu同时也是Sched Ext优先支持的发行版，能够较方便地通过包管理工具安装预编译的Sched Ext内核。在虚拟换运行时上，Qemu采用发行版所支持的稳定版，而以轻量为目标的CloudHyeprvirsor则采用自编译的最新发布版本。
+
+\begin{table}
+    \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
+    \label{tab:system_env}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        软件类型 & 软件信息 \\
+        \hline
+        系统 & Ubuntu 22.04.3 LTS  \\
+        内核 & 5.15.0-79-generic \\
+        虚拟化运行时 & cloud-hypervisor v38.0-150 \\
+                   & QEMU emulator version 6.2.0 \\
+        其他        & libvirtd 8.0.0 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+除系统软件之外，每台服务器还按照需要部署了其他关键服务。其中可观察基础设施按照第三章中所论述的架构进行搭建，Master节点上部署的了Prometheus与Grafana，用于进行数据采集与离线分析，Node节点上则部署的第三章中所提到的一系列Exporter，提供各个维度数据的采集能力。Master除对数据进行采集、存储、分析外，还额外部署了Harbor来对外提供容器管理服务，并承担大部分的配置文件存储。Node作为主要的实验场地，安装了Control Zone沙箱的所有相关的组件，并承担主要的服务运行。实验中对于Client-Server类型的任务，为尽可能地模拟真实环境，因此一般将Client放置在Master上。最后，实验中所涉及的关键服务都以容器镜像的形式分发并运行，因此在每个服务器上都需要安装容器运行时，而在容器运行时的选择上，对性能不敏感而对稳定性有要求的Master上使用Docker来提供容器服务，而在Node上，则使用Podman作为容器运行时，Podman相较Docker更加轻量，同时不存在Docker、Containerd等后台驻留服务，能够提供较为纯净的容器运行环境。
+
+\section{场景内核配置实验}
+
+\subsection{响应度优先}
+
+\subsection{吞吐量优先}
+
+\section{BPF调度策略实验}
+
+\subsection{保守调度策略}
+
+\subsection{内存资源感知策略}
+
+\subsection{网络资源感知策略}
+
+\section{本章小结}
