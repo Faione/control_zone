@@ -146,7 +146,7 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示，考虑停止之后�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{cz_stop}
+    \includegraphics[width=0.7\textwidth]{cz_stop}
     \bicaption{\quad Control Zone关闭流程}{\quad Stop Control Zone}
     \label{fig:cz_stop}
 \end{figure}
@@ -164,7 +164,7 @@ Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{cz_remove}
+    \includegraphics[width=0.75\textwidth]{cz_remove}
     \bicaption{\quad Control Zone删除流程}{\quad Remove Control Zone}
     \label{fig:cz_remove}
 \end{figure}
@@ -189,7 +189,7 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{avg_boot_time}
+    \includegraphics[width=0.7\textwidth]{avg_boot_time}
     \bicaption{\quad 启动时间为引导至运行init程序的时间，比较Firecracker（FC）、Control Zone（CZ）、Alpine（AL）内核，使用Cloud Hypervisor与Qemu}{\quad Boot time is the time it takes to boot to the init program. Compare Firecracker(FC), Control Zone(CZ), and Alpine(AL) kernels using Cloud Hypervisor and Qemu.}
     \label{fig:avg_boot_time}
 \end{figure}
@@ -200,8 +200,8 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{boot_time_cdf}
-    \bicaption{\quad Control Zone 与 Firecracker 的启动速度比较}{\quad The comparison of startup speed between Control Zone and Firecracker.} 
+    \includegraphics[width=0.8\textwidth]{boot_time_cdf}
+    \bicaption{\quad Control Zone 、CloudHypervisor 及Firecracker内核的启动速度比较}{\quad The comparison of startup speed between Control Zone、CloudHypervisor and Firecracker.} 
     \label{fig:boot_time_cdf}
 \end{figure}
 
