@@ -91,63 +91,11 @@
 
 \section{可选内核性能实验}
 
-\subsection{时钟与抢占模型}
-
-Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也提供了一些编译配置选项，用以针对场景进行优化，这些配置选项围绕时钟与抢占模型的设置展开。
-
-时钟与Linux调度子系统密切相关，在第二章论述中提到，时钟中断是驱动Linux抢占式调度的核心机制，中断的频率决定了调度滴答的周期，而更高的时钟中断频率意味着系统的整体响应度越好。针对时钟中断，内核主要提供了两方面的配置，如表~\ref{tab:config_hz}所示，其中最直接的就是时钟中断的频率配置，内核提供了从100、250、300到1000四种不同的中断频率配置，以满足不同的场景下对于响应度的需求，而值得注意的是，由于内核在每个时钟中断处理中进行时间记账，并将两次时钟中断所间隔的时间片累计到当前进程的记账中，然而在实际情况下两次时钟中断中间很有可能夹杂了其他任务的处理，所以更高的时钟中断频率不仅能带来响应度的提升，还能够增强任务时间记账的准确性。其次，考虑到时钟中断会引入额外的计算开销，而在一些场景中这些开销是非必要的，如当CPU进入Idle状态，此时处理时钟中断不仅没有意义，还会增加系统的开销，因此内核提供了NO\_HZ相关配置来在特定场景下屏蔽时钟中断。
-
-\begin{table}
-    \bicaption{\quad 内核时钟中断配置}{\quad Kernel Clock Interrupt Configuration}% caption
-    \label{tab:config_hz}
-    \footnotesize% fontsize
-    \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
-    \centering
-    \begin{tabular}{lc}
-        \hline
-        配置名称 & 描述 \\
-        \hline
-        HZ\_100  & 配置时钟中断频率为100  \\
-        HZ\_250  & 配置时钟中断频率为250 \\
-        HZ\_300  & 配置时钟中断频率为300 \\
-        HZ\_1000 & 配置时钟中断频率为1000 \\
-        HZ\_PERIODIC & 永远不要忽略时钟中断 \\
-        NO\_HZ\_IDLE & 忽略空闲CPU上的时钟中断 \\
-        NO\_HZ\_FULL & 忽略空闲CPU，以及只有一个可运行任务CPU上的时钟中断 \\
-        \hline
-    \end{tabular}
-\end{table}
-
-抢占指执行任务时，允许高优先级的任务打断低优先级任务的执行，从而提供更好的响应度。用户态任务的执行总是能够被打断，而内核态任务的抢占则较为复杂，为此内核提供了抢占模型的编译配置，允许用户针对不同场景进行调整，相关配置如表~\ref{tab:config_preempt}所示， 内核提供了PREEMPT\_NONE、PREEMPT\_VOLUNTARY、PREEMPT以及PREEMPT\_RT四种抢占模式，四种模式下内核的响应度逐步增强。
-
-\begin{table}
-    \bicaption{\quad 内核抢占模式配置}{\quad Kernel Preemption Configuration}% caption
-    \label{tab:config_preempt}
-    \footnotesize% fontsize
-    \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
-    \centering
-    \begin{tabular}{lc}
-        \hline
-        配置名称 & 描述 \\
-        \hline
-        PREEMPT\_NONE  & 内核代码保持执行直到主动放弃CPU  \\
-        PREEMPT\_VOLUNTARY  & 开启了内核代码中的抢占位点 \\
-        PREEMPT  & 提供更多的内核代码抢占位点，实现完全抢占 \\
-        PREEMPT\_RT & 进一步修改内核代码的实现，如锁机制，实现实时可抢占性 \\
-        \hline
-    \end{tabular}
-\end{table}
-
-时钟和抢占模式的配置能够决定系统的响应度，但实际的配置需要考虑使用的场景，如更高的HZ虽然能够提升系统的整体响应度，但由于时钟中断的增多，CPU在于有限的时间片内处理实际任务的时间就会变少，同时频繁的上下文切换也破坏了程序的时间局部性，从而影响到系统的整体吞吐。通常而言，较高的HZ与激进的抢占模式有利于降低延时，而较低的HZ与保守的抢占模式有利于系统的整体吞吐。对此Control Zone提供了两种预编译的内核，用于处理响应度优先与吞吐量优先两种场景。
-
 \subsection{响应度优先}
 
 % redis \ keydb
 
 Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PREEMPT抢占模式，并选取redis、keydb两种LC应用进行实验。
-
 
 \subsection{吞吐量优先}
 
