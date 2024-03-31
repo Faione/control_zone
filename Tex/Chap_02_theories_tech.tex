@@ -109,7 +109,7 @@ Sched Ext与其他调度类一致，实现了调度类所需要的全部方法�
 
 6）scx\_bpf\_consume：将BPF scheduler管理的任务调度给CPU。Sched Ext中的任务需要经过从BPF Scheduler的调度队列到CPU本地调度对队列的过程，这一过程的通过此Helper函数完成。
 
-7）scx\_bpf\_kick\_cpu：激活CPU的重调度。BPF程序能够通过此Helper函数唤醒一个idle CPU或者让繁忙的CPU进入调度循环中，其中为避免唤醒的时间过程，采用向中断队列添加延时任务的形式异步地设置唤醒任务，而在唤醒的过程主要通过Core中提供的resched\_curr完成。
+7）scx\_bpf\_kick\_cpu：激活CPU的重调度。BPF程序能够通过此Helper函数唤醒一个idle CPU或者让繁忙的CPU进入调度循环中，为避免唤醒过程对调度延迟的影响，因此采用向中断队列添加延时任务的形式异步地设置唤醒任务，而在唤醒的过程主要通过Core中提供的resched\_curr完成。
 
 8）scx\_bpf\_pick\_idle\_cpu：找到一个空闲的CPU。根据不同的调度目标，调度器应当避免任务过度的集中于同一个CPU，BPF Scheduler可以通过此Helper函数找到一个空闲CPU，将任务调度到此CPU上，并结合其他Helper函数来唤醒CPU。
 
@@ -134,7 +134,9 @@ Sched Ext调度类的调度过程与Linux Core调度框架类似，如图~\ref{f
 
 6）yield：让出CPU资源。Linux提供了sched\_yield系统调用，允许任务主动放弃CPU资源，通常用于多线程中。sched\_yield并不保证线程组中的其他线程立即执行，而是将决策交给调度器，Sched Ext中此决策过程可完全由BPF程序实现。
 
-7）init\_task、exit\_task： 追踪任务的创建与退出。调度类中每当有任务新创建或退出时触发，BPF可追踪这些事件，从而能够在BPF Scheduler中为每个任务定义额外的信息用于后续的调度过程。
+7）cpu\_acquire，cpu\_release：追踪调度类的CPU进出情况。当一个CPU对BPF Scheduler变为可用时，会触发cpu\_acquire，反之则触发cpu\_release。如当正在运行的EXT调度类的任务被更高优先级调度类的其他任务抢占时，当前CPU对于BPF Scheduler来说就变为不可用了。
+
+8）init\_task、exit\_task： 追踪任务的创建与退出。调度类中每当有任务新创建或退出时触发，BPF可追踪这些事件，从而能够在BPF Scheduler中为每个任务定义额外的信息用于后续的调度过程。
 
 \begin{figure}[!htbp]
     \centering
