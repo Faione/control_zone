@@ -14,9 +14,6 @@
 % 调度策略实验
 %  - 互斥调度
 % 
-
-\section{概述}
-
 \section{实验环境}
 
 实验环境有两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
@@ -34,8 +31,8 @@
         \hline
         CPU & Intel Xeon Gold 6148 (40 cores) * 2 \\
         Processor Core Frequency & 2.4GHz，Turbo 3.7 GHz \\
-        L1 Caches & 32KB * 40,  8-way set associative, split D/I \\
-        L2 Caches & 1024KB * 40, 16-way set associative \\
+        L1 Caches & 32KB,  8-way set associative, split D/I \\
+        L2 Caches & 1024KB, 16-way set associative \\
         L3 Caches & 28160KB, 11-way set associative \\
         Main Memory & 32GB * 8, 2666MHz DDR4 \\
         NIC & Intel Corporation Ethernet Connection X722 for 10GbE SFP+(10Gbit) \\

@@ -1,19 +1,13 @@
 \chapter{典型应用观测与画像分析}\label{chap:profiling}
 
-% \section{概述}
-
-% 吵闹邻居
-
-% 指定混部方案涉及到对于典型应用的选取与应用画像分析。其中对于典型应用的选取需要符合当前数据中心的需求，同时需要涉及足够多的领域，这样才能够充分挖掘混部可能。随后则需要依据混部目标的部署方案，来决定可观测性系统的搭建方案，同时需要从不同的维度来对应用的运行状况进行细致全面的指标采集，这样得到的指标数据才能更具分析价值。完成上述准备之后，还需要设计一系列实验来对应用进行探测，结合相关研究，本文分别在有无干扰的设置下对应用性能进行探测，在干扰的选择上，以常用的CPU、Cache、Memory、IO、Network干扰作为测度选项。
-
 \section{云场景典型应用选择}
 
-% 介绍每个应用
+% 软件环境复杂 -> 应用需求不同 -> 软件架构复杂 -> 存在共性的基础应用 -> 基础应用的性能是整体性能的关键 -> 选取典型应用进行分析
 
-本文研究结合了在云厂商中的实践经验，选择了如表~\ref{tab:typical_application}所示的如下10个应用作为数据中心的典型应用进行分析。应用涵盖了传统数据库、键值存储、消息中间件、大数据、媒体处理等领域。跨领域地选择应用主要考虑到不同专业领域应用的运行模式差异较大，因此就更有可能在硬件资源的使用方面更加差异化，其中数据库类型的应用，由于数据保存在磁盘上，因此在进行大量数据查询时，对于IO资源的需求较高，键值存储类应用依赖对于内存读写来完成数据操作，因而对于内存资源的需求较高，网络服务类型应用通常都是交互式的，因此对延迟十分敏感，也意味着需要更快地的分配时间片，媒体处理应用则会大量地使用到CPU上的编解码单元，因此对时间片数量的需求更高，这些在资源使用上的差异化为混部提供了可能。
+数据中心软件环境复杂，同时托管的应用种类较为丰富，为画像分析带来了许多挑战。首先，数据中需要根据用户的使用需求，提供不同的软件环境，如针对虚拟机，需要提供虚拟化环境，而对于容器，则需要提供如K8s等，本研究结合与云厂商的合作经验，选择云场景中使用较普遍的虚拟机作为目标场景，在该场景中，应用的运行环境由宿主机系统、虚拟化运行时及来宾操作系统共同完成。其次，数据中心托管应用丰富的主要原因是需求的差异，然而当前随软件架构的不断进步及开源、云原生等理念的推广，应用在设计时会使用到许多相同的公共组件，如数据库、消息中间件等，这些公共组件构成了现代软件的基石，同时也是应用性能的关键，因此在本研究中，结合与云厂商的合作经验，从传统数据库、键值存储、消息中间件、大数据、媒体处理等领域中选择了如表~\ref{tab:typical_application}所示的7种典型应用进行画像分析。
 
 \begin{table}
-    \bicaption{\quad 典型应用选择}{\quad Typical application selection}% caption
+    \bicaption{\quad 云场景典型应用}{\quad Typical Applications in Cloud Scenarios}% caption
     \label{tab:typical_application}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -25,57 +19,47 @@
         %\cline{i-j}% partial hline from column i to column j
         类型 & 应用\\
         \hline
-        SQL & mysql、clickhouse\\
+        SQL & mysql\\
         NoSQL & elasticsearch\\
         Web Server & nginx\\
-        K-V Store & redis、keydb、memcached\\
+        K-V Store & redis、memcached\\
         Message Queue & kafka\\
-        Big Data & hibench\\
         Media & render\\
         \hline
     \end{tabular}
 \end{table}
 
-\section{在线指标采集系统}
+这些应用在领域上的差异，决定了其在功能实现上的不同，并会使用到不同的资源，因此各自对调度有不同的需求：
 
-% 按维度解释每个指标的含义
+1）数据库类型的应用，如Mysql，传统的关系型数据库提供了完善了数据存储、检索查询及事务管理等功能，实现中原始数据通常保存在磁盘上，在进行大量数据查询时，不仅会使用到较多的CPU资源，同时也会占用相当的IO资源，因此需要调度器保障其CPU资源，并避免IO上的干扰。
 
-本研究构建在线指标采集系统基于两个目标，首先在可观测性上，围绕虚拟机、应用监控，构造多维度的指标采集系统，其次还需要实现对于上述选取应用的QoS监控，一方面QoS数据能够与其他性能指标一同纳入分析体系，共同参与典型应用的画像过程，另一方面实时的QoS监控也是本研究中应用性能劣化监测的手段之一，能够为后续调度提供劣化信息并作为不同调度算法的评价指标。
+2）键值存储类应用，如Redis、Memcached，通常作为信息缓存服务，提供快速的数据存储与查询，由于数据存储在内存中，因此对内存资源存在较高要求，对调度的需求主要体现在两方面，一方面需要足够的内存资源，另一方面则需要避免在内存带宽上的干扰。
 
-在线指标采集系统将定义每台服务器为一个监控节点，如图~\ref{fig:montor_arch}所示，每个节点依据承担负载及监控关系划分为master与node两种角色，一个节点可同时兼任两种角色。其中node节点负载承担云应用负载，实验中一般部署Server应用，同时node作为被监控的对象，需要提供指标监控服务，考虑到监控服务实质也是应用，因而需要一定的隔离措施来避免采集过程中产生的噪声。master 一般不承担应用负载，实验中一般部署Client应用，同时作为监控者，需要提供数据采集、存储和查询服务，并按照预定义的配置不断从 node 的监控服务中采集指标，同时也提展示、分析等额外功能。
+3）网络服务类型应用，如Nginx，网络页面通常都具有交互属性，而延迟会极大影响用户的使用体验，因此这类应用要求调度能够在网络请求到达时，及时的为网络服务分配CPU，以尽早地对连接进行处理。
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1.0\textwidth]{montor_arch}
-    \bicaption{\quad 监控系统中不同角色的区别}{\quad The differences between different roles in the monitoring system}
-    \label{fig:montor_arch}
-\end{figure}
+4）媒体处理应用，如ffmjpeg，通常是离线应用，运行时会占用大量的CPU资源，来进行编解码操作，这类应用需要调度分配足够长的时间片，同时希望能减少上下文地切换，以便更好地利用局部性来加快执行速度。
 
-指标监控框架实现中考虑实时性与灵活性，因而采用主动轮询、被动采集的模式，选择基于Prometheus生态进行具体实现。不同的监控节点角色决定了部署在其中监控组件的不同。node 节点需要安装一系列Exporter组件来提供各层级的指标监控服务，并提供容器化依赖Cgroup来实现与业务域的隔离。master节点则需要安装Prometheus Server、Grafana等组件，通过预定义的服务发现配置、指标聚合策略及采集设置等，完成采集、存储与展示工作。
+\section{观测系统设计与指标收集}
 
-实现多维度指标采集核心在于Exporter的设计，如图所示，本研究中从Host、Hypervisor、App三个维度设计了6种不同的Exporter，总采集指标数量如表~\ref{tab:metric_list}所示，达到344个，涉及到CPU、Cache、Memroy、IO、Network等子系统。
+\subsection{面向虚拟机的多维指标采集设计}
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1.0\textwidth]{exportes}
-    \bicaption{\quad Exporters设计}{\quad Exporters Design}
-    \label{fig:exportes}
-\end{figure}
+% 分解虚拟机: Host侧 -> Hypervisor侧 -> 应用侧
+% 分解采集系统:
+% - 采集侧
+% - 查询、存储、分析侧
 
-LibvirtExporter 使用Libvirt API采集数据，获取虚拟机 vCPU、Memory、Network、Block IO 等虚拟资源的使用情况。KVMExporter 读取KVM Kernel Debug fs 获取更详细的虚拟机运行时指标，这些指标通常是KVM相关模块中的事件计数，如 vm exit、io exit 等，能够反映出vCPU的工作状态。
+本研究中使用KVM虚拟机作为混部应用基本软件环境。而结合第二章中对于虚拟化沙箱技术的分析，本研究设计了一种如图~\ref{}所示的面向虚拟机的多维度指标采集机制。
 
-NodeExporter 则通过读取 Kernel 提供 的用户交互接口，获取CPU、网络、存储等各个子系统的详细信息，获取Host主机上的总体资源使用情况。ResctrlExporter则通过 Intel RDT 技术，获取更细粒度的性能指标，如L3 Cache容量，Memory Bandwidth，默认情况下，ResctrlExporter会对系统全局进行监控，当用户创建了 Monitor Group 之后，则会将其添加到监控目标中，实验中通过vm info map构建Monitor Group 以对虚拟机进行监控。
-
-EbpfExporter 启动之后会加载编译好的ebpf代码，并将采集到的数据和转化为Metric来对外部提供监控服务。进程在使用Host资源特别是硬件资源时，通常会涉及到多条资源分配的关键路径，通过Ebpf能够在这些关键路径上进行插桩，从而反映进程使用这些资源的频率及耗时信息。如图~\ref{fig:syscall_hook}所示，当前实现了对进程系统调用的相关信息统计，通过在系统调用进入与退出的位置插入ebpf代码，以Cgroup为粒度统计每个系统调用的频率和总时长。
+首先，在宿主机上，KVM虚拟机由多个进程组成，因此在这一维度，可以利用宿主机Kernel提供的多种进程监测机制，如/proc内核文件系统中记录的进程信息，以及cgroup子系统中对进程的记账信息，来评测虚拟机进程的性能。其次，虚拟机由各个模拟硬件组成，这些设备由Hypervisor进行模拟，在此维度，能够利用Hypervisor提供的丰富接口，来获取虚拟机的各个虚拟机设备的性能信息，以vCPU为例，本研究中KVM内核模块负责虚拟机的vCPU模拟，而KVM内核模块通过debug文件系统提供了丰富的vCPU监测信息，如包括IO、挂起、中断等在内的陷出计数，以及MMU缓存缺失计数等。最后，虚拟化环境最终需要为应用的运行提供服务，应用级指标能够体现出应用的真实性能，而针对这一维度的指标采集，主要从两个方面入手，对于Client-Server类的服务型应用，可以在外部通过Overlay网络建立对延迟、吞吐量的追踪，部分应用也内置了观测接口，提供性能信息的采集。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\textwidth]{syscall_hook}
-    \bicaption{\quad eBPF Syscall插桩}{\quad eBPF Syscall Hooking}
-    \label{fig:syscall_hook}
+    \includegraphics[width=1.0\textwidth]{monitor_arch}
+    \bicaption{\quad 采集系统架构}{\quad Metric Collection System Architecture}
+    \label{fig:monitor_arch}
 \end{figure}
 
-对于常规进程而言，其对系统资源的使用一般依赖系统调用作为统一入口，因此在此入口处的插桩能够对相关数据进行抓取。然而虚拟机是一种特殊的进程，尽管其对于资源的使用也最终都会由Host上的对应设备来完成模拟，但不同之处在于，虚拟机在开启硬件加速之后，部分资源的使用会直接在内核态处理，这样虽然保证了虚拟机的性能，但也同时也增加了插桩的复杂度。现阶段提供的系统调用入口处的插桩能够监测Qemu程序在用户态下请求使用Host资源的情况，如图~\ref{fig:vhost_net}所示，当前主要考虑到Qemu进程中仍有线程主要在用户态执行，这些指标能够对其资源使用情况进行监控。
+而为更深入地探测虚拟机性能，本研究还基于eBPF设计了一种在内核侧监测的机制。首先，在宿主机维度，进程对于硬件资源的使用通常都需要通过系统调用完成， 如使用网络资源时，需要使用send或recv系统调用，使用IO资源时，需要进行read、write系统调用，对虚拟机而言，这种方式能够监测陷出到用户态之后的设备模拟过程。其次，在Hypervisor维度，为追求设备模拟的效率，一些模拟硬件的后端实现并不要求虚拟机陷出到用户态，而直接在内核态完成整个模拟过程，如图~\ref{fig:vhost_net}所示，vHost net作为一种内核态实现的模拟网络设备后端，其网络发送的过程就直接在内核中通过函数调用进行，而这些函数的执行状态能够反映出模拟网络设备后端的性能。
 
 \begin{figure}[!htbp]
     \centering
@@ -84,14 +68,28 @@ EbpfExporter 启动之后会加载编译好的ebpf代码，并将采集到的数
     \label{fig:vhost_net}
 \end{figure}
 
-Prometheus中积累的指标数据通常需要经过初步的聚合才具有分析价值，如对于某一个计量值，其在单位事件内的变化速率相较于瞬时值来说更有统计价值，当前实验配置中会以4s为窗口进行聚合，聚合规则同样以配置呈现，即可用于Grafana中进行实时监控信息展示，也可以在Gather API 中使用以将数据进行批量导出。
+综合以上分析，本研究设计了一种实时指标采集分析系统，能从上述维度以虚拟机为粒度机进行指标采集，同时能够提供指标的存储、查询与分析服务。系统中定义了Observer与Observed两种角色，如图~\ref{fig:monitor_arch}所示，首先，Observer与Observed以统一的格式对指标进行编解码，随后，Observed中部署监控组件以对外部提供监控服务，最后，Observer周期性地轮询各个Observed，并将收集到的原始指标按标签进行区分存储，并根据预定义的规则对指标进行聚合处理，同时对外提供查询与分析服务。系统中可以有多个Observer来分摊采集压力，并且每个节点可以按需要同时承担Observer与Observed两种角色。
+
+\subsection{实时可观测性系统实现}
+
+% Observer实现
+% - Prometheus、Grafana、Collector Utils
+% Observed实现
+% - Exporter的实现细节
+%   - Ebpf Exporter
+%       - Syscall 追踪
+%       - vHost Net 追踪
+
+本研究结合云原生的实践经验，选择基于Prometheus来实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点，Prometheus的核心贡献在于提供了一种扩展性强的时序数据结构Metric以及围绕Metric的PromQL向量查询语言、向量数据存储方式以及编解码机制，在此基础上，Prometheus还实现了一套采集系统，提供了Promethues Server、Grafana及Node Exporter等核心组件，由于Promethues完全开源并提供了各种语言的Metric采集基础库，因此吸引了大量开发者及云厂商的参与，催生出丰富的组件生态。当前Prometheus已经成为指标采集的主要标准，并随DevOps的发展被越来越广泛地使用。
+
+可观测性系统中Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用以Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
 
 \begin{table}
     \bicaption{\quad 指标列表}{\quad Metric list}% caption
     \label{tab:metric_list}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \renewcommand{\arraystretch}{1.5}% ro w space 
     \centering
     \begin{tabular}{lcc}
         \hline
@@ -118,13 +116,81 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
     \end{tabular}
 \end{table}
 
-% vHost Net 追踪
+可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了6种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，原始指标如表~\ref{tab:metric_list}所示，包含CPU、Cache、Memroy、IO、Network等各个子系统，总数量达到344个。
 
-\section{干扰实验设计}
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\textwidth]{exporters}
+    \bicaption{\quad Exporters设计}{\quad Exporters Design}
+    \label{fig:exporters} 
+\end{figure}
 
-% 干扰的选择，干扰有效性及噪声控制
+1）Node Exporter是Prometheus提供的基础监控组件，提供Host维度的基础指标采集。其实现中主要利用了Linux Kernel提供的交互结果，来获取Host各个子系统中的运行状态信息，如通过/proc内核文件系统，获取运行时间、内存信息等。Observed实现中使能了NodeExporter的Perf Event监测模块，模块支持采集Host上的性能事件，包括cycles、instruction及cache miss等。
 
-在干扰应用的选择上，选择使用stress-ng来模拟产生不同类型的资源干扰。stress-ng是Linux系统中常用的压力测试工具，能够通过模拟各种负载来检测系统的稳定性和性能，实验中利用其模拟各种压力负载的特性来分别从CPU、内存、I/O、Cache、Network上制造干扰，观测应用在不同干扰下的劣化情况。stress-ng拥有诸多可调整的参数选项，用于定制化不同的压力场景，本课题选用如表~\ref{tab:arg_list}所示参数制造上述类型的干扰。对于AVX干扰应用通过开发程序实现，根据传入的参数，循环执行AVX2/AVX512指令来产生不同强度的压力
+2）Resctrl Exporter实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
+
+3）KVM Exporter实现了Hypervisor维度的指标采集。KVM内核模块提供了一个Debug文件系统，在最顶层的目录中，记录了内核模块的运行信息，如虚拟机陷出的总计数等，同时，对于每个虚拟机进程，还会创建对应的子目录，并以单个虚拟机为粒度记录内核模块的运行数据，最后，在每个虚拟机目录中，还会为每个vCPU创建一个目录，记录vCPU的时钟源相关信息。KVM Exporter基于上述机制实现，通过扫描Debug系统中的目录，并为遍历每个虚拟机条目来生成相关的指标信息，默认情况下使用虚拟机进程号作为标签，也允许传入一个配置文件，来实现虚拟机进程号与虚拟机名称之间的转化。
+
+4）Libvirt Exporter是社区开发的一个监控组件，提供了Hypervisor维度的指标采集。Libvirt是一个统一的虚拟化接口层，提供了丰富的虚拟机管理选项，Libvirt Exporter基于Libvirt Monitor接口实现，能够采集虚拟机的各个设备的性能指标，如vCPU时间片、内存使用量、网络设备的吞吐量及IO设备的吞吐量等。Observed实现中为Libvirt Exporter增加的Perf Event监测功能，从而能够提供虚拟机粒度的性能事件指标信息，如cycles、instruction及cache miss等。
+
+5）eBPF Exporter是社区开发的一个监控组件， 提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\textwidth]{syscall_hook}
+    \bicaption{\quad eBPF Syscall插桩}{\quad eBPF Syscall Hooking}
+    \label{fig:syscall_hook}
+\end{figure}
+
+\section{实验设计}
+
+\subsection{基准性能实验}
+
+实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark中的模拟负载多样的负载来监测不同场景下的基准性能。
+
+\begin{table}
+    \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
+    \label{tab:c6_info}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        类型 & 信息 \\
+        \hline
+        OS & Ubuntu 22.04 ( Kernel 5.15.0) \\
+        CPU & Intel Xeon Gold 6151 (18 cores) * 2 \\
+        Processor Core Frequency & 3GHz，Turbo 3.4GHz \\
+        L1 Caches & 32KB *,  8-way set associative, split D/I \\
+        L2 Caches & 1024KB, 16-way set associative \\
+        L3 Caches & 25344KB, 11-way set associative \\
+        Main Memory & 32GB * 12, 2666MHz DDR4 \\
+        Storage & Avago MegaRAID, 2.18T SAS RAID0, 87.322T SATA RAID0 \\
+        NIC & Intel Corporation Ethernet Connection X722 for 10GbE SFP+(10Gbit) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% 1）Redis、Memcached。使用memtier_benchmark来产生负载，负载的模型由华为云提供，包括Normal、Random两类模拟负载
+
+% 2）Mysql。使用TPCC作为基准实验负载
+
+% 3）Elasticsearch。使用YCSB作为基准负载
+
+% 4）Kafka。
+
+% 5）Nginx。
+
+% 6）Render。使用华为内部的模拟负载。
+
+\subsection{性能劣化实验}
+
+% 干扰应用
+% - 干扰有效性
+% - 噪声控制
+
+性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
 
 \begin{table}
     \bicaption{\quad stress\_ng 参数列表}{\quad stress\_ng args list}% caption
@@ -139,11 +205,11 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
         %\cline{i-j}% partial hline from column i to column j
         子系统 & 参数 & 说明\\
         \hline
-        CPU	    & --cpu	& 循环执行sqrt(rand())的线程数量\\
+        CPU	    & --cpu & 循环执行sqrt(rand())的线程数量\\
 	            & --cpu-load & 线程负载的比率\\
         Cache	& --cache & cache抖动线程数量\\
-	    & --cache-level	&测试指定等级的Cache\\
-	    & --icache	&指令cache抖动的线程数量\\
+	            & --cache-level	&测试指定等级的Cache\\
+	            & --icache	&指令cache抖动的线程数量\\
         IO	    & --io	&循环执行sync()的线程数量\\
 	            & --iomix	&执行混合I/O操作的线程数量\\
 	            & --hdd	&循环执行write()/unlink()的线程数量\\
@@ -160,11 +226,11 @@ Prometheus中积累的指标数据通常需要经过初步的聚合才具有分�
     \end{tabular}
 \end{table}
 
-% \section{画像分析与结论}
+\section{画像分析与结论}
 
-% \subsection{无干扰实验下的应用资源使用倾向分析}
+\subsection{典型应用资源使用倾向分析}
 
-% \subsection{有干扰实验下的应用资源敏感度分析}
+\subsection{典型应用资源敏感度分析}
 
 \section{本章小结}
 

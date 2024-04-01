@@ -1,6 +1,6 @@
-\chapter{资源感知调度系统实现}\label{chap:sched_policy}
+\chapter{场景导向的调度定制}\label{chap:sched_policy}
 
-\section{适应任务的内核调度定制}
+\section{内核调度配置定制}
 
 Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也提供了一些编译配置选项，用以针对场景进行优化，这些配置选项围绕时钟与抢占模型的设置展开。
 
@@ -51,7 +51,7 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 
 时钟和抢占模式的配置能够决定系统的响应度，但实际的配置需要考虑使用的场景，如更高的HZ虽然能够提升系统的整体响应度，但由于时钟中断的增多，CPU在于有限的时间片内处理实际任务的时间就会变少，同时频繁的上下文切换也破坏了程序的时间局部性，从而影响到系统的整体吞吐。通常而言，较高的HZ与激进的抢占模式有利于降低延时，而较低的HZ与保守的抢占模式有利于系统的整体吞吐。对此Control Zone提供了两种预编译的内核，用于处理响应度优先与吞吐量优先两种场景。
 
-\section{任务调度策略}
+\section{任务调度机制定制}
 
 % Control Zone内调度
 % - 互斥调度：用于SMT或保守调度策略
@@ -66,13 +66,31 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 
 针对以上存在的问题，本研究设计了一种强隔离的任务调度策略，并实现为BPF Scheduler，来提供一种能够对高优先任务进行强保护的调度策略。首先，对于单CPU队列上的隔离性问题，由于Sched Ext调度类本身优先级较低，结合第二章中对调度循环的分析可知，在每次调度循环中， 较高优先级调度类中的任务总是会被优先选中，而同时只有在高优先级调度类中没有可执行的任务时，才会进入Sched Ext调度类的流程中，因此使用Sched Ext调度类天然就实现了单CPU调度队列上的隔离性。
 
-多CPU调度队列上的强隔离实现则较为复杂。首先，在BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Sched Ext中所能使用的CPU数量，而具体的调度逻辑如伪代码所示，
+多CPU调度队列上的强隔离实现则较为复杂。首先，在BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Sched Ext中所能使用的CPU数量，而具体的调度逻辑如伪代码~\ref{alg:enhance_sched_isolation}所示，首先BPF Scheduler会依据不同调度类CPU的数量，来判断是否有更高优先级调度类中的任务正在运行，一旦发现，则首先设置一个Exclusive Flag， 用于在其他回调中共享状态，其次，对于处于NoHZ状态下的CPU，发送IPI以注入一次重调度，而当系统中没有更高优先级调度类的任务运行时，则正常进行任务的分发。
+
+\begin{algorithm}
+    \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
+    \label{alg:enhance_sched_isolation}
+    \begin{algorithmic}[1]
+    \While{True}
+        \If{$\text{CPU\_Acquired + CPU\_Idle} < \text{CPU\_Available}$ }
+            \State Set Exclusive Flag;
+            \For{each no\_hz core C}
+                \State Send an IPI to envoke a rescheduling.
+            \EndFor
+            \State Yield to higher priority scheduler class;
+        \EndIf
+        \State Remove Exclusive Flag;
+        \State Dispatched tasks;
+    \EndWhile
+    \end{algorithmic}
+\end{algorithm}
 
 \subsection{资源约束的任务调度策略}
 
 % Control Zone级调度
 % - 更具优先级的资源划分
 
-\section{资源划分策略}
+\section{资源划分策略定制}
 
 \section{本章小结}
