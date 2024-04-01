@@ -73,8 +73,6 @@
 %       - Syscall 追踪
 %       - vHost Net 追踪
 
-本研究结合云原生的实践经验，选择基于Prometheus来实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点，Prometheus的核心贡献在于提供了一种扩展性强的时序数据结构Metric以及围绕Metric的PromQL向量查询语言、向量数据存储方式以及编解码机制，在此基础上，Prometheus还实现了一套采集系统，提供了Promethues Server、Grafana及Node Exporter等核心组件，由于Promethues完全开源并提供了各种语言的Metric采集基础库，因此吸引了大量开发者及云厂商的参与，催生出丰富的组件生态。当前Prometheus已经成为指标采集的主要标准，并随DevOps的发展被越来越广泛地使用。
-
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{monitor_arch}
@@ -82,20 +80,22 @@
     \label{fig:monitor_arch}
 \end{figure}
 
+本研究结合云原生的实践经验，选择基于Prometheus来实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点，Prometheus的核心贡献在于提供了一种扩展性强的时序数据结构Metric以及围绕Metric的PromQL向量查询语言、向量数据存储方式以及编解码机制，在此基础上，Prometheus还实现了一套采集系统，提供了Promethues Server、Grafana及Node Exporter等核心组件，由于Promethues完全开源并提供了各种语言的Metric采集基础库，因此吸引了大量开发者及云厂商的参与，催生出丰富的组件生态。当前Prometheus已经成为指标采集的主要标准，并随DevOps的发展被越来越广泛地使用。
+
 基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用以Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
 
 可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了6种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，原始指标如表~\ref{tab:metric_list}所示，包含CPU、Cache、Memroy、IO、Network等各个子系统，总数量达到344个。
 
-1）Node Exporter是Prometheus提供的基础监控组件，提供Host维度的基础指标采集。其实现中主要利用了Linux Kernel提供的交互结果，来获取Host各个子系统中的运行状态信息，如通过/proc内核文件系统，获取运行时间、内存信息等。Observed实现中使能了NodeExporter的Perf Event监测模块，模块支持采集Host上的性能事件，包括cycles、instruction及cache miss等。
-
-2）Resctrl Exporter实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
-
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\textwidth]{exporters}
+    \includegraphics[width=0.9\textwidth]{exporters}
     \bicaption{\quad Exporters设计}{\quad Exporters Design}
     \label{fig:exporters} 
 \end{figure}
+
+1）Node Exporter是Prometheus提供的基础监控组件，提供Host维度的基础指标采集。其实现中主要利用了Linux Kernel提供的交互结果，来获取Host各个子系统中的运行状态信息，如通过/proc内核文件系统，获取运行时间、内存信息等。Observed实现中使能了NodeExporter的Perf Event监测模块，模块支持采集Host上的性能事件，包括cycles、instruction及cache miss等。
+
+2）Resctrl Exporter实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
 
 3）KVM Exporter实现了Hypervisor维度的指标采集。KVM内核模块提供了一个Debug文件系统，在最顶层的目录中，记录了内核模块的运行信息，如虚拟机陷出的总计数等，同时，对于每个虚拟机进程，还会创建对应的子目录，并以单个虚拟机为粒度记录内核模块的运行数据，最后，在每个虚拟机目录中，还会为每个vCPU创建一个目录，记录vCPU的时钟源相关信息。KVM Exporter基于上述机制实现，通过扫描Debug系统中的目录，并为遍历每个虚拟机条目来生成相关的指标信息，默认情况下使用虚拟机进程号作为标签，也允许传入一个配置文件，来实现虚拟机进程号与虚拟机名称之间的转化。
 
@@ -103,12 +103,12 @@
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.5\textwidth]{syscall_hook}
+    \includegraphics[width=0.7\textwidth]{syscall_hook}
     \bicaption{\quad eBPF Syscall插桩}{\quad eBPF Syscall Hooking}
     \label{fig:syscall_hook}
 \end{figure}
 
-5）eBPF Exporter是社区开发的一个监控组件， 提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
+5）eBPF Exporter是社区开发的一个监控组件， 提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
 
 \begin{table}
     \bicaption{\quad 指标列表}{\quad Metric list}% caption
