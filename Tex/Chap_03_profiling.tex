@@ -48,7 +48,14 @@
 % - 采集侧
 % - 查询、存储、分析侧
 
-本研究中使用KVM虚拟机作为混部应用基本软件环境。而结合第二章中对于虚拟化沙箱技术的分析，本研究设计了一种如图~\ref{}所示的面向虚拟机的多维度指标采集机制。
+本研究中使用KVM虚拟机作为混部应用基本软件环境。而结合第二章中对于虚拟化沙箱技术的分析，本研究设计了一种如图~\ref{fig:virtualmachine}所示的面向虚拟机的多维度指标采集机制。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\textwidth]{virtualmachine}
+    \bicaption{\quad 虚拟机多维度指标采集}{\quad Multi-dimensional metrics from virtual machines}
+    \label{fig:virtualmachine}
+\end{figure}
 
 首先，在宿主机上，KVM虚拟机由多个进程组成，因此在这一维度，可以利用宿主机Kernel提供的多种进程监测机制，如/proc内核文件系统中记录的进程信息，以及cgroup子系统中对进程的记账信息，来评测虚拟机进程的性能。其次，虚拟机由各个模拟硬件组成，这些设备由Hypervisor进行模拟，在此维度，能够利用Hypervisor提供的丰富接口，来获取虚拟机的各个虚拟机设备的性能信息，以vCPU为例，本研究中KVM内核模块负责虚拟机的vCPU模拟，而KVM内核模块通过debug文件系统提供了丰富的vCPU监测信息，如包括IO、挂起、中断等在内的陷出计数，以及MMU缓存缺失计数等。最后，虚拟化环境最终需要为应用的运行提供服务，应用级指标能够体现出应用的真实性能，而针对这一维度的指标采集，主要从两个方面入手，对于Client-Server类的服务型应用，可以在外部通过Overlay网络建立对延迟、吞吐量的追踪，部分应用也内置了观测接口，提供性能信息的采集。
 
