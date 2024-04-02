@@ -117,7 +117,7 @@
 
 5）eBPF Exporter是社区开发的一个监控组件， 提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
 
-\begin{table}
+\begin{table}[H]
     \bicaption{\quad 指标列表}{\quad Metric list}% caption
     \label{tab:metric_list}
     \footnotesize% fontsize
@@ -155,7 +155,7 @@
 
 实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark中的模拟负载多样的负载来监测不同场景下的基准性能。
 
-\begin{table}
+\begin{table}[H]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
     \label{tab:c6_info}
     \footnotesize% fontsize
@@ -199,8 +199,8 @@
 
 性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
 
-\begin{table}
-    \bicaption{\quad stress\_ng 参数列表}{\quad stress\_ng args list}% caption
+\begin{table}[H]
+    \bicaption{\quad stress\_ng 实验参数列表}{\quad stress\_ng args list}% caption
     \label{tab:arg_list}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -233,8 +233,48 @@
     \end{tabular}
 \end{table}
 
-在合适的参数选配下，干扰的效果如图所示
+正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示。
 
+1）CPU干扰选择CPU Usage作为表征指标，干扰效果如~\ref{fig:cpu_interference}所示，可见随干扰强度的不断提升，干扰应用逐渐能够占用所有的核心资源。
+
+2）Cache干扰选择Cache Usage作为表征指标，干扰效果如图~\ref{fig:cache_interference}所示，可见随干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。同时，当干扰强度上升至5之后，Cache Usage就几乎稳定在峰值。
+
+3）IO干扰选择IO Input Bytes作为表征指标，干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但当干扰强度超过5之后，干扰应用占用的IO带宽反而开始减少。由于IO干扰强度与干扰线程数量指数相关，高干扰强度下会产生大量的IO线程，这些线程彼此之间会相互竞争，因此导致整体的IO带宽下降。
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{cpu_interference}
+    \caption{cpu干扰效果}
+    \label{fig:cpu_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{cache_interference}
+    \caption{cache干扰效果}
+    \label{fig:cache_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{io_interference}
+    \caption{io干扰效果}
+    \label{fig:io_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{net_interference}
+    \caption{net干扰效果}
+    \label{fig:net_interference}
+  \end{subfigure}
+  \caption{干扰效果}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{vm_interference}
+    \caption{内存干扰效果}
+    \label{fig:vm_interference}
+  \end{subfigure}
+  \label{fig:interference}
+\end{figure}
+
+4）Net干扰选择Accept系统调用延迟作为表征指标。Accept系统调用通常发生在Server类应用中，用于与Client建立连接，Accept系统调用变慢通常意味着连接排队延迟与客户端超时，而具体的干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大，由于延迟指标可以无限增加，实验中根据应用延迟范围来确定干扰强度。
+
+5）Memory干扰使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度为6时出现较大的波动。
 
 \section{画像分析与结论}
 
