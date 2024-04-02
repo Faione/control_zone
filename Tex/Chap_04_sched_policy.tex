@@ -66,8 +66,6 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 
 针对以上存在的问题，本研究设计了一种强隔离的任务调度策略，并实现为BPF Scheduler，来提供一种能够对高优先任务进行强保护的调度策略。首先，对于单CPU队列上的隔离性问题，由于Sched Ext调度类本身优先级较低，结合第二章中对调度循环的分析可知，在每次调度循环中， 较高优先级调度类中的任务总是会被优先选中，而同时只有在高优先级调度类中没有可执行的任务时，才会进入Sched Ext调度类的流程中，因此使用Sched Ext调度类天然就实现了单CPU调度队列上的隔离性。
 
-多CPU调度队列上的强隔离实现则较为复杂。首先，在BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Sched Ext中所能使用的CPU数量，而具体的调度逻辑如伪代码~\ref{alg:enhance_sched_isolation}所示，首先BPF Scheduler会依据不同调度类CPU的数量，来判断是否有更高优先级调度类中的任务正在运行，一旦发现，则首先设置一个Exclusive Flag， 用于在其他回调中共享状态，其次，对于处于NoHZ状态下的CPU，发送IPI以注入一次重调度，而当系统中没有更高优先级调度类的任务运行时，则正常进行任务的分发。
-
 \begin{algorithm}
     \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
     \label{alg:enhance_sched_isolation}
@@ -86,11 +84,40 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
     \end{algorithmic}
 \end{algorithm}
 
+多CPU调度队列上的强隔离实现则较为复杂。首先，在BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Sched Ext中所能使用的CPU数量，而具体的调度逻辑如伪代码~\ref{alg:enhance_sched_isolation}所示，首先BPF Scheduler会依据不同调度类CPU的数量，来判断是否有更高优先级调度类中的任务正在运行，一旦发现，则首先设置一个Exclusive Flag， 用于在其他回调中共享状态，其次，对于处于NoHZ状态下的CPU，发送IPI以注入一次重调度，而当系统中没有更高优先级调度类的任务运行时，则正常进行任务的分发。
+
 \subsection{资源约束的任务调度策略}
 
 % Control Zone级调度
 % - 更具优先级的资源划分
 
-\section{资源划分策略定制}
+高优先级任务在负载较低时可以低优先级任务并行，有利于提升整体资源的利用率。实现这一策略的核心在于让BPF调度器感知系统中高优先级任务的负载。首先，以LC应用为例，如Redis，其负载与网络请求强相关，而通过探测网络处理相关系统调用的使用情况，就能在一定程度上探测LC应用的负载，以epoll_wait系统调用为例，当系统中网络请求较低时，epoll_wait系统调用容易进入阻塞或超时控制状态，因此执行频率会大大降低，而当系统中网络请求较高时，epoll_wait系统调用几乎总能快速返回一个文件描述列表，而通过使用eBPF在此系统调用上插桩，就能够追踪系统调用的执行频率。基于这一机制可实现网络资源约束的任务调度策略，具体逻辑如伪代码~\ref{network_aware_sched}所示。
+
+\begin{algorithm}
+    \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
+    \label{alg:network_aware_sched}
+    \begin{algorithmic}[1]
+    \While{True}
+        \State Read epoll wait delta from bpf map
+        \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL_WAIT_THRESHOLD}$ }
+            \State Set Exclusive Flag;
+            \For{each no\_hz core C}
+                \State Send an IPI to envoke a rescheduling.
+            \EndFor
+            \State Yield to higher priority scheduler class;
+        \EndIf
+        \State Remove Exclusive Flag;
+        \State Dispatched tasks;
+    \EndWhile
+    \end{algorithmic}
+\end{algorithm}
+
+在单CPU调度队列上，低于优先级任务总是会让出CPU资源，而具体差异体现在多CPU任务队列中，首先，通过eBPF插桩，记录固定时间内的epoll_wait系统调用次数，并保存到一个BPF Map中，当BPF Scheduler在接管CPU之后，会在每个调度循环中，首先读取BPF Map中的epoll_wait计数，并判断是否达到阈值，在阈值之下，允许调度任务，而当达在阈值之上，则放弃调度任务。其中eBPF采集以及阈值都可以根据高优先级的任务特性进行定制。
+
+% \section{资源划分策略定制}
 
 \section{本章小结}
+
+本章主要首先针对画像分析中不同类型应用，基于内核中关于HZ与抢占模型的配置，设计了调度配置的定制优化，提供了吞吐量优先与响应度优先两种不同调度目标的内核配置。
+
+随后分析混部场景下，高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先提出较为粗粒度的强隔离BPF调度策略，能够感知高优先级任务的执行并主动出让全部CPU资源，从而保障高优先级应用的执行。随后为了提升整体的资源利用率，提出了基于资源约束的BPF调度策略，通过eBPF插桩感知系统中网络资源的使用，并通过与阈值的比较来允许一定程度的并发，从而在保障高优先级应用的同时，提升整体资源利用率。
