@@ -91,15 +91,15 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 % Control Zone级调度
 % - 更具优先级的资源划分
 
-高优先级任务在负载较低时可以低优先级任务并行，有利于提升整体资源的利用率。实现这一策略的核心在于让BPF调度器感知系统中高优先级任务的负载。首先，以LC应用为例，如Redis，其负载与网络请求强相关，而通过探测网络处理相关系统调用的使用情况，就能在一定程度上探测LC应用的负载，以epoll_wait系统调用为例，当系统中网络请求较低时，epoll_wait系统调用容易进入阻塞或超时控制状态，因此执行频率会大大降低，而当系统中网络请求较高时，epoll_wait系统调用几乎总能快速返回一个文件描述列表，而通过使用eBPF在此系统调用上插桩，就能够追踪系统调用的执行频率。基于这一机制可实现网络资源约束的任务调度策略，具体逻辑如伪代码~\ref{network_aware_sched}所示。
+高优先级任务在负载较低时可以低优先级任务并行，有利于提升整体资源的利用率。实现这一策略的核心在于让BPF调度器感知系统中高优先级任务的负载。首先，以LC应用为例，如Redis，其负载与网络请求强相关，而通过探测网络处理相关系统调用的使用情况，就能在一定程度上探测LC应用的负载，以epoll\_wait系统调用为例，当系统中网络请求较低时，epoll\_wait系统调用容易进入阻塞或超时控制状态，因此执行频率会大大降低，而当系统中网络请求较高时，epoll\_wait系统调用几乎总能快速返回一个文件描述列表，而通过使用eBPF在此系统调用上插桩，就能够追踪系统调用的执行频率。基于这一机制可实现网络资源约束的任务调度策略，具体逻辑如伪代码~\ref{network_aware_sched}所示。
 
 \begin{algorithm}
-    \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
+    \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
     \label{alg:network_aware_sched}
     \begin{algorithmic}[1]
     \While{True}
         \State Read epoll wait delta from bpf map
-        \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL_WAIT_THRESHOLD}$ }
+        \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL\_WAIT\_THRESHOLD}$ }
             \State Set Exclusive Flag;
             \For{each no\_hz core C}
                 \State Send an IPI to envoke a rescheduling.
@@ -112,7 +112,7 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
     \end{algorithmic}
 \end{algorithm}
 
-在单CPU调度队列上，低于优先级任务总是会让出CPU资源，而具体差异体现在多CPU任务队列中，首先，通过eBPF插桩，记录固定时间内的epoll_wait系统调用次数，并保存到一个BPF Map中，当BPF Scheduler在接管CPU之后，会在每个调度循环中，首先读取BPF Map中的epoll_wait计数，并判断是否达到阈值，在阈值之下，允许调度任务，而当达在阈值之上，则放弃调度任务。其中eBPF采集以及阈值都可以根据高优先级的任务特性进行定制。
+在单CPU调度队列上，低于优先级任务总是会让出CPU资源，而具体差异体现在多CPU任务队列中，首先，通过eBPF插桩，记录固定时间内的epoll\_wait系统调用次数，并保存到一个BPF Map中，当BPF Scheduler在接管CPU之后，会在每个调度循环中，首先读取BPF Map中的epoll\_wait计数，并判断是否达到阈值，在阈值之下，允许调度任务，而当达在阈值之上，则放弃调度任务。其中eBPF采集以及阈值都可以根据高优先级的任务特性进行定制。
 
 % \section{资源划分策略定制}
 
