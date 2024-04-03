@@ -66,6 +66,8 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 
 针对以上存在的问题，本研究设计了一种强隔离的任务调度策略，并实现为BPF Scheduler，来提供一种能够对高优先任务进行强保护的调度策略。首先，对于单CPU队列上的隔离性问题，由于Sched Ext调度类本身优先级较低，结合第二章中对调度循环的分析可知，在每次调度循环中， 较高优先级调度类中的任务总是会被优先选中，而同时只有在高优先级调度类中没有可执行的任务时，才会进入Sched Ext调度类的流程中，因此使用Sched Ext调度类天然就实现了单CPU调度队列上的隔离性。
 
+% 增加CPU数量追踪算法
+
 \begin{algorithm}
     \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
     \label{alg:enhance_sched_isolation}
@@ -74,7 +76,7 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
         \If{$\text{CPU\_Acquired + CPU\_Idle} < \text{CPU\_Available}$ }
             \State Set Exclusive Flag;
             \For{each no\_hz core C}
-                \State Send an IPI to envoke a rescheduling.
+                \State Send an IPI to envoke target CPU rescheduling.
             \EndFor
             \State Yield to higher priority scheduler class;
         \EndIf
@@ -92,6 +94,8 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 % - 更具优先级的资源划分
 
 高优先级任务在负载较低时可以低优先级任务并行，有利于提升整体资源的利用率。实现这一策略的核心在于让BPF调度器感知系统中高优先级任务的负载。首先，以LC应用为例，如Redis，其负载与网络请求强相关，而通过探测网络处理相关系统调用的使用情况，就能在一定程度上探测LC应用的负载，以epoll\_wait系统调用为例，当系统中网络请求较低时，epoll\_wait系统调用容易进入阻塞或超时控制状态，因此执行频率会大大降低，而当系统中网络请求较高时，epoll\_wait系统调用几乎总能快速返回一个文件描述列表，而通过使用eBPF在此系统调用上插桩，就能够追踪系统调用的执行频率。基于这一机制可实现网络资源约束的任务调度策略，具体逻辑如伪代码~\ref{network_aware_sched}所示。
+
+% 增加Epoll wait追踪算法
 
 \begin{algorithm}
     \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
