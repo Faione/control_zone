@@ -18,7 +18,7 @@
 
 实验环境有两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
 
-\begin{table}
+\begin{table}[H]
     \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
     \label{tab:exp_env}
     \footnotesize% fontsize
@@ -68,20 +68,27 @@
 
 Control Zone的启动开销计算从虚拟化运行时开始到系统引导至init过程的时间，虚拟机使用1CPU与512M内存的基础配置，在虚拟化运行时上，选择CloudHyperviosr与Qemu进行对比，而在精简内核上，选择Alpine Virt内核、Control Zone内核，以及CloudHyeprvirsor、Firecracker的默认精简内核，其中Alpine Virt内核为社区提供给云厂商的标准虚拟机内核，启动了大部分Guest优化功能，但同时也保留了对于众多设备的支持，而以轻量为目标的CloudHyeprvirsor、Firecracker也各自提供了默认的精简内核，相较于Alpine Virt内核，去除了大量无意义的驱动，几乎只支持virtio设备，其中CloudHypervisor默认内核还额外使能了PCI子系统，以便于使用SRIOV设备，实验中为了让实验结果更加具备可比性，因此使能了Firecracker内核中的PCI配置。
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{boot_time_cdf}
-    \bicaption{\quad Control Zone 、CloudHypervisor 及Firecracker内核的启动速度比较}{\quad The comparison of startup speed between Control Zone、CloudHypervisor and Firecracker.} 
-    \label{fig:boot_time_cdf}
+    \includegraphics[width=0.55\textwidth]{avg_boot_time}
+    \bicaption{\quad 启动时间为引导至运行init程序的时间}{\quad Boot time is the time it takes to boot to the init program.}
+    \label{fig:avg_boot_time}
 \end{figure}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.7\textwidth]{avg_boot_time}
+%     \bicaption{\quad 启动时间为引导至运行init程序的时间，比较Firecracker（FC）、Control Zone（CZ）、Alpine（AL）内核，使用Cloud Hypervisor与Qemu}{\quad Boot time is the time it takes to boot to the init program. Compare Firecracker(FC), Control Zone(CZ), and Alpine(AL) kernels using Cloud Hypervisor and Qemu.}
+%     \label{fig:avg_boot_time}
+% \end{figure}
 
 实验结果如图~\ref{fig:avg_boot_time}所示，Control Zone内核的平均启动开销相较于Alpine Virt内核最高降低了88.8\%，对比不同的虚拟化运行时的数据发现而其中绝大部分的优化效果升来自于对内核的裁切，Control Zone内核仅支持运行容器、BPF子系统与Sched Ext调度类的最小功能，因此在启动时省去了大量非必要的工作，从而能够做到足够快速。同时还可以发现， 对于Alpine Virt内核而言，使用CloudHypervisor相较于Qemu降低28.9\%的启动时间，而观察两者的启动日志发现，虚拟化运行时所带来的提升主要来自于对于设备的裁切上，CloudHypervisor只需要针对云场景，因此相较于Qemu去除了大量的无关设备模拟，而更精简的设备一方面减少了虚拟化运行时的启动时间，另一方面，Guest内核也不必进行过多的设备探测与初始化，尤其在PCI子系统的初始化上，CloudHypervisor相较于Qemu，PCI子系统的初始化时间平均减少了83.2\%。相同的情况在其他内核上则有所不同，由于精简内核本身支持的设备驱动就十分有限，因此虚拟化运行时在这些内核的优化上主要体现在运行时启动本身上。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{avg_boot_time}
-    \bicaption{\quad 启动时间为引导至运行init程序的时间，比较Firecracker（FC）、Control Zone（CZ）、Alpine（AL）内核，使用Cloud Hypervisor与Qemu}{\quad Boot time is the time it takes to boot to the init program. Compare Firecracker(FC), Control Zone(CZ), and Alpine(AL) kernels using Cloud Hypervisor and Qemu.}
-    \label{fig:avg_boot_time}
+    \includegraphics[width=0.8\textwidth]{boot_time_cdf}
+    \bicaption{\quad Control Zone 、CloudHypervisor 及Firecracker内核的启动速度比较}{\quad The comparison of startup speed between Control Zone、CloudHypervisor and Firecracker.} 
+    \label{fig:boot_time_cdf}
 \end{figure}
 
 在精简内核的对比中，Control Zone内核也存在优势，如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%，对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了对嵌套虚拟化的支持而开启了虚拟化子系统，因此会产生额外的开销，而Control Zone内核所支持的容器环境所需要的支持则相对更少。但是相对于Firecra内核，Control Zone内核则在启动开销上并没有优势，即便使用Qemu虚拟化运行时，Firecracker内核也能达到接近使用CloudHypervisor的Control Zone内核的启动速度，比较配置能够发现， Firecracker内核在功能裁切上更加激进，分析两者的启动日志能够发现这开销的差异主要来自于Control Zone内核中所需要的额外功能，如Netfilter子系统等。这些功能在本设计中时必须的，同时考虑场景上的差异，Firecracker实现时希望以承担安全容器的运行时环境，虚拟机的生命周期与运行在其中的容器绑定，而在Control Zone的设计中，任务与Control Zone并非完全耦合，Control Zone更接近与对于隔离环境的声明，在任务需要运行时启动，而在任务运行完毕后仍然会保留，并提供给下一个任务使用，即Control Zone不会频繁地启动，因此这部分开销在设计中是可以接受的。
@@ -96,12 +103,12 @@ Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PRE
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.49\textwidth}
       \includegraphics[width=\textwidth]{redis_response}
       \caption{Redis与干扰混部}
       \label{fig:redis_response}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.49\textwidth}
       \includegraphics[width=\textwidth]{memcached_response}
       \caption{Memcached与干扰混部}
       \label{fig:memcached_response}
@@ -119,18 +126,19 @@ Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREE
 
 \begin{figure}[!htbp][H]
     \centering
-    \includegraphics[width=0.8\textwidth]{avg_graph500_runtime}
+    \includegraphics[width=0.5\textwidth]{avg_graph500_runtime}
     \bicaption{\quad 不同配置下的吞吐量差异}{\quad Throughput Discrepancy Across Different Configurations} 
     \label{fig:avg_graph500_runtime}
 \end{figure}
 
-Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录任务的执行时间，包括用户态与内核态的执行时间， 具体实验结果如图~\ref{fig:avg_graph500_runtime}所示，其中使用Throughput内核的Control Zone消耗的时间最短，而使用Response内核的Control Zone则消耗的最长的时间，分析执行时间占比，在Throughput内核下，任务运行过程中内核态时间消耗几乎没有，而在Response内核中，内核态时间则占用了较大比例，造成这一结果的主要原因是时钟中断与NO_HZ配置，越高的时钟中断频率会引发越导致越频繁的陷入内核态，一方面使得内核态时间变得更长，另一方面也会导致局部性的破坏导致任务执行速度的减慢。
+Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录任务的执行时间，包括用户态与内核态的执行时间， 具体实验结果如图~\ref{fig:avg_graph500_runtime}所示，其中使用Throughput内核的Control Zone消耗的时间最短，而使用Response内核的Control Zone则消耗的最长的时间，分析执行时间占比，在Throughput内核下，任务运行过程中内核态时间消耗几乎没有，而在Response内核中，内核态时间则占用了较大比例，造成这一结果的主要原因是时钟中断与NO\_HZ配置，越高的时钟中断频率会引发越导致越频繁的陷入内核态，一方面使得内核态时间变得更长，另一方面也会导致局部性的破坏导致任务执行速度的减慢。
 
 \section{BPF调度策略实验}
 
-\subsection{强隔离调度策略}
+\subsection{CPU约束调度策略}
 
-% 增加调度策略的解释
+% 普通场景
+% 硬件场景：SMT
 
 BPF强隔离调度策略能够在混部场景中，为高优先级应用提供更好的性能保障，使得性能接近于无干扰的状态。而为验证强隔离调度策略的效果设计了两个混部场景的实验。场景一中使用4个独立的CPU，2048M内存的Control Zone进行实验，高优先级应用使用Mysql，而低优先级应用使用CPU干扰应用。场景二中则使用2CPU，512M的内存，并特别地使用SMT绑定为虚拟机CPU，同时选用延时敏感的Redis与CPU干扰进行混部。
 
@@ -138,7 +146,7 @@ BPF强隔离调度策略能够在混部场景中，为高优先级应用提供�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{mysql_perf}
+    \includegraphics[width=0.6\textwidth]{mysql_perf}
     \bicaption{\quad Mysql与干扰混部}{\quad MySQL with Interference} 
     \label{fig:mysql_perf}
 \end{figure}
@@ -147,7 +155,7 @@ BPF强隔离调度策略能够在混部场景中，为高优先级应用提供�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{mysql_perf}
+    \includegraphics[width=0.8\textwidth]{redis_smt}
     \bicaption{\quad SMT下Redis与干扰混部}{\quad Redis with Interference On SMT} 
     \label{fig:redis_smt}
 \end{figure}

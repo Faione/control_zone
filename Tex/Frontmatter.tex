@@ -18,18 +18,30 @@
 \setcounter{page}{1}% 开始页码
 \pagenumbering{Roman}% 页码符号
 
-中文摘要、英文摘要、目录、论文正文、参考文献、附录、致谢、攻读学位期间发表的学术论文与其他相关学术成果等均须由另页右页（奇数页）开始。
+% 背景
+% 问题
+% 解决方式
 
-\keywords{中国科学院大学，学位论文，模板}% 中文关键词
+混合部署是当前数据中心提升资源利用率的有效手段，通过应用对延迟的敏感度差异，可以将应用区分为延迟敏感型与尽力交付型，并部署到同一台服务器中。混合部署允许任务的并发，从而能在一定程度上提升整体资源的利用率，但由于服务器整体资源有限，并发通常会导致资源竞争，此时可以牺牲尽力交付型应用，来优先保障延迟敏感型应用的服务质量。而要实现上述目标，就依赖一定的资源隔离手段与调度机制。
+
+本文首先对数据中心典型应用进行画像分析，分析不同应用的资源使用特征与干扰敏感度，了解应用对于运行环境的需求，以及可能存在的资源竞争场景，协助制定混部方案。其次，从内核配置与资源感知两个方面设计了针对不同场景的定制调度方案，来解决不同混部场景下的QoS保障问题。最后，为解决不同内核配置以及不同调度器在服务器上并存的需求，设计实现了Control Zone，一种面向混部场景的沙箱系统。
+
+Control Zone基于虚拟机实现，提供了丰富的资源隔离配置，来对混部应用所需的资源进行充分的隔离与保护，同时，Control Zone支持运行时可变的调度器，通过将内核调度器容器化，能够方便地针对不同的混部方案进行选择与动态更新。而针对典型的混部场景，本文设计实现了资源感知调度策略，能根据CPU、网络等资源的使用情况来自动地进行任务调度，实现对高优先级应用的QoS保障。最后，本文还设计实现了一套围绕虚拟机的可观测性系统，能够实时地采集丰富的虚拟机指标数据，辅助进行性能分析。
+
+% 具体数字
+
+通过对内核以及虚拟机运行时的优化，Control Zone虚拟机的启动速度达到了与先进技术相近的水平。而通过响应度优先与吞吐量优先的两种内核配置，使得LC应用延迟降低了?, BE应用吞吐量提高了?。而在资源感知调度策略中，使用较为激进的调度方案，能够在保障整体CPU资源使用率的同时，使得高优先级应用的资源使用率接近其单独部署下的水平。
+
+
+\keywords{数据中心，混合部署，内核调度，eBPF，服务质量}% 中文关键词
 %-
 %-> 英文摘要
 %-
 \intobmk\chapter*{Abstract}% 显示在书签但不显示在目录
 
-Chinese abstracts, English abstracts, table of contents, the main contents, references, appendix, acknowledgments, author's resume and academic papers published during the degree study and other relevant academic achievements must start with another right page (odd-numbered page).
-    %- the current style, comment all the lines in plain style definition.
 
-\KEYWORDS{University of Chinese Academy of Sciences, Thesis, LaTeX Template}% 英文关键词
+
+\KEYWORDS{}% 英文关键词
 
 \pagestyle{enfrontmatterstyle}%
 \cleardoublepage\pagestyle{frontmatterstyle}%
