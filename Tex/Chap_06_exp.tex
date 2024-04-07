@@ -125,7 +125,7 @@ Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PRE
 
 Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。吞吐量优先内核能够在任务量较少的场景中，让任务保持CPU资源的占用，从而更好地利用局部性，因此实验使用单一任务场景，选择Graph500作为目标应用，并对比其在CloudHypervisor默认内核、Throughput内核以及Response内核下的运行情况。实验在一个4CPU 512MB内存的Control Zone中进行。
 
-\begin{figure}[!htbp][H]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.5\textwidth]{avg_graph500_runtime}
     \bicaption{\quad 不同配置下的吞吐量差异}{\quad Throughput Discrepancy Across Different Configurations} 
