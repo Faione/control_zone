@@ -263,18 +263,21 @@
     \caption{net干扰效果}
     \label{fig:net_interference}
   \end{subfigure}
-  \caption{干扰效果}
   \begin{subfigure}[b]{0.45\textwidth}
     \includegraphics[width=\textwidth]{vm_interference}
     \caption{内存干扰效果}
     \label{fig:vm_interference}
   \end{subfigure}
+  \bicaption{\quad 干扰效果分析}{\quad Interference Effects Analysis}
   \label{fig:interference}
 \end{figure}
 
 4）Net干扰选择Accept系统调用延迟作为表征指标。Accept系统调用通常发生在Server类应用中，用于与Client建立连接，Accept系统调用变慢通常意味着连接排队延迟与客户端超时，而具体的干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大，由于延迟指标可以无限增加，实验中根据应用延迟范围来确定干扰强度。
 
 5）Memory干扰使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度为6时出现较大的波动。
+
+考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰，导致类似于CPU或Cache干扰，因此在后续的
+没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
 
 \section{画像分析与结论}
 
@@ -304,7 +307,7 @@
         \caption{网络资源指标}
         \label{fig:cof_mem}
     \end{subfigure}
-\caption{总资源变异系数}
+\bicaption{\quad 总资源变异系数}{\quad Coefficient of Variation of Total Resources}
 \label{fig:resource_affinity}
 \end{figure}
 
@@ -324,7 +327,7 @@
         \caption{Memcached资源使用}
         \label{fig:profile_memcached}
     \end{subfigure}
-\caption{Redis与Memcached资源使用情况}
+\bicaption{\quad Redis与Memcached资源使用情况}{\quad Resource Usage of Redis and Memcached}
 \label{fig:resource_affinity_0}
 \end{figure}
 
@@ -342,7 +345,7 @@
         \caption{Kafka资源使用}
         \label{fig:profile_kafka}
     \end{subfigure}
-\caption{Nginx与Kafka资源使用情况}
+\bicaption{\quad Nginx与Kafka资源使用情况}{\quad Resource Usage of Nginx and Kafka}
 \label{fig:resource_affinity_1}
 \end{figure}
 
@@ -362,8 +365,8 @@
         \caption{Render资源使用}
         \label{fig:profile_render}
     \end{subfigure}
+\bicaption{\quad Elasticsearch与Render资源使用情况}{\quad Resource Usage of Elasticsearch and Render}
 \label{fig:resource_affinity_2}
-\caption{Elasticsearch与Render资源使用情况}
 \end{figure}
 
 4）Network资源：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
@@ -372,7 +375,33 @@
 
 \subsection{典型应用资源敏感度分析}
 
-资源敏感度主要分析典型应用与不同配置下的干扰进行混部后的性能劣化情况，其中应用性能使用竖亥Benchmark提供的白盒指标进行评价。白盒指标中既有经过加权计算后的统一评分，也有对于每个应用单独的评价指标，在性能劣化中，主要选择劣化程度与干扰程度较为相关的指标进行分析。不同应用核心性能指标与干扰强度的关系如图~\ref{}所示，而综合图例结果分析能够将应用分为以下4类：
+资源敏感度主要分析典型应用与不同配置下的干扰进行混部后的性能劣化情况，其中应用性能使用竖亥Benchmark提供的白盒指标进行评价。白盒指标中既有经过加权计算后的统一评分，也有对于每个应用单独的评价指标，在性能劣化中，主要选择劣化程度与干扰程度较为相关的指标进行分析。不同应用核心性能指标与在干扰强度及不同负载下的劣化情况，以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。结合其他应用的资源敏感性分析，可在资源的角度对典型应用进行初步划分，主要为如下3类：
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{interfer_cpu}
+        \caption{CPU干扰下的性能劣化情况}
+        \label{fig:interfer_cpu}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+      \includegraphics[width=\textwidth]{interfer_cache}
+      \caption{Cache干扰下的性能劣化情况}
+      \label{fig:interfer_cache}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{interfer_io}
+        \caption{IO干扰下的性能劣化情况}
+        \label{fig:interfer_io}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{interfer_mem}
+        \caption{Memory干扰下的性能劣化情况}
+        \label{fig:interfer_mem}
+    \end{subfigure}
+\bicaption{\quad Redis干扰敏感度}{\quad Redis interference sensitivity}
+\label{fig:redis_interf_sensitivity}
+\end{figure}
 
 1）单纯CPU敏感型：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
 
