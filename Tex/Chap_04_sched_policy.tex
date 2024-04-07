@@ -137,12 +137,20 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
 
 大多数高性能网络应用都基于epoll机制实现。epoll机制允许进程同时监听多个连接，并在连接就绪时进行批量处理，相较于阻塞型网络系统调用，使用epoll能够在大量请求时减少频繁地阻塞唤醒过程，从而支持更高的并发量。epoll机制涉及到多个系统调用，而其中最为核心的是epoll\_wait系统调用，进程在注册等待事件之后，就能够通过epoll\_wait系统调用来获取当前的就绪事件，当存在就绪事件时，epoll\_wait系统调用会返回就绪的事件数量，而当没有事件就绪时，epoll\_wait仍然会阻塞进程。
 
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\textwidth]{epoll_request}
-    \bicaption{\quad 请求数量与Epoll Wait事件数量时序图}{\quad Requests Count vs. Epoll Wait Events Count Timeline} 
-    \label{fig:epoll_request}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{epoll_memcached}
+        \caption{Memcached请求数量与Epoll Wait事件数量}
+        \label{fig:epoll_memcached}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{epoll_redis}
+        \caption{Redis请求数量与Epoll Wait事件数量}
+        \label{fig:epoll_redis}
+    \end{subfigure}
+\bicaption{\quad LC应用负载与Epoll事件}{\quad Resource Usage of Nginx and Kafka}
+\label{fig:resource_affinity_1}
 \end{figure}
 
 综合以上分析，网络资源的使用监测可通过监听epoll\_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll\_wait返回处进行插桩，并统计epoll\_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll\_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{fig:epoll_request}所示，epoll\_wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll\_wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
