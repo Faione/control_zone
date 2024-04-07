@@ -93,36 +93,61 @@ Linux调度子系统在设计时力图覆盖足够广泛的场景，但同时也
 
 Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析中提到，由于SMT、NUMA、CPU Turbo等技术的存在，独立的CPU之间仍然存在资源的竞争，这就导致了混部场景下的吵闹邻居现象。单一调度队列中，优先级机制能够指示任务的调度行为，但在不同CPU调度队列上，优先级机就几乎不能产生影响，如在一个SMT系统中，即便运行在不同Sibling上的任务存在优先级差异，但此时调度器并不能保证高优先级任务的资源使用。
 
-针对如上问题，本研究进一步设计了CPU资源感知策略。策略允许低优先级任务的调度的CPU阈值，允许当低优先级任务的可用CPU数量达到阈值时，才能进行任务调度，否则则需要让出CPU资源。相较于Linux Core调度，CPU资源感知策略不局限于SMT编组，提供更灵活的调度方案。而相较于Cgroup中的cpu set机制，CPU资源感知策略使用更动态的CPU数量而不是固定的CPU亲和性，从而能够实现高优先级任务空闲时，利用所有的空闲核心，而当高优先级任务运行时，来根据阈值控制并发数量。
-
-% 增加CPU数量追踪算法
+对于CPU敏感型应用，如上问题会引发较大的性能劣化，为此本研究进一步设计了CPU资源感知策略。策略允许低优先级任务的调度的CPU阈值，允许当低优先级任务的可用CPU数量达到阈值时，才能进行任务调度，否则则需要让出CPU资源。相较于Linux Core调度，CPU资源感知策略不局限于SMT编组，提供更灵活的调度方案。而相较于Cgroup中的cpu set机制，CPU资源感知策略使用更动态的CPU数量而不是固定的CPU亲和性，从而能够实现高优先级任务空闲时，利用所有的空闲核心，而当高优先级任务运行时，来根据阈值控制并发数量。
 
 \begin{algorithm}
     \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
-    \label{alg:enhance_sched_isolation}
+    \label{alg:cpu_aware_sched}
     \begin{algorithmic}[1]
-    \While{True}
-        \If{$\text{CPU\_Acquired + CPU\_Idle} < \text{CPU\_Available}$ }
-            \State Set Exclusive Flag;
-            \For{each no\_hz core C}
-                \State Send an IPI to envoke target CPU rescheduling.
-            \EndFor
-            \State Yield to higher priority scheduler class;
-        \EndIf
-        \State Remove Exclusive Flag;
-        \State Dispatched tasks;
-    \EndWhile
+    
+    \Function{cpuAcquire} {cpu}
+    \State Insert cpu to CPU\_Map;
+    \EndFunction
+    
+    \Function{cpuRelease} {cpu}
+    \State Remove cpu from CPU\_Map;
+    \EndFunction
+    
+    \Function {schedule}{}
+        \While{True}
+            \If{$\text{CPU\_Acquired + CPU\_Idle} < \text{CPU\_Available}$ }
+                \State Set Exclusive Flag;
+                \For{each no\_hz core C}
+                    \State Send an IPI to envoke target CPU rescheduling.
+                \EndFor
+                \State Yield to higher priority scheduler class;
+            \EndIf
+            \State Remove Exclusive Flag;
+            \State Dispatched tasks;
+        \EndWhile
+    \EndFunction
     \end{algorithmic}
 \end{algorithm}
 
-多CPU调度队列上的强隔离实现则较为复杂。首先，在BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Sched Ext中所能使用的CPU数量，而具体的调度逻辑如伪代码~\ref{alg:enhance_sched_isolation}所示，首先BPF Scheduler会依据不同调度类CPU的数量，来判断是否有更高优先级调度类中的任务正在运行，一旦发现，则首先设置一个Exclusive Flag， 用于在其他回调中共享状态，其次，对于处于NoHZ状态下的CPU，发送IPI以注入一次重调度，而当系统中没有更高优先级调度类的任务运行时，则正常进行任务的分发。
+而在实际BPF Scheduler中，选择使用一个全局DSQ，并通过cpu\_acquire，cpu\_release两个回调函数来动态获取当前Ext调度类中所能管理的CPU数量，而具体的调度逻辑如伪代码~\ref{alg:cpu_aware_sched}所示，首先BPF Scheduler会依据不同调度类CPU的数量，来判断是否有更高优先级调度类中的任务正在运行，一旦发现，则首先设置一个Exclusive Flag， 用于在其他回调中共享状态，其次，对于处于NoHZ状态下的CPU，发送IPI以注入一次重调度，而当系统中没有更高优先级调度类的任务运行时，则正常进行任务的分发。
 
 \subsection{网络资源感知策略}
 
-% Control Zone级调度
-% - 更具优先级的资源划分
+% LC应用负载与Epoll的关系
+% - 原理
+% - 流量，epoll wait图，相关性
+% 网络资源感知策略
 
-高优先级任务在负载较低时可以低优先级任务并行，有利于提升整体资源的利用率。实现这一策略的核心在于让BPF调度器感知系统中高优先级任务的负载。首先，以LC应用为例，如Redis，其负载与网络请求强相关，而通过探测网络处理相关系统调用的使用情况，就能在一定程度上探测LC应用的负载，以epoll\_wait系统调用为例，当系统中网络请求较低时，epoll\_wait系统调用容易进入阻塞或超时控制状态，因此执行频率会大大降低，而当系统中网络请求较高时，epoll\_wait系统调用几乎总能快速返回一个文件描述列表，而通过使用eBPF在此系统调用上插桩，就能够追踪系统调用的执行频率。基于这一机制可实现网络资源约束的任务调度策略，具体逻辑如伪代码~\ref{network_aware_sched}所示。
+网络资源敏感型应用的构成中并非所有部分都与网络相关，如Redis主线程监听网络请求并进行处理，而用于快照的辅助线程则与网络无关，同时，在第三章的应用画像中也发现网络资源敏感型应用的资源敏感度随负载而变化。以上都使得网络资源的使用情况能够作为一种进行调度决策的因素。
+
+大多数高性能网络应用都基于epoll机制实现。epoll机制允许进程同时监听多个连接，并在连接就绪时进行批量处理，相较于阻塞型网络系统调用，使用epoll能够在大量请求时减少频繁地阻塞唤醒过程，从而支持更高的并发量。epoll机制涉及到多个系统调用，而其中最为核心的是epoll_wait系统调用，进程在注册等待事件之后，就能够通过epoll_wait系统调用来获取当前的就绪事件，当存在就绪事件时，epoll_wait系统调用会返回就绪的事件数量，而当没有事件就绪时，epoll_wait仍然会阻塞进程。
+
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.6\textwidth]{epoll_request}
+    \bicaption{\quad 请求数量与Epoll Wait事件数量时序图}{\quad Requests Count vs. Epoll Wait Events Count Timeline} 
+    \label{fig:epoll_request}
+\end{figure}
+
+综合以上分析，网络资源的使用监测可通过监听epoll_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll_wait返回处进行插桩，并统计epoll_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{epoll_request}所示，epoll wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
+
+eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epoll wait的探测程序实现的网络资源感知BPF Scheduler具体逻辑如伪代码~\ref{network_aware_sched}所示。在BPF Scheduler在获取到CPU的管理权限之后，还需要根据当前系统中的网络资源使用情况来判断是否进行低优先级任务的调度，网络资源的阈值可以结合第三章中的无干扰画像进行灵活的配置，主要在低负载段允许任务的并发以充分利用系统资源。
 
 % 增加Epoll wait追踪算法
 
@@ -130,22 +155,32 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
     \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
     \label{alg:network_aware_sched}
     \begin{algorithmic}[1]
-    \While{True}
-        \State Read epoll wait delta from bpf map
-        \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL\_WAIT\_THRESHOLD}$ }
-            \State Set Exclusive Flag;
-            \For{each no\_hz core C}
-                \State Send an IPI to envoke a rescheduling.
-            \EndFor
-            \State Yield to higher priority scheduler class;
-        \EndIf
-        \State Remove Exclusive Flag;
-        \State Dispatched tasks;
-    \EndWhile
+
+    \Function {do\_epoll\_wait_return}{nr\_event}
+        \State Write timestamp of current epoll wait
+        \State Write nr\_event of current epoll wait
+        \State Update total event count
+        \State Update count of epoll wait
+    \EndFunction
+
+    \Function {schedule}{}
+        \While{True}
+            \State Read epoll wait delta from bpf map
+            \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL\_WAIT\_THRESHOLD}$ }
+                \State Set Exclusive Flag;
+                \For{each no\_hz core C}
+                    \State Send an IPI to envoke a rescheduling.
+                \EndFor
+                \State Yield to higher priority scheduler class;
+            \EndIf
+            \State Remove Exclusive Flag;
+            \State Dispatched tasks;
+        \EndWhile
+    \EndFunction
     \end{algorithmic}
 \end{algorithm}
 
-在单CPU调度队列上，低于优先级任务总是会让出CPU资源，而具体差异体现在多CPU任务队列中，首先，通过eBPF插桩，记录固定时间内的epoll\_wait系统调用次数，并保存到一个BPF Map中，当BPF Scheduler在接管CPU之后，会在每个调度循环中，首先读取BPF Map中的epoll\_wait计数，并判断是否达到阈值，在阈值之下，允许调度任务，而当达在阈值之上，则放弃调度任务。其中eBPF采集以及阈值都可以根据高优先级的任务特性进行定制。
+基于调度队列的隔离会在高优先级任务执行时进行避让，因此BPF Scheduler网络资源感知策略仍然相对保守，导致无法充分地使用系统资源。对此有两种解决方式，第一种方式是将高优先级应用也加入到Ext调度类中，并单独为其分配一个DSQ，这种方式对BPF Scheduler的实现要求较高。而第二种方式则相对简单，eBPF的优势在于其灵活性，因此上述逻辑也可以变更为在低负载时，关闭BPF Scheduler，而根据第二章的技术分析，此时所有的EXT调度类任务将回退到Fair调度类中，从而解除调度队列隔离，而当负载达到一定阈值时，再使能BPF Scheduler来保障高优先级任务的性能。
 
 % \section{资源划分策略定制}
 
@@ -153,4 +188,4 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
 
 本章主要首先针对画像分析中不同类型应用，基于内核中关于HZ与抢占模型的配置，设计了调度配置的定制优化，提供了吞吐量优先与响应度优先两种不同调度目标的内核配置。
 
-随后分析混部场景下，高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先提出较为粗粒度的强隔离BPF调度策略，能够感知高优先级任务的执行并主动出让全部CPU资源，从而保障高优先级应用的执行。随后为了提升整体的资源利用率，提出了基于资源约束的BPF调度策略，通过eBPF插桩感知系统中网络资源的使用，并通过与阈值的比较来允许一定程度的并发，从而在保障高优先级应用的同时，提升整体资源利用率。
+随后设计了混部场景下高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先，提出了较为粗粒度的BPF调度队列隔离策略，利用调度类的优先级特性，使得在单个CPU上，低优先级能够感知高优先级任务的执行并出让CPU资源，从而保障高优先级应用的执行。其次，基于BPF调度队列隔离策略，结合eBPF对于CPU与网络资源的感知实现更灵活的BPF资源感知调度策略，一方面相较于静态的CPU亲和性配置，CPU资源感知的调度策略能够动态地利用高优先级任务没有用到的核心，另一方面利用eBPF程序之间的交互性，能够方便地将其他子系统中的监测信息传递给BPF Scheduler进行辅助决策。
