@@ -280,84 +280,94 @@
 
 \subsection{典型应用资源使用倾向分析}
 
-无干扰实验中，不同应用对应的资源指标如图~\ref{}所示。从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致图中一部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只会在一个较小的范围内波动。
+无干扰实验中计算各个监测指标的变异系数，得到不同应用对应的资源指标如图~\ref{fig:resource_affinity}所示。从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致图中一部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只会在一个较小的范围内波动。
 
-具体到应用的差异性如图~\ref{fig:resource_affinity}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
-
-1）CPU资源：应用的运行都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出，但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高，而当请求量足够多时，由于都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用，而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
-
-2）Cache资源：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
-
-3）Memory资源：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
-
-4）Network资源：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
-
-5）I/O资源：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
-
-\begin{figure}
+\begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.45\textwidth}
-      \includegraphics[width=\textwidth]{profile_redis}
-      \caption{Redis资源使用}
-      \label{fig:profile_redis}
+      \includegraphics[width=\textwidth]{cof_cpu}
+      \caption{CPU资源指标}
+      \label{fig:cof_cpu}
     \end{subfigure}
     \begin{subfigure}[b]{0.45\textwidth}
-        \includegraphics[width=\textwidth]{profile_memcached}
-        \caption{Memcached资源使用}
-        \label{fig:profile_memcached}
+        \includegraphics[width=\textwidth]{cof_mem}
+        \caption{Cache、内存资源指标}
+        \label{fig:cof_mem}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{cof_network}
+        \caption{网络资源指标}
+        \label{fig:cof_mem}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{cof_io}
+        \caption{IO资源指标}
+        \label{fig:cof_mem}
     \end{subfigure}
 \label{fig:resource_affinity}
-\caption{不同应用的资源使用情况}
+\caption{总资源变异系数}
 \end{figure}
 
-\begin{figure}
+具体到应用的差异性如图~\ref{fig:resource_affinity_0}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
+
+\begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
       \includegraphics[width=\textwidth]{profile_redis}
       \caption{Redis资源使用}
       \label{fig:profile_redis}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
         \includegraphics[width=\textwidth]{profile_memcached}
         \caption{Memcached资源使用}
         \label{fig:profile_memcached}
     \end{subfigure}
 \label{fig:resource_affinity_0}
-\caption{不同应用的资源使用情况}
+\caption{不同应用的资源使用情况-1}
 \end{figure}
 
-\begin{figure}
+1）CPU资源：应用的运行都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出，但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高，而当请求量足够多时，由于都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用，而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
+
+\begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
       \includegraphics[width=\textwidth]{profile_nginx}
       \caption{Nginx资源使用}
       \label{fig:profile_nginx}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
         \includegraphics[width=\textwidth]{profile_kafka}
         \caption{Kafka资源使用}
         \label{fig:profile_kafka}
     \end{subfigure}
+    
 \label{fig:resource_affinity_1}
-\caption{不同应用的资源使用情况}
+\caption{不同应用的资源使用情况-2}
 \end{figure}
 
-\begin{figure}
+2）Cache资源：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
+
+3）Memory资源：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
+
+\begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
       \includegraphics[width=\textwidth]{profile_elasticsearch}
       \caption{Elasticsearch资源使用}
       \label{fig:profile_elasticsearch}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.9\textwidth}
         \includegraphics[width=\textwidth]{profile_render}
         \caption{Render资源使用}
         \label{fig:profile_render}
     \end{subfigure}
 \label{fig:resource_affinity_2}
-\caption{不同应用的资源使用情况}
+\caption{不同应用的资源使用情况-3}
 \end{figure}
 
+4）Network资源：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
+
+5）I/O资源：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
 
 \subsection{典型应用资源敏感度分析}
 
