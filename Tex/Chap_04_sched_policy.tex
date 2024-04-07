@@ -135,7 +135,7 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
 
 网络资源敏感型应用的构成中并非所有部分都与网络相关，如Redis主线程监听网络请求并进行处理，而用于快照的辅助线程则与网络无关，同时，在第三章的应用画像中也发现网络资源敏感型应用的资源敏感度随负载而变化。以上都使得网络资源的使用情况能够作为一种进行调度决策的因素。
 
-大多数高性能网络应用都基于epoll机制实现。epoll机制允许进程同时监听多个连接，并在连接就绪时进行批量处理，相较于阻塞型网络系统调用，使用epoll能够在大量请求时减少频繁地阻塞唤醒过程，从而支持更高的并发量。epoll机制涉及到多个系统调用，而其中最为核心的是epoll_wait系统调用，进程在注册等待事件之后，就能够通过epoll_wait系统调用来获取当前的就绪事件，当存在就绪事件时，epoll_wait系统调用会返回就绪的事件数量，而当没有事件就绪时，epoll_wait仍然会阻塞进程。
+大多数高性能网络应用都基于epoll机制实现。epoll机制允许进程同时监听多个连接，并在连接就绪时进行批量处理，相较于阻塞型网络系统调用，使用epoll能够在大量请求时减少频繁地阻塞唤醒过程，从而支持更高的并发量。epoll机制涉及到多个系统调用，而其中最为核心的是epoll\_wait系统调用，进程在注册等待事件之后，就能够通过epoll\_wait系统调用来获取当前的就绪事件，当存在就绪事件时，epoll\_wait系统调用会返回就绪的事件数量，而当没有事件就绪时，epoll\_wait仍然会阻塞进程。
 
 
 \begin{figure}[!htbp]
@@ -145,31 +145,29 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
     \label{fig:epoll_request}
 \end{figure}
 
-综合以上分析，网络资源的使用监测可通过监听epoll_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll_wait返回处进行插桩，并统计epoll_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{epoll_request}所示，epoll wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
+综合以上分析，网络资源的使用监测可通过监听epoll\_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll\_wait返回处进行插桩，并统计epoll\_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll\_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{epoll_request}所示，epoll\_wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll\_wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
 
 eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epoll wait的探测程序实现的网络资源感知BPF Scheduler具体逻辑如伪代码~\ref{network_aware_sched}所示。在BPF Scheduler在获取到CPU的管理权限之后，还需要根据当前系统中的网络资源使用情况来判断是否进行低优先级任务的调度，网络资源的阈值可以结合第三章中的无干扰画像进行灵活的配置，主要在低负载段允许任务的并发以充分利用系统资源。
-
-% 增加Epoll wait追踪算法
 
 \begin{algorithm}
     \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
     \label{alg:network_aware_sched}
     \begin{algorithmic}[1]
 
-    \Function {do\_epoll\_wait_return}{nr\_event}
-        \State Write timestamp of current epoll wait
-        \State Write nr\_event of current epoll wait
-        \State Update total event count
-        \State Update count of epoll wait
+    \Function {do\_epoll\_wait\_return}{$nr\_event$}
+        \State Write timestamp of current epoll wait;
+        \State Write $nr\_event$ of current epoll wait;
+        \State Update total event count;
+        \State Update count of epoll wait;
     \EndFunction
 
     \Function {schedule}{}
         \While{True}
-            \State Read epoll wait delta from bpf map
+            \State Read epoll wait delta from bpf map;
             \If{$\text{EPOLL\_WAIT\_DELTA} < \text{EPOLL\_WAIT\_THRESHOLD}$ }
                 \State Set Exclusive Flag;
                 \For{each no\_hz core C}
-                    \State Send an IPI to envoke a rescheduling.
+                    \State Send an IPI to envoke a rescheduling;
                 \EndFor
                 \State Yield to higher priority scheduler class;
             \EndIf
@@ -182,10 +180,12 @@ eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epo
 
 基于调度队列的隔离会在高优先级任务执行时进行避让，因此BPF Scheduler网络资源感知策略仍然相对保守，导致无法充分地使用系统资源。对此有两种解决方式，第一种方式是将高优先级应用也加入到Ext调度类中，并单独为其分配一个DSQ，这种方式对BPF Scheduler的实现要求较高。而第二种方式则相对简单，eBPF的优势在于其灵活性，因此上述逻辑也可以变更为在低负载时，关闭BPF Scheduler，而根据第二章的技术分析，此时所有的EXT调度类任务将回退到Fair调度类中，从而解除调度队列隔离，而当负载达到一定阈值时，再使能BPF Scheduler来保障高优先级任务的性能。
 
-% \section{资源划分策略定制}
+% \subsection{基于PMU实现的其他资源感知策略}
 
 \section{本章小结}
 
 本章主要首先针对画像分析中不同类型应用，基于内核中关于HZ与抢占模型的配置，设计了调度配置的定制优化，提供了吞吐量优先与响应度优先两种不同调度目标的内核配置。
 
-随后设计了混部场景下高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先，提出了较为粗粒度的BPF调度队列隔离策略，利用调度类的优先级特性，使得在单个CPU上，低优先级能够感知高优先级任务的执行并出让CPU资源，从而保障高优先级应用的执行。其次，基于BPF调度队列隔离策略，结合eBPF对于CPU与网络资源的感知实现更灵活的BPF资源感知调度策略，一方面相较于静态的CPU亲和性配置，CPU资源感知的调度策略能够动态地利用高优先级任务没有用到的核心，另一方面利用eBPF程序之间的交互性，能够方便地将其他子系统中的监测信息传递给BPF Scheduler进行辅助决策。
+随后设计了混部场景下高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先，提出了较为粗粒度的BPF调度队列隔离策略，利用调度类的优先级特性，使得在单个CPU上，低优先级能够感知高优先级任务的执行并出让CPU资源，从而保障高优先级应用的执行。
+
+其次，基于BPF调度队列隔离策略，结合eBPF对于CPU与网络资源的感知实现更灵活的BPF资源感知调度策略，一方面相较于静态的CPU亲和性配置，CPU资源感知的调度策略能够动态地利用高优先级任务没有用到的核心，另一方面利用eBPF程序之间的交互性，能够方便地将其他子系统中的监测信息传递给BPF Scheduler进行辅助决策。
