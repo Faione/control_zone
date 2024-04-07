@@ -375,26 +375,26 @@
 
 \subsection{典型应用资源敏感度分析}
 
-资源敏感度主要分析典型应用与不同配置下的干扰进行混部后的性能劣化情况，其中应用性能使用竖亥Benchmark提供的白盒指标进行评价。白盒指标中既有经过加权计算后的统一评分，也有对于每个应用单独的评价指标，在性能劣化中，主要选择劣化程度与干扰程度较为相关的指标进行分析。不同应用核心性能指标与在干扰强度及不同负载下的劣化情况以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。
+资源敏感度主要分析典型应用与不同配置下的干扰进行混部后的性能劣化情况，其中应用性能使用竖亥Benchmark提供的白盒指标进行评价。白盒指标中既有经过加权计算后的统一评分，也有对于每个应用单独的评价指标，在性能劣化中，主要选择劣化程度与干扰程度较为相关的指标进行分析。
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{interfer_cpu}
         \caption{CPU干扰下的性能劣化情况}
         \label{fig:interfer_cpu}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
       \includegraphics[width=\textwidth]{interfer_cache}
       \caption{Cache干扰下的性能劣化情况}
       \label{fig:interfer_cache}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{interfer_io}
         \caption{IO干扰下的性能劣化情况}
         \label{fig:interfer_io}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{interfer_mem}
         \caption{Memory干扰下的性能劣化情况}
         \label{fig:interfer_mem}
@@ -402,6 +402,8 @@
 \bicaption{\quad Redis干扰敏感度}{\quad Redis interference sensitivity}
 \label{fig:redis_interf_sensitivity}
 \end{figure}
+
+以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。
 
 结合其他应用的资源敏感性分析，可在资源的角度对典型应用进行初步划分，主要为如下3类：
 

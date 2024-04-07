@@ -113,8 +113,9 @@ Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PRE
       \caption{Memcached与干扰混部}
       \label{fig:memcached_response}
     \end{subfigure}
+    \bicaption{\quad 混部场景下的响应度优先内核}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
     \label{fig:lc_response}
-  \end{figure}
+\end{figure}
 
 混部实验结果如图~\ref{fig:lc_response}所示，在启用Control Zone响应度优先内核后，无论是Redis还是Memcached，在P99.9延迟上都要优于CloudHypervisor的默认内核，Reponse内核使用了更高的时钟中断频率，因此能够更快地在延时敏感应用与干扰应用中进行切换，同时在PREEMPT抢占模式下，网络中断能够更及时地进行处理，降低请求处理链路的整体延时。
 

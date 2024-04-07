@@ -145,11 +145,11 @@ Linux采用调度域机制来描述不同的CPU特性，而在第一章的分析
     \label{fig:epoll_request}
 \end{figure}
 
-综合以上分析，网络资源的使用监测可通过监听epoll\_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll\_wait返回处进行插桩，并统计epoll\_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll\_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{epoll_request}所示，epoll\_wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll\_wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
+综合以上分析，网络资源的使用监测可通过监听epoll\_wait系统调用的执行以及其返回参数实现，而使用eBPF技术能够方便地对系统调用进行探测。结合第三章中的eBPF系统调用探测的实现，网络资源监听eBPF程序在epoll\_wait返回处进行插桩，并统计epoll\_wait的执行频率与总事件计数，其次，eBPF程序额外记录了当次epoll\_wait完成的时间戳及事件数量，用以捕获突发的事件。抓取一段Redis固定负载下的实验结果，如图~\ref{fig:epoll_request}所示，epoll\_wait事件数量与Redis请求数量高度相关，而实验中由于请求在client侧统计，epoll\_wait事件计数则发生在服务端，因此在时序上会存在一定的偏移。
 
-eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epoll wait的探测程序实现的网络资源感知BPF Scheduler具体逻辑如伪代码~\ref{network_aware_sched}所示。在BPF Scheduler在获取到CPU的管理权限之后，还需要根据当前系统中的网络资源使用情况来判断是否进行低优先级任务的调度，网络资源的阈值可以结合第三章中的无干扰画像进行灵活的配置，主要在低负载段允许任务的并发以充分利用系统资源。
+eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epoll wait的探测程序实现的网络资源感知BPF Scheduler具体逻辑如伪代码~\ref{alg:network_aware_sched}所示。在BPF Scheduler在获取到CPU的管理权限之后，还需要根据当前系统中的网络资源使用情况来判断是否进行低优先级任务的调度，网络资源的阈值可以结合第三章中的无干扰画像进行灵活的配置，主要在低负载段允许任务的并发以充分利用系统资源。
 
-\begin{algorithm}
+\begin{algorithm}[H]
     \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
     \label{alg:network_aware_sched}
     \begin{algorithmic}[1]
