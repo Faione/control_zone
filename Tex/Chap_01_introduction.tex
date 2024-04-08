@@ -74,13 +74,22 @@
 
 3）定制调度逻辑的混部研究。资源隔离技术受限于软硬件的隔离能力，如Intel MBA对内存的控制上就存在一定的延时\citep{herdrich2016cache}，这使得在瞬时流量激增的场景中难以及时响应任务的资源需求。考虑到CPU资源是一切资源分配的起点，只有当任务分配到CPU执行时，才会有后续其他资源的分配或使用，通过定制调度逻辑，在调度过程中感知其他资源的竞争情况，就能够更早地解决资源竞争问题。定制调度逻辑的研究围绕灵活的调度策略与及时的调度展开，其中灵活的调度策略目的在于感知更广泛资源的竞争情况，这通常依赖用户态调度机制来满足灵活性的要求，其次则是更快速的调度，当前前沿研究围绕微秒级调度展开，快速的的调度能够更好地保障LC应用的延迟。
 
-基于上述研究，本文首先设计了一套细粒度的可观测性系统，监测应用的性能指标并在其获取系统关键资源的路径上进行探测，完成对典型应用的画像分析。然后，本文提出了 Control Zone, 一种面向混部场景的运行时调度可变的沙箱机制实现，如图~\ref{fig:controlzone}所示，系统中首先按照CPU以及其他资源的拓扑，将服务器资源切割成数个隔离域，随后在隔离域中部署混部方案。而考虑到数据中心的混部方案随应用数量和画像的程度而增加，同时无论是围绕资源分配还是任务调度的混部手段，都无法保障能在每个场景下有效，Control Zone允许在不同隔离域中实施不同的内核调度策略，同时考虑到应用在不同负载下性能表现的不同，允许运行时对内核调度策略进行动态修改来适应混部策略的变化。而在隔离域外，则结合软硬件手段，来对影响任务性能的关键软硬件资源进行隔离保护。最后则针对不同的混部方案，设计一系列调度策略，提供常见混部场景的解决方案。
+基于上述研究，本文首先设计了一套细粒度的可观测性系统，监测应用的性能指标并在其获取系统关键资源的路径上进行探测，完成对典型应用的画像分析。然后，本文提出了 Control Zone, 一种面向混部场景的运行时调度可变的沙箱机制实现，如图~\ref{fig:arch_dif}所示，系统中首先按照CPU以及其他资源的拓扑，将服务器资源切割成数个隔离域，随后在隔离域中部署混部方案。而考虑到数据中心的混部方案随应用数量和画像的程度而增加，同时无论是围绕资源分配还是任务调度的混部手段，都无法保障能在每个场景下有效，Control Zone允许在不同隔离域中实施不同的内核调度策略，同时考虑到应用在不同负载下性能表现的不同，允许运行时对内核调度策略进行动态修改来适应混部策略的变化。而在隔离域外，则结合软硬件手段，来对影响任务性能的关键软硬件资源进行隔离保护。最后则针对不同的混部方案，设计一系列调度策略，提供常见混部场景的解决方案。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{controlzone}
-    \bicaption{\quad Control Zone架构}{\quad Control Zone Architectural}
-    \label{fig:controlzone}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{arch_dif_cz}
+        \caption{Control Zone}
+        \label{fig:arch_dif_cz}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{arch_dif_fc}
+        \caption{Firecracker}
+        \label{fig:arch_dif_fc}
+    \end{subfigure}
+\bicaption{\quad 沙箱结构差异}{\quad Sandbox Structure Differences}
+\label{fig:arch_dif}
 \end{figure}
 
 \section{国内外相关研究}
