@@ -71,23 +71,16 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.55\textwidth]{avg_boot_time}
-    \bicaption{\quad 启动时间为引导至运行init程序的时间}{\quad Boot time is the time it takes to boot to the init program.}
+    \bicaption{\quad 平均启动时间比较}{\quad Comparison of average boot times}
     \label{fig:avg_boot_time}
 \end{figure}
-
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[width=0.7\textwidth]{avg_boot_time}
-%     \bicaption{\quad 启动时间为引导至运行init程序的时间，比较Firecracker（FC）、Control Zone（CZ）、Alpine（AL）内核，使用Cloud Hypervisor与Qemu}{\quad Boot time is the time it takes to boot to the init program. Compare Firecracker(FC), Control Zone(CZ), and Alpine(AL) kernels using Cloud Hypervisor and Qemu.}
-%     \label{fig:avg_boot_time}
-% \end{figure}
 
 实验结果如图~\ref{fig:avg_boot_time}所示，Control Zone内核的平均启动开销相较于Alpine Virt内核最高降低了88.8\%，对比不同的虚拟化运行时的数据发现而其中绝大部分的优化效果升来自于对内核的裁切，Control Zone内核仅支持运行容器、BPF子系统与Sched Ext调度类的最小功能，因此在启动时省去了大量非必要的工作，从而能够做到足够快速。同时还可以发现， 对于Alpine Virt内核而言，使用CloudHypervisor相较于Qemu降低28.9\%的启动时间，而观察两者的启动日志发现，虚拟化运行时所带来的提升主要来自于对于设备的裁切上，CloudHypervisor只需要针对云场景，因此相较于Qemu去除了大量的无关设备模拟，而更精简的设备一方面减少了虚拟化运行时的启动时间，另一方面，Guest内核也不必进行过多的设备探测与初始化，尤其在PCI子系统的初始化上，CloudHypervisor相较于Qemu，PCI子系统的初始化时间平均减少了83.2\%。相同的情况在其他内核上则有所不同，由于精简内核本身支持的设备驱动就十分有限，因此虚拟化运行时在这些内核的优化上主要体现在运行时启动本身上。
 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{boot_time_cdf}
-    \bicaption{\quad Control Zone 、CloudHypervisor 及Firecracker内核的启动速度比较}{\quad The comparison of startup speed between Control Zone、CloudHypervisor and Firecracker.} 
+    \bicaption{\quad 精简内核的启动时间比较}{\quad Comparison of Kernel Boot Time Optimization} 
     \label{fig:boot_time_cdf}
 \end{figure}
 
