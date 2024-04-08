@@ -116,12 +116,12 @@ Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PRE
 
 % graph500(time) \ ffmjpeg 
 
-Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。吞吐量优先内核能够在任务量较少的场景中，让任务保持CPU资源的占用，从而更好地利用局部性，因此实验使用单一任务场景，选择Graph500作为目标应用，并对比其在CloudHypervisor默认内核、Throughput内核以及Response内核下的运行情况。实验在一个4CPU 512MB内存的Control Zone中进行。
+Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。吞吐量优先内核能够在任务量较少的场景中，让任务保持CPU资源的占用，从而更好地利用局部性，因此实验使用单一任务场景，选择Graph500作为目标应用，并对比其在CloudHypervisor默认内核、Throughput内核以及Response内核下的运行情况。实验在一个4 CPU、512MB内存的Control Zone中进行。
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.5\textwidth]{avg_graph500_runtime}
-    \bicaption{\quad 不同配置下的吞吐量差异}{\quad Throughput Discrepancy Across Different Configurations} 
+    \bicaption{\quad 吞吐量优先内核配置优化效果}{\quad Throughput Discrepancy Across Different Configurations} 
     \label{fig:avg_graph500_runtime}
 \end{figure}
 
@@ -145,14 +145,42 @@ BPF强隔离调度策略能够在混部场景中，为高优先级应用提供�
     \label{fig:mysql_perf}
 \end{figure}
 
-混部场景二实验结果如图~\ref{fig:redis_smt}所示。SMT下Sibling共享了同一个物理CPU上的片上资源， 因此混部存在更激烈的资源竞争。Elfen\citep{yang2016elfen}通过修改内核与BE应用，使得BE应用能够主动探测Sibling上LC应用并及时出让CPU，从而保障LC应用的性能。这一策略对于SMT场景中的优先级应用性能保障来说十分重要，而受此启发的BPF强隔离调度策略能够在一定程度上达到类似的效果，而由于在探测频率上的差异，BPF强隔离机制还不能在SMT场景下完全保障高优先级任务的性能，但仍然强于Linux调度器。同时相较于Elfen，BPF Scheduler在开发与部署上都更加容易。
+混部场景二实验结果如图~\ref{fig:redis_smt}所示。SMT下Sibling共享了同一个物理CPU上的片上资源， 因此混部存在更激烈的资源竞争。Elfen\citep{yang2016elfen}通过修改内核与BE应用，使得BE应用能够主动探测Sibling上LC应用并及时出让CPU，从而保障LC应用的性能。这一思路在SMT场景中十分重要，而在BPF CPU感知任务调度策略中，首先，可以在Control Zone的资源声明中标注SMT信息，随后在BPF调度器启动时可以利用此参数，并在调度时考虑Sibling的运行情况。从实验结果中也能够看出，相较于Linux默认调度器，BPF调度器能够在干扰混部的场景中，使得LC应用在低负载时降低79.6\%的延迟，并在高负载时仍有33.7\%的延迟降低效果，这说明BPF Scheduler能够在不同负载下保障LC应用，使其性能接近于无干扰的情况
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{redis_smt}
+    \includegraphics[width=0.6\textwidth]{redis_smt}
     \bicaption{\quad SMT下Redis与干扰混部}{\quad Redis with Interference On SMT} 
     \label{fig:redis_smt}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_bpf_sched}
+        \caption{无干扰下Redis延迟}
+        \label{fig:cpu_aware_box_bpf_sched}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_no_interference}
+        \caption{混部场景BPF调度器}
+        \label{fig:cpu_aware_box_no_interference}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_eevdf}
+        \caption{混部场景EEVDF调度器}
+        \label{fig:cpu_aware_box_eevdf}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_eevdf_nice}
+        \caption{混部场景EEVDF高优先级}
+        \label{fig:cpu_aware_box_eevdf_nice}
+    \end{subfigure}
+\bicaption{\quad LC应用延迟稳定性}{\quad LC Application Latency Stability}
+\label{fig:lc_box}
+\end{figure}
+
+同时从图~\ref{fig:lc_box}中能够看出，在BPF调度器下，LC应用的延迟稳定性也得到了一定的保障，这一方面是因为BPF调度器中的任务队列隔离机制，使得高优先级的LC应用总是能够被优先调度，另一方面则是因为BPF调度器没有信息墙，能够直接接触并调度任务，这是因为BPF调度器运行在内核中并遵循Core调度框架。
 
 % \subsection{网络资源感知策略}
 
