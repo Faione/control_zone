@@ -1,5 +1,11 @@
 \chapter{运行时可定制调度的沙箱机制实现}\label{chap:control_zone}
 
+\section{概述}
+
+数据中心混合部署对调度提出了两大挑战。首先，在硬件上，现代服务器上拥有丰富的计算资源，能够支持大量的任务同时运行，同时硬件环境也相对复杂，因此调度需要充分考虑硬件的特性，从而避免如"吵闹邻居"等情况出现。其次，在软件上，数据中心运行的应用种类十分丰富，而通常依据应用对延迟的敏感性分为LC与BE两大类，前者要求调度足够迅速，从而满足交互式应用对响应度的要求，后者则希望长时间的运行，要求调度不能过于频繁，从而满足吞吐量的需求。
+
+而根据第三章中的画像分析，不同应用各种资源的需求也有所不同，对于有相同资源需求的应用，混部时依赖隔离手段来避免关键资源上的竞争，而对于有不同资源需求的应用，可以进行混部来提升资源使用率，但同时也依赖调度机制来及时地保障高优先级应用的QoS。
+
 \section{Control Zone设计}
 
 % 概述 -> 设计思路
@@ -11,8 +17,6 @@
 %   - 复杂的软件环境
 % - 针对每个问题的解决方式
 % - 设计目标
-
-数据中心混合部署对调度提出了两大挑战。首先，在硬件上，现代服务器上拥有丰富的计算资源，能够支持大量的任务同时运行，同时硬件环境也相对复杂，因此调度需要充分考虑硬件的特性，从而避免如"吵闹邻居"等情况出现。其次，在软件上，数据中心运行的应用种类十分丰富，而通常依据应用对延迟的敏感性分为LC与BE两大类，前者要求调度足够迅速，从而满足交互式应用对响应度的要求，后者则希望长时间的运行，要求调度不能过于频繁，从而满足吞吐量的需求。而根据第三章中的画像分析，不同应用各种资源的需求也有所不同，对于有相同资源需求的应用，混部时依赖隔离手段来避免关键资源上的竞争，而对于有不同资源需求的应用，可以进行混部来提升资源使用率，但同时也依赖调度机制来及时地保障高优先级应用的QoS。
 
 本研究提出了Control Zone，一种面向混部的沙箱系统。在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通，而在Control Zone之中，由塔台进行飞机的调度。本研究借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的调度器，Control Zone包含如下特性：
 
@@ -204,6 +208,86 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 % - resctrl / intel RDT
 % - hpv virt device
 
+\section{实验设计与分析}
+
+\subsection{实验环境}
+
+实验环境有两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
+
+\begin{table}[H]
+    \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
+    \label{tab:exp_env}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        硬件资源 & 硬件信息 \\
+        \hline
+        CPU & Intel Xeon Gold 6148 (40 cores) * 2 \\
+        Processor Core Frequency & 2.4GHz，Turbo 3.7 GHz \\
+        L1 Caches & 32KB,  8-way set associative, split D/I \\
+        L2 Caches & 1024KB, 16-way set associative \\
+        L3 Caches & 28160KB, 11-way set associative \\
+        Main Memory & 32GB * 8, 2666MHz DDR4 \\
+        NIC & Intel Corporation Ethernet Connection X722 for 10GbE SFP+(10Gbit) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS，Ubuntu同时也是Sched Ext优先支持的发行版，能够较方便地通过包管理工具安装预编译的Sched Ext内核。在虚拟换运行时上，Qemu采用发行版所支持的稳定版，而以轻量为目标的CloudHyeprvirsor则采用自编译的最新发布版本。
+
+\begin{table}
+    \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
+    \label{tab:system_env}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        软件类型 & 软件信息 \\
+        \hline
+        系统 & Ubuntu 22.04.3 LTS  \\
+        内核 & 5.15.0-79-generic \\
+        虚拟化运行时 & cloud-hypervisor v38.0-150 \\
+                   & QEMU emulator version 6.2.0 \\
+        其他        & libvirtd 8.0.0 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+除系统软件之外，每台服务器还按照需要部署了其他关键服务。其中可观察基础设施按照第三章中所论述的架构进行搭建，Master节点上部署的了Prometheus与Grafana，用于进行数据采集与离线分析，Node节点上则部署的第三章中所提到的一系列Exporter，提供各个维度数据的采集能力。Master除对数据进行采集、存储、分析外，还额外部署了Harbor来对外提供容器管理服务，并承担大部分的配置文件存储。Node作为主要的实验场地，安装了Control Zone沙箱的所有相关的组件，并承担主要的服务运行。实验中对于Client-Server类型的任务，为尽可能地模拟真实环境，因此一般将Client放置在Master上。最后，实验中所涉及的关键服务都以容器镜像的形式分发并运行，因此在每个服务器上都需要安装容器运行时，而在容器运行时的选择上，对性能不敏感而对稳定性有要求的Master上使用Docker来提供容器服务，而在Node上，则使用Podman作为容器运行时，Podman相较Docker更加轻量，同时不存在Docker、Containerd等后台驻留服务，能够提供较为纯净的容器运行环境。
+
+\subsection{启动开销实验}
+
+Control Zone的启动开销计算从虚拟化运行时开始到系统引导至init过程的时间，虚拟机使用1CPU与512M内存的基础配置，在虚拟化运行时上，选择CloudHyperviosr与Qemu进行对比，而在精简内核上，选择Alpine Virt内核、Control Zone内核，以及CloudHyeprvirsor、Firecracker的默认精简内核，其中Alpine Virt内核为社区提供给云厂商的标准虚拟机内核，启动了大部分Guest优化功能，但同时也保留了对于众多设备的支持，而以轻量为目标的CloudHyeprvirsor、Firecracker也各自提供了默认的精简内核，相较于Alpine Virt内核，去除了大量无意义的驱动，几乎只支持virtio设备，其中CloudHypervisor默认内核还额外使能了PCI子系统，以便于使用SRIOV设备，实验中为了让实验结果更加具备可比性，因此使能了Firecracker内核中的PCI配置。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.55\textwidth]{avg_boot_time}
+    \bicaption{\quad 平均启动时间比较}{\quad Comparison of average boot times}
+    \label{fig:avg_boot_time}
+\end{figure}
+
+实验结果如图~\ref{fig:avg_boot_time}所示，Control Zone内核的平均启动开销相较于Alpine Virt内核最高降低了88.8\%，对比不同的虚拟化运行时的数据发现而其中绝大部分的优化效果升来自于对内核的裁切，Control Zone内核仅支持运行容器、BPF子系统与Sched Ext调度类的最小功能，因此在启动时省去了大量非必要的工作，从而能够做到足够快速。同时还可以发现， 对于Alpine Virt内核而言，使用CloudHypervisor相较于Qemu降低28.9\%的启动时间，而观察两者的启动日志发现，虚拟化运行时所带来的提升主要来自于对于设备的裁切上，CloudHypervisor只需要针对云场景，因此相较于Qemu去除了大量的无关设备模拟，而更精简的设备一方面减少了虚拟化运行时的启动时间，另一方面，Guest内核也不必进行过多的设备探测与初始化，尤其在PCI子系统的初始化上，CloudHypervisor相较于Qemu，PCI子系统的初始化时间平均减少了83.2\%。相同的情况在其他内核上则有所不同，由于精简内核本身支持的设备驱动就十分有限，因此虚拟化运行时在这些内核的优化上主要体现在运行时启动本身上。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{boot_time_cdf}
+    \bicaption{\quad 精简内核的启动时间比较}{\quad Comparison of Kernel Boot Time Optimization} 
+    \label{fig:boot_time_cdf}
+\end{figure}
+
+在精简内核的对比中，Control Zone内核也存在优势，如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%，对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了对嵌套虚拟化的支持而开启了虚拟化子系统，因此会产生额外的开销，而Control Zone内核所支持的容器环境所需要的支持则相对更少。但是相对于Firecra内核，Control Zone内核则在启动开销上并没有优势，即便使用Qemu虚拟化运行时，Firecracker内核也能达到接近使用CloudHypervisor的Control Zone内核的启动速度，比较配置能够发现， Firecracker内核在功能裁切上更加激进，分析两者的启动日志能够发现这开销的差异主要来自于Control Zone内核中所需要的额外功能，如Netfilter子系统等。这些功能在本设计中时必须的，同时考虑场景上的差异，Firecracker实现时希望以承担安全容器的运行时环境，虚拟机的生命周期与运行在其中的容器绑定，而在Control Zone的设计中，任务与Control Zone并非完全耦合，Control Zone更接近与对于隔离环境的声明，在任务需要运行时启动，而在任务运行完毕后仍然会保留，并提供给下一个任务使用，即Control Zone不会频繁地启动，因此这部分开销在设计中是可以接受的。
+
+\subsection{运行时开销实验}
+
+% \subsection{沙箱隔离性实验}
+
+
+
 \section{本章小结}
 
 本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部BPF Scheduler任务调度。
@@ -212,4 +296,6 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 
 由于Control Zone中的BPF Scheduler也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务与调度策略共同部署，通过定制化调度来解决混部下的性能劣化问题。
 
-最后则介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
+然后介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
+
+最后，比较了Control Zone虚拟机的启动时间，通过在Hpervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。

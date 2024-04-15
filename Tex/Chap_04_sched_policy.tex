@@ -6,7 +6,9 @@
 
 本章首先进行内核调度配置的定制，考虑网络敏感型应用要求内核调度以实时性为先，而离线CPU敏感型应用则要求内核调度以吞吐量为先，针对这两种需求设计了响应度优先与吞吐量优先两种内核调度配置。
 
-随后，基于BPF调度器实现了调度队列的隔离，能够保证高优先级的应用总是能够优先得到运行，同时为第优先级应用提供了多种调度策略来满足不同的调度需求。而在调度队列隔离的基础之上，本章还将eBPF程序的监测能力与BPF调度器进行了结合，使得BPF调度器能够借助对CPU、网络资源的探测而辅助进行调度决策。
+对于CPU资源的隔离，常见的方式是显示地隔离不同应用能够使用的CPU，这种静态的划分方式并不能有效的使用资源，而在本章中提出了基于BPF调度器的调度队列隔离，高低优先级的应用在调度队列优先级机制之上共享相同CPU，使得高优先级应用运行时总是能够优先地使用CPU资源。
+
+其次，相较于常见的调度类隔离，本章基于BPF调度器实现更为灵活，通过结合eBPF强大的监测能力，让BPF调度器感知高优先级应用CPU资源、网络资源的使用，而通过设置相关的资源约束，从而结合不同高优先级应用的资源使用特征与调度目标，更充分的利用资源。
 
 \section{内核调度配置定制}
 
@@ -198,6 +200,105 @@ eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epo
 
 % \subsection{基于PMU实现的其他资源感知策略}
 
+\section{实验设计与分析}
+
+\subsection{响应度优先内核性能}
+
+% redis \ memcached
+
+Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PREEMPT抢占模式。响应度优先内核的优势主要体现在多任务调度场景，因此在实验设计上，选择Redis、Memcached两种CPU敏感型应用来分别与CPU干扰应用混部以构造多任务场景，并使用CloudHypervisor默认提供的内核作为基准进行比较。实验在一个4CPU 512MB内存的Control Zone中进行。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+      \includegraphics[width=\textwidth]{redis_response}
+      \caption{Redis与干扰混部}
+      \label{fig:redis_response}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+      \includegraphics[width=\textwidth]{memcached_response}
+      \caption{Memcached与干扰混部}
+      \label{fig:memcached_response}
+    \end{subfigure}
+    \bicaption{\quad 混部场景下的响应度优先内核}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
+    \label{fig:lc_response}
+\end{figure}
+
+混部实验结果如图~\ref{fig:lc_response}所示，在启用Control Zone响应度优先内核后，无论是Redis还是Memcached，在P99.9延迟上都要优于CloudHypervisor的默认内核，Reponse内核使用了更高的时钟中断频率，因此能够更快地在延时敏感应用与干扰应用中进行切换，同时在PREEMPT抢占模式下，网络中断能够更及时地进行处理，降低请求处理链路的整体延时。
+
+\subsection{吞吐量优先内核性能}
+
+% graph500(time) \ ffmjpeg 
+
+Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。吞吐量优先内核能够在任务量较少的场景中，让任务保持CPU资源的占用，从而更好地利用局部性，因此实验使用单一任务场景，选择Graph500作为目标应用，并对比其在CloudHypervisor默认内核、Throughput内核以及Response内核下的运行情况。实验在一个4 CPU、512MB内存的Control Zone中进行。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{avg_graph500_runtime}
+    \bicaption{\quad 吞吐量优先内核配置优化效果}{\quad Throughput Discrepancy Across Different Configurations} 
+    \label{fig:avg_graph500_runtime}
+\end{figure}
+
+Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录任务的执行时间，包括用户态与内核态的执行时间， 具体实验结果如图~\ref{fig:avg_graph500_runtime}所示，其中使用Throughput内核的Control Zone消耗的时间最短，而使用Response内核的Control Zone则消耗的最长的时间，分析执行时间占比，在Throughput内核下，任务运行过程中内核态时间消耗几乎没有，而在Response内核中，内核态时间则占用了较大比例，造成这一结果的主要原因是时钟中断与NO\_HZ配置，越高的时钟中断频率会引发越导致越频繁的陷入内核态，一方面使得内核态时间变得更长，另一方面也会导致局部性的破坏导致任务执行速度的减慢。
+
+\subsection{CPU约束调度策略效果}
+
+% 普通场景
+% 硬件场景：SMT
+
+BPF强隔离调度策略能够在混部场景中，为高优先级应用提供更好的性能保障，使得性能接近于无干扰的状态。而为验证强隔离调度策略的效果设计了两个混部场景的实验。场景一中使用4个独立的CPU，2048M内存的Control Zone进行实验，高优先级应用使用Mysql，而低优先级应用使用CPU干扰应用。场景二中则使用2CPU，512M的内存，并特别地使用SMT绑定为虚拟机CPU，同时选用延时敏感的Redis与CPU干扰进行混部。
+
+混部场景一实验结果如图~\ref{fig:mysql_perf}所示，首先能够看出，Linux EEVDF调度器默认下以公平为目标，此时Mysql的性能并不能得到保障，而在降低CPU干扰应用的nice值之后，Mysql的性能虽然有一些提升，但相较于无干扰情况下仍存在较大劣化， 而分析Control Zone CPU使用率能够发现，Mysql在正常运行时并不会占用所有的核心，此时即便与干扰应用存在优先级上的差异，但由于这种优先级并不能跨越CPU调度队列产生效果，因此仍然存在一定程度上的并发，而由于资源竞争的Mysql的性能就会出现劣化。而在启用了BPF调度器之后Mysql性能几乎与没有干扰的情况下一致，首先，尽管优先级机制不能跨越核心产生作用，但在BPF调度器中能够自已强隔离的所里，使得高优先级的Mysql在运行时，低优先级的干扰应用能够自动的让出CPU，从而实现高优先级任务的性能保障。
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.6\textwidth]{mysql_perf}
+    \bicaption{\quad Mysql与干扰混部}{\quad MySQL with Interference} 
+    \label{fig:mysql_perf}
+\end{figure}
+
+混部场景二实验结果如图~\ref{fig:redis_smt}所示。SMT下Sibling共享了同一个物理CPU上的片上资源， 因此混部存在更激烈的资源竞争。Elfen\citep{yang2016elfen}通过修改内核与BE应用，使得BE应用能够主动探测Sibling上LC应用并及时出让CPU，从而保障LC应用的性能。这一思路在SMT场景中十分重要，而在BPF CPU感知任务调度策略中，首先，可以在Control Zone的资源声明中标注SMT信息，随后在BPF调度器启动时可以利用此参数，并在调度时考虑Sibling的运行情况。从实验结果中也能够看出，相较于Linux默认调度器，BPF调度器能够在干扰混部的场景中，使得LC应用在低负载时降低79.6\%的延迟，并在高负载时仍有33.7\%的延迟降低效果，这说明BPF Scheduler能够在不同负载下保障LC应用，使其性能接近于无干扰的情况
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.6\textwidth]{redis_smt}
+    \bicaption{\quad SMT下Redis与干扰混部}{\quad Redis with Interference On SMT} 
+    \label{fig:redis_smt}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_bpf_sched}
+        \caption{无干扰下Redis延迟}
+        \label{fig:cpu_aware_box_bpf_sched}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_no_interference}
+        \caption{混部场景BPF调度器}
+        \label{fig:cpu_aware_box_no_interference}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_eevdf}
+        \caption{混部场景EEVDF调度器}
+        \label{fig:cpu_aware_box_eevdf}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cpu_aware_box_eevdf_nice}
+        \caption{混部场景EEVDF高优先级}
+        \label{fig:cpu_aware_box_eevdf_nice}
+    \end{subfigure}
+\bicaption{\quad LC应用延迟稳定性}{\quad LC Application Latency Stability}
+\label{fig:lc_box}
+\end{figure}
+
+同时从图~\ref{fig:lc_box}中能够看出，在BPF调度器下，LC应用的延迟稳定性也得到了一定的保障，这一方面是因为BPF调度器中的任务队列隔离机制，使得高优先级的LC应用总是能够被优先调度，另一方面则是因为BPF调度器没有信息墙，能够直接接触并调度任务，这是因为BPF调度器运行在内核中并遵循Core调度框架。
+
+% \subsection{网络资源感知策略}
+
+% \subsection{内存资源感知策略}
+% Redis
+
 \section{本章小结}
 
 本章主要首先针对画像分析中不同类型应用，基于内核中关于HZ与抢占模型的配置，设计了调度配置的定制优化，提供了吞吐量优先与响应度优先两种不同调度目标的内核配置。
@@ -205,3 +306,5 @@ eBPF程序之间的数据能够方便地通过BPF Map共享，而基于对于epo
 随后设计了混部场景下高优先应用与低优先级应用基于BPF调度策略的QoS保障机制，首先，提出了较为粗粒度的BPF调度队列隔离策略，利用调度类的优先级特性，使得在单个CPU上，低优先级能够感知高优先级任务的执行并出让CPU资源，从而保障高优先级应用的执行。
 
 其次，基于BPF调度队列隔离策略，结合eBPF对于CPU与网络资源的感知实现更灵活的BPF资源感知调度策略，一方面相较于静态的CPU亲和性配置，CPU资源感知的调度策略能够动态地利用高优先级任务没有用到的核心，另一方面利用eBPF程序之间的交互性，能够方便地将其他子系统中的监测信息传递给BPF Scheduler进行辅助决策。
+
+最后，比较了不同内核下的应用性能，说明对于不同的应用而言，定制的内核能够在一定程度上提升其运行性能。最后，通过不同应用，不同硬件环境下的混部实验，说明了使用BPF Scheduler来针对不同的混部场景进行定制优化，在提升高优先级应用的性能保障效果上的优势。

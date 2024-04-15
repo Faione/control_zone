@@ -1,5 +1,15 @@
 \chapter{典型应用观测与画像分析}\label{chap:profiling}
 
+\section{概述}
+
+数据中心软件环境的复杂性体现在两方面。首先，单一服务器上运行了资源使用差异性大而数量多的应用，应用之间存在隐含的资源竞争。其次，网络服务类型应用负载存在波动，不同负载下应用的特征也存在差异。而分析应用隐含的资源竞争，了解不同应用在不同负载下的特性，才能有效地设计调度策略。
+
+本章针对如上挑战，首先，分析了数据中心软件环境的组成，通过选取典型应用的方式简化分析场景，并结合与云厂商的合作经验选取了7种典型应用作为画像目标。
+
+同时，本章选择云场景中占据主流的虚拟机作为运行时环境，而虚拟机的引入带来了黑盒性能监测的问题，广泛的性能指标采集是解决黑盒问题的常用方式，因此本章中设计了一套面向虚拟机的可观测性系统，基于eBPF拓展内核侧虚拟机系统调用及设备后端模拟的相关观测，并从三个维度、五种资源来采集虚拟机性能数据。
+
+最后，设计了有干扰实验与无干扰实验来分析不同应用之间的资源使用差异及干扰的敏感度。
+
 \section{云场景典型应用选择}
 
 % 软件环境复杂 -> 应用需求不同 -> 软件架构复杂 -> 存在共性的基础应用 -> 基础应用的性能是整体性能的关键 -> 选取典型应用进行分析
@@ -149,9 +159,9 @@
     \end{tabular}
 \end{table}
 
-\section{实验设计}
+\section{基准性能实验设计与分析}
 
-\subsection{基准性能实验}
+\subsection{基准性能实验设计}
 
 实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark中的模拟负载多样的负载来监测不同场景下的基准性能。
 
@@ -190,96 +200,6 @@
 % 5）Nginx。
 
 % 6）Render。使用华为内部的模拟负载。
-
-\subsection{性能劣化实验}
-
-% 干扰应用
-% - 干扰有效性
-% - 噪声控制
-
-性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
-
-\begin{table}[H]
-    \bicaption{\quad stress\_ng 实验参数列表}{\quad stress\_ng args list}% caption
-    \label{tab:arg_list}
-    \footnotesize% fontsize
-    \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
-    \centering
-    \begin{tabular}{lcc}
-        \hline
-        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
-        %\cline{i-j}% partial hline from column i to column j
-        子系统 & 参数 & 说明\\
-        \hline
-        CPU	    & --cpu & 循环执行sqrt(rand())的线程数量\\
-	            & --cpu-load & 线程负载的比率\\
-        Cache	& --cache & cache抖动线程数量\\
-	            & --cache-level	&测试指定等级的Cache\\
-	            & --icache	&指令cache抖动的线程数量\\
-        IO	    & --io	&循环执行sync()的线程数量\\
-	            & --iomix	&执行混合I/O操作的线程数量\\
-	            & --hdd	&循环执行write()/unlink()的线程数量\\
-	            & --seek	&执行随机seek I/O的线程数量\\
-        Memory	& --vm	&循环执行匿名mmap的线程数量\\
-	            & --vm-bytes	&执行vm操作的buffer大小\\
-	            & --memrate	&执行read/writes的线程数量\\
-	            & --memrate-bytes	&执行内存操作的buffer大小\\
-	            & --malloc	&执行malloc/realloc/free的线程数量\\
-	            & --memcpy	&执行memory copy的线程数量\\
-        Network	& --sock	&执行Socket I/O的线程数量\\
-	            & --epoll	&执行epoll处理的线程数量\\
-        \hline
-    \end{tabular}
-\end{table}
-
-正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示。
-
-1）CPU干扰选择CPU Usage作为表征指标，干扰效果如~\ref{fig:cpu_interference}所示，可见随干扰强度的不断提升，干扰应用逐渐能够占用所有的核心资源。
-
-2）Cache干扰选择Cache Usage作为表征指标，干扰效果如图~\ref{fig:cache_interference}所示，可见随干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。同时，当干扰强度上升至5之后，Cache Usage就几乎稳定在峰值。
-
-3）IO干扰选择IO Input Bytes作为表征指标，干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但当干扰强度超过5之后，干扰应用占用的IO带宽反而开始减少。由于IO干扰强度与干扰线程数量指数相关，高干扰强度下会产生大量的IO线程，这些线程彼此之间会相互竞争，因此导致整体的IO带宽下降。
-
-\begin{figure}[H]
-  \centering
-  \begin{subfigure}[b]{0.45\textwidth}
-    \includegraphics[width=\textwidth]{cpu_interference}
-    \caption{cpu干扰效果}
-    \label{fig:cpu_interference}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
-    \includegraphics[width=\textwidth]{cache_interference}
-    \caption{cache干扰效果}
-    \label{fig:cache_interference}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
-    \includegraphics[width=\textwidth]{io_interference}
-    \caption{io干扰效果}
-    \label{fig:io_interference}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
-    \includegraphics[width=\textwidth]{net_interference}
-    \caption{net干扰效果}
-    \label{fig:net_interference}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
-    \includegraphics[width=\textwidth]{vm_interference}
-    \caption{内存干扰效果}
-    \label{fig:vm_interference}
-  \end{subfigure}
-  \bicaption{\quad 干扰效果分析}{\quad Interference Effects Analysis}
-  \label{fig:interference}
-\end{figure}
-
-4）Net干扰选择Accept系统调用延迟作为表征指标。Accept系统调用通常发生在Server类应用中，用于与Client建立连接，Accept系统调用变慢通常意味着连接排队延迟与客户端超时，而具体的干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大，由于延迟指标可以无限增加，实验中根据应用延迟范围来确定干扰强度。
-
-5）Memory干扰使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度为6时出现较大的波动。
-
-考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰，导致类似于CPU或Cache干扰，因此在后续的
-没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
-
-\section{画像分析与结论}
 
 \subsection{典型应用资源使用倾向分析}
 
@@ -372,6 +292,96 @@
 4）Network资源：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
 
 5）I/O资源：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
+
+\subsection{性能劣化实验设计与分析}
+
+\subsection{干扰实验设计}
+
+% 干扰应用
+% - 干扰有效性
+% - 噪声控制
+
+性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
+
+\begin{table}[H]
+    \bicaption{\quad stress\_ng 实验参数列表}{\quad stress\_ng args list}% caption
+    \label{tab:arg_list}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.5}% row space 
+    \centering
+    \begin{tabular}{lcc}
+        \hline
+        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+        %\cline{i-j}% partial hline from column i to column j
+        子系统 & 参数 & 说明\\
+        \hline
+        CPU	    & --cpu & 循环执行sqrt(rand())的线程数量\\
+	            & --cpu-load & 线程负载的比率\\
+        Cache	& --cache & cache抖动线程数量\\
+	            & --cache-level	&测试指定等级的Cache\\
+	            & --icache	&指令cache抖动的线程数量\\
+        IO	    & --io	&循环执行sync()的线程数量\\
+	            & --iomix	&执行混合I/O操作的线程数量\\
+	            & --hdd	&循环执行write()/unlink()的线程数量\\
+	            & --seek	&执行随机seek I/O的线程数量\\
+        Memory	& --vm	&循环执行匿名mmap的线程数量\\
+	            & --vm-bytes	&执行vm操作的buffer大小\\
+	            & --memrate	&执行read/writes的线程数量\\
+	            & --memrate-bytes	&执行内存操作的buffer大小\\
+	            & --malloc	&执行malloc/realloc/free的线程数量\\
+	            & --memcpy	&执行memory copy的线程数量\\
+        Network	& --sock	&执行Socket I/O的线程数量\\
+	            & --epoll	&执行epoll处理的线程数量\\
+        \hline
+    \end{tabular}
+\end{table}
+
+正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示。
+
+1）CPU干扰选择CPU Usage作为表征指标，干扰效果如~\ref{fig:cpu_interference}所示，可见随干扰强度的不断提升，干扰应用逐渐能够占用所有的核心资源。
+
+2）Cache干扰选择Cache Usage作为表征指标，干扰效果如图~\ref{fig:cache_interference}所示，可见随干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。同时，当干扰强度上升至5之后，Cache Usage就几乎稳定在峰值。
+
+3）IO干扰选择IO Input Bytes作为表征指标，干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但当干扰强度超过5之后，干扰应用占用的IO带宽反而开始减少。由于IO干扰强度与干扰线程数量指数相关，高干扰强度下会产生大量的IO线程，这些线程彼此之间会相互竞争，因此导致整体的IO带宽下降。
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{cpu_interference}
+    \caption{cpu干扰效果}
+    \label{fig:cpu_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{cache_interference}
+    \caption{cache干扰效果}
+    \label{fig:cache_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{io_interference}
+    \caption{io干扰效果}
+    \label{fig:io_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{net_interference}
+    \caption{net干扰效果}
+    \label{fig:net_interference}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{vm_interference}
+    \caption{内存干扰效果}
+    \label{fig:vm_interference}
+  \end{subfigure}
+  \bicaption{\quad 干扰效果分析}{\quad Interference Effects Analysis}
+  \label{fig:interference}
+\end{figure}
+
+4）Net干扰选择Accept系统调用延迟作为表征指标。Accept系统调用通常发生在Server类应用中，用于与Client建立连接，Accept系统调用变慢通常意味着连接排队延迟与客户端超时，而具体的干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大，由于延迟指标可以无限增加，实验中根据应用延迟范围来确定干扰强度。
+
+5）Memory干扰使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度为6时出现较大的波动。
+
+考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰，导致类似于CPU或Cache干扰，因此在后续的
+没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
 
 \subsection{典型应用资源敏感度分析}
 
