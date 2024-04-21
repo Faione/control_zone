@@ -141,7 +141,7 @@ Ext调度类与BPF Scheduler的关系如图~\ref{fig:ext_bpf}所示，其中DSQ�
     \item dispatch：处理任务的调度。BPF可以通过创建DSQ来持有任务，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务，当CPU的Local DSQ为空时，就会触发BPF的任务调度，期望从BPF的DSQ中获取将要执行的任务。BPF可以一次性调度多个任务，从而增加调度的效率，而任务的选择则完全由BPF程序决定。
     \item runnable、running、stopping、quiescent：追踪任务的状态。任务通常会在如下三种情况进入Runnable状态，首先是被唤醒时，如从等待IO的状态中恢复，其次是从其他CPU迁入时，以及从队列中暂移后恢复时，如修改任务优先级时，这些情况通过flag进行区分，并触发runnable的执行，quiescent的触发与上述时机完全相反，其他函数则在更细致的时机触发以反映任务的状态，其中running对应任务将要在CPU上运行时，stopping对应任务将要停止运行时。BPF通过这些函数来追踪任务的状态变化，从而辅助进行自定义的调度过程。
     \item yield：处理任务出让CPU资源。Linux提供了sched\_yield系统调用，允许任务主动放弃CPU资源，通常用于多线程中。sched\_yield并不保证线程组中的其他线程立即执行，而是将决策交给调度器，Sched Ext中此决策过程可完全由BPF程序实现。
-    \item cpu\_acquire，cpu\_release：追踪调度类的CPU进出情况。当一个CPU对BPF Scheduler变为可用时，会触发cpu\_acquire，反之则触发cpu\_release。如当正在运行的EXT调度类的任务被更高优先级调度类的其他任务抢占时，当前CPU对于BPF Scheduler来说就变为不可用了。
+    \item cpu\_acquire、cpu\_release：追踪调度类的CPU进出情况。当一个CPU对BPF Scheduler变为可用时，会触发cpu\_acquire，反之则触发cpu\_release。如当正在运行的EXT调度类的任务被更高优先级调度类的其他任务抢占时，当前CPU对于BPF Scheduler来说就变为不可用了。
     \item init\_task、exit\_task：追踪任务的创建与退出。调度类中每当有任务新创建或退出时触发，BPF可追踪这些事件，从而能够在BPF Scheduler中为每个任务定义额外的信息用于后续的调度过程。
 \end{itemize}
 
