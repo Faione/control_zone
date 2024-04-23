@@ -243,7 +243,7 @@ Graph500主要执行图计算算法，因此执行时间是其重要的性能指
 % 普通场景
 % 硬件场景：SMT
 
-CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的QoS保障能力，实验在一个4 CPU、1024MB内存的虚拟机中展开，其中高优先应用为Mysql与Memcached，低优先级应用为CPU干扰应用。混部结果如图~\ref{lc_bpf_sched}所示，总体来看，CPU资源感知策略能够使LC应用达到与未受干扰情况下相近的性能，如图~\ref{bpf_sched_smp_mysql}所示，MySql性能最高提升了60.8\%，同时，如图~\ref{bpf_sched_smp_memcached}所示，Memcached延迟最高降低了48.2\%，这一方面得益于Ext调度类在调度队列上的隔离性，使得高优先应用总是能够及时地得到调度，同时，通过CPU资源感知，进一步让其他核心上的低优先级任务感知高优先级任务的运行，并根据阈值来判断是否要出让CPU以避免干扰。
+CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的QoS保障能力，实验在一个4 CPU、1024MB内存的虚拟机中展开，其中高优先应用为Mysql与Memcached，低优先级应用为CPU干扰应用。混部结果如图~\ref{lc_bpf_sched}所示，总体来看，CPU资源感知策略能够使LC应用达到与未受干扰情况下相近的性能，如图~\ref{fig:bpf_sched_smp_mysql}所示，MySql性能最高提升了60.8\%，同时，如图~\ref{fig:bpf_sched_smp_memcached}所示，Memcached延迟最高降低了48.2\%，这一方面得益于Ext调度类在调度队列上的隔离性，使得高优先应用总是能够及时地得到调度，同时，通过CPU资源感知，进一步让其他核心上的低优先级任务感知高优先级任务的运行，并根据阈值来判断是否要出让CPU以避免干扰。
 
 \begin{figure}[H]
     \centering
@@ -263,11 +263,20 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
 
 对于SMT场景，由于兄弟核心之间存在片上共享资源，CPU资源感知调度对于这一场景下的QoS保障更为重要，实验在一个2 CPU、1024MB内存的虚拟机中展开，其中CPU配置为兄弟核，同时内核不关闭Core调度机制。实验结果如图~\ref{fig:redis_smt}所示，相较于EEVDF调度器，CPU资源感知BPF调度器在SMT场景中， 能够将Redis延迟最高降低79.6\%，并且最低也有33.7\%的延迟降低效果，同时从图~\ref{fig:lc_box}中能够看出，在CPU资源感知BPF调度器下，Redis的延迟稳定性也得到了一定的保障，这主要是因为CPU资源感知BPF调度器完全运行在内核态中，能够快速的决策并调度任务，从而避免了许多用户态调度器存在的“乒乓效应”。
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.6\textwidth]{redis_smt}
-    \bicaption{\quad SMT下Redis与干扰混部}{\quad Redis with Interference On SMT} 
-    \label{fig:redis_smt}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smt_redis}
+        \bicaption{\quad SMT下Redis与干扰混部}{\quad Redis with Interference On SMT} 
+        \label{fig:bpf_sched_smt_redis}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smt_memcached}
+        \bicaption{\quad SMT下Memcached与干扰混部}{\quad Memcached with Interference On SMT} 
+        \label{fig:bpf_sched_smt_memcached}
+    \end{subfigure}
+\bicaption{\quad CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
+\label{fig:lc_bpf_sched}
 \end{figure}
 
 \begin{figure}[H]
