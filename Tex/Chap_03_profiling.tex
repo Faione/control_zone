@@ -42,10 +42,10 @@
 这些典型应用在用途上及实现上的差异，意味着会使用到不同的资源，并对对调度机制有不同的需求：
 
 \begin{itemize}
-    \item 数据库类型的应用，如Mysql，传统的关系型数据库提供了完善了数据存储、检索查询及事务管理等功能，实现中原始数据通常保存在磁盘上，在进行大量数据查询时，不仅会使用到较多的CPU资源，同时也会占用相当的IO资源，因此需要调度器保障其CPU资源，并避免IO上的干扰。
-    \item 键值存储类应用，如Redis、Memcached，通常作为信息缓存服务，提供快速的数据存储与查询，由于数据存储在内存中，因此对内存资源存在较高要求，对调度的需求主要体现在两方面，一方面需要足够的内存资源，另一方面则需要避免在内存带宽上的干扰。
-    \item 网络服务类型应用，如Nginx，网络页面通常都具有交互属性，而延迟会极大影响用户的使用体验，因此这类应用要求调度能够在网络请求到达时，及时的为网络服务分配CPU，以尽早地对连接进行处理。
-    \item 媒体处理应用通常是离线应用，运行时一方面会占用IO资源，用来读写媒体素材，另一方面会占用CPU资源，来进行编解码操作，这类应用需要调度分配足够长的时间片，同时希望能减少上下文地切换，以便更好地利用局部性来加快执行速度。
+    \item \textbf{数据库类型的应用}：如Mysql，传统的关系型数据库提供了完善了数据存储、检索查询及事务管理等功能，实现中原始数据通常保存在磁盘上，在进行大量数据查询时，不仅会使用到较多的CPU资源，同时也会占用相当的IO资源，因此需要调度器保障其CPU资源，并避免IO上的干扰。
+    \item \textbf{键值存储类应用}：如Redis、Memcached，通常作为信息缓存服务，提供快速的数据存储与查询，由于数据存储在内存中，因此对内存资源存在较高要求，对调度的需求主要体现在两方面，一方面需要足够的内存资源，另一方面则需要避免在内存带宽上的干扰。
+    \item \textbf{网络服务类型应用}：如Nginx，网络页面通常都具有交互属性，而延迟会极大影响用户的使用体验，因此这类应用要求调度能够在网络请求到达时，及时的为网络服务分配CPU，以尽早地对连接进行处理。
+    \item \textbf{媒体处理应用}：通常是离线应用，运行时一方面会占用IO资源，用来读写媒体素材，另一方面会占用CPU资源，来进行编解码操作，这类应用需要调度分配足够长的时间片，同时希望能减少上下文地切换，以便更好地利用局部性来加快执行速度。
 \end{itemize}
 
 而在在软件环境上，本研究结合与云厂商的合作经验，选择云场景中使用较普遍的虚拟机作为应用的运行时环境
@@ -112,13 +112,13 @@
 可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了7种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，每个Exporter具体实现如下：
 
 \begin{enumerate}
-    \item Envoy：开源社区提供的一种L7代理和通信总线，面向大型现代服务架构设计，作为基础组件运行在各个Overlay Network系统中。Envoy的首要目的是构造透明网络，同时，为协助解决网络与应用层面的问题排查，Envoy还为各个代理子系统提供了强大的统计功能，统计功能支持大部分L7层传输协议，同时对于一些云原生应用，如Redis、Mysql等，能够进一步统计应用层协议的指标信息，如延迟、请求数等。
+    \item \textbf{Envoy}：开源社区提供的一种L7代理和通信总线，面向大型现代服务架构设计，作为基础组件运行在各个Overlay Network系统中。Envoy的首要目的是构造透明网络，同时，为协助解决网络与应用层面的问题排查，Envoy还为各个代理子系统提供了强大的统计功能，统计功能支持大部分L7层传输协议，同时对于一些云原生应用，如Redis、Mysql等，能够进一步统计应用层协议的指标信息，如延迟、请求数等。
     
-    \item Libvirt Exporter：Prometheus开源社区开发的监控组件，提供了Hypervisor维度的指标采集。Libvirt是一个统一的虚拟化接口层，提供了丰富的虚拟机管理选项，Libvirt Exporter基于Libvirt Monitor接口实现，能够采集虚拟机的各个设备的性能指标，如vCPU时间片、内存使用量、网络设备的吞吐量及IO设备的吞吐量等。Observed实现中为Libvirt Exporter增加的Perf Event监测功能，从而能够提供虚拟机粒度的性能事件指标信息，如cycles、instruction及cache miss等。
+    \item \textbf{Libvirt Exporter}：Prometheus开源社区开发的监控组件，提供了Hypervisor维度的指标采集。Libvirt是一个统一的虚拟化接口层，提供了丰富的虚拟机管理选项，Libvirt Exporter基于Libvirt Monitor接口实现，能够采集虚拟机的各个设备的性能指标，如vCPU时间片、内存使用量、网络设备的吞吐量及IO设备的吞吐量等。Observed实现中为Libvirt Exporter增加的Perf Event监测功能，从而能够提供虚拟机粒度的性能事件指标信息，如cycles、instruction及cache miss等。
     
-    \item KVM Exporter：本研究实现了Hypervisor维度的指标采集。KVM内核模块提供了一个Debug文件系统，在最顶层的目录中，记录了内核模块的运行信息，如虚拟机陷出的总计数等，同时，对于每个虚拟机进程，还会创建对应的子目录，并以单个虚拟机为粒度记录内核模块的运行数据，最后，在每个虚拟机目录中，还会为每个vCPU创建一个目录，记录vCPU的时钟源相关信息。KVM Exporter基于上述机制实现，通过扫描Debug系统中的目录，并为遍历每个虚拟机条目来生成相关的指标信息，默认情况下使用虚拟机进程号作为标签，也允许传入一个配置文件，来实现虚拟机进程号与虚拟机名称之间的转化。
+    \item \textbf{KVM Exporter}：本研究实现了Hypervisor维度的指标采集。KVM内核模块提供了一个Debug文件系统，在最顶层的目录中，记录了内核模块的运行信息，如虚拟机陷出的总计数等，同时，对于每个虚拟机进程，还会创建对应的子目录，并以单个虚拟机为粒度记录内核模块的运行数据，最后，在每个虚拟机目录中，还会为每个vCPU创建一个目录，记录vCPU的时钟源相关信息。KVM Exporter基于上述机制实现，通过扫描Debug系统中的目录，并为遍历每个虚拟机条目来生成相关的指标信息，默认情况下使用虚拟机进程号作为标签，也允许传入一个配置文件，来实现虚拟机进程号与虚拟机名称之间的转化。
 
-    \item eBPF Exporter：Cloudflare公司开发eBPF监控组件，提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
+    \item \textbf{eBPF Exporter}：Cloudflare公司开发eBPF监控组件，提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数，因此可以利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，如图~\ref{fig:syscall_hook}所示，每当进程进入系统调用中时，首先可以通过BPF Helper函数获取当前task结构体指针，并读取进程号等标识信息，其次通过读取系统调用上下文中的ax寄存器，来获取当前的系统调用号，这两个信息提供了基本的指标标签，基同时，利用BPF Stack来记录时间戳信息，就能够在系统调用返回时计算整个系统调用的执行时间，从而实现对于而对进程每个系统调用吞吐、延迟的监测。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制过在这些函数的入口与出口出进行插桩，就能够统计出各个函数执行频率以及延时等信息。
 
     \begin{figure}[H]
         \centering
@@ -127,11 +127,11 @@
         \label{fig:syscall_hook}
     \end{figure}
 
-    \item Resctrl Exporter：本研究实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
+    \item \textbf{Resctrl Exporter}：本研究实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
     
-    \item Cgroup Exporter：Google开发的容器监控组件，提供Cgroup子系统的基础指标采集。Cgroup Exporter通过扫描cgroup文件系统，读取目标cgroup中各个控制子系统的记账信息，并生成指标信息，从而实现对于进程cgroup的监控。
+    \item \textbf{Cgroup Exporter}：Google开发的容器监控组件，提供Cgroup子系统的基础指标采集。Cgroup Exporter通过扫描cgroup文件系统，读取目标cgroup中各个控制子系统的记账信息，并生成指标信息，从而实现对于进程cgroup的监控。
     
-    \item Node Exporter：Prometheus社区的基础监控组件，提供Host维度的基础指标采集。Node Exporter利用Linux内核提供的交互接口，包含系统调用、内存文件系统等，来获取Host各个子系统中的运行状态信息，如通过/proc内核文件系统，获取运行时间、内存信息等。Observed实现中使能了NodeExporter的Perf Event监测模块，模块支持采集Host上的性能事件，包括cycles、instruction及cache miss等。
+    \item \textbf{Node Exporter}：Prometheus社区的基础监控组件，提供Host维度的基础指标采集。Node Exporter利用Linux内核提供的交互接口，包含系统调用、内存文件系统等，来获取Host各个子系统中的运行状态信息，如通过/proc内核文件系统，获取运行时间、内存信息等。Observed实现中使能了NodeExporter的Perf Event监测模块，模块支持采集Host上的性能事件，包括cycles、instruction及cache miss等。
 
 \end{enumerate}
 
@@ -144,7 +144,7 @@
 实时可观测性系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
 
 \begin{itemize}
-    \item Host层级指标如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
+    \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
 eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
 
 \begin{table}[!htbp]
@@ -171,7 +171,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
-    \item Hypervisor层级的指标如表~\ref{tab:hypervisor_metric}所示，指标来源分别为Libvirt与KVM。从Libvirt采集的指标通常为虚拟机粒度的资源指标，在CPU资源上，一方面从进程角度采集vCPU的时间记账以及调度子系统中的等待时间和调度延迟，另一方面从虚拟机角度采集vCPU内核态与用户态的时间片分布。在Cache资源上，利用Resctrl子系统提供的观测能力，采集虚拟机进程及子进程在LLC与内存带宽上的使用情况。在内存资源上，从ballon内存驱动上采集虚拟机内存资源的使用情况，包括内存总量、可用内存量、磁盘Cache总量以及虚拟机内存fault计数等。在网络资源上，采集虚拟网卡的transmit与receive信息。在磁盘IO资源上，采集虚拟磁盘设备的read、write数量以及read request、write request、flush request计数等。同时考虑虚拟机的进程特性采集Perf指标，性能事件包括Instruction、Branch Instruction、CPI, Cache Miss、Context Switch等。从KVM采集的指标通常描述虚拟机的状态，如针对虚拟机进程描述符，采集虚拟机的陷出事件，包含vm\_exit、io\_exit、irq\_exit等，而针对vCPU描述符，则采集时间子系统上的偏移等信息。
+    \item \textbf{Hypervisor层级的指标}：如表~\ref{tab:hypervisor_metric}所示，指标来源分别为Libvirt与KVM。从Libvirt采集的指标通常为虚拟机粒度的资源指标，在CPU资源上，一方面从进程角度采集vCPU的时间记账以及调度子系统中的等待时间和调度延迟，另一方面从虚拟机角度采集vCPU内核态与用户态的时间片分布。在Cache资源上，利用Resctrl子系统提供的观测能力，采集虚拟机进程及子进程在LLC与内存带宽上的使用情况。在内存资源上，从ballon内存驱动上采集虚拟机内存资源的使用情况，包括内存总量、可用内存量、磁盘Cache总量以及虚拟机内存fault计数等。在网络资源上，采集虚拟网卡的transmit与receive信息。在磁盘IO资源上，采集虚拟磁盘设备的read、write数量以及read request、write request、flush request计数等。同时考虑虚拟机的进程特性采集Perf指标，性能事件包括Instruction、Branch Instruction、CPI, Cache Miss、Context Switch等。从KVM采集的指标通常描述虚拟机的状态，如针对虚拟机进程描述符，采集虚拟机的陷出事件，包含vm\_exit、io\_exit、irq\_exit等，而针对vCPU描述符，则采集时间子系统上的偏移等信息。
 
 \begin{table}[!htbp]
     \bicaption{\quad Hypervisor层级指标}{\quad Hypervisor Metric list}% caption
@@ -197,7 +197,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
-    \item App层级的指标主要从日志、内嵌的指标采集接口以及Envoy网络代理上采集。以Redis为例，通过Envoy网络代理接管传入Redis的所有流量，并在代理中记录各种操作的数量、延时统计等信息。
+    \item \textbf{App层级的指标}：主要从日志、内嵌的指标采集接口以及Envoy网络代理上采集。以Redis为例，通过Envoy网络代理接管传入Redis的所有流量，并在代理中记录各种操作的数量、延时统计等信息。
     
 \end{itemize}
 
@@ -294,11 +294,11 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 具体到应用的差异性如图~\ref{fig:resource_affinity_0}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
 
 \begin{enumerate}
-    \item CPU资源：应用的运行都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出，但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高，而当请求量足够多时，由于都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用，而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
-    \item Cache资源：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
-    \item Memory资源：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
-    \item Network资源：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
-    \item I/O资源：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
+    \item \textbf{CPU资源}：应用的运行都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出，但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高，而当请求量足够多时，由于都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用，而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
+    \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
+    \item \textbf{Memory资源}：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
+    \item \textbf{Network资源}：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
+    \item \textbf{I/O资源}：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
 \end{enumerate}
 
 \begin{figure}[H]
@@ -380,14 +380,18 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
-正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示。
+正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示：
 
 \begin{itemize}
-    \item CPU干扰选择CPU Usage作为表征指标，干扰效果如~\ref{fig:cpu_interference}所示，可见随干扰强度的不断提升，干扰应用逐渐能够占用所有的核心资源。
-    \item Cache干扰选择Cache Usage作为表征指标，干扰效果如图~\ref{fig:cache_interference}所示，可见随干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。同时，当干扰强度上升至5之后，Cache Usage就几乎稳定在峰值。
-    \item IO干扰选择IO Input Bytes作为表征指标，干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但当干扰强度超过5之后，干扰应用占用的IO带宽反而开始减少。由于IO干扰强度与干扰线程数量指数相关，高干扰强度下会产生大量的IO线程，这些线程彼此之间会相互竞争，因此导致整体的IO带宽下降。
-    \item Net干扰选择Accept系统调用延迟作为表征指标。Accept系统调用通常发生在Server类应用中，用于与Client建立连接，Accept系统调用变慢通常意味着连接排队延迟与客户端超时，而具体的干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大，由于延迟指标可以无限增加，实验中根据应用延迟范围来确定干扰强度。
-    \item Memory干扰使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度为6时出现较大的波动。
+    \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
+    
+    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
+    
+    \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
+    
+    \item \textbf{Net干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
+    
+    \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
 \end{itemize}
 
 \begin{figure}[H]
@@ -430,26 +434,32 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{interfer_cpu}
-        \caption{CPU干扰下的性能劣化情况}
+        \caption{CPU干扰下的性能劣化}
         \label{fig:interfer_cpu}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
       \includegraphics[width=\textwidth]{interfer_cache}
-      \caption{Cache干扰下的性能劣化情况}
+      \caption{Cache干扰下的性能劣化}
       \label{fig:interfer_cache}
     \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
-        \includegraphics[width=\textwidth]{interfer_io}
-        \caption{IO干扰下的性能劣化情况}
-        \label{fig:interfer_io}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{interfer_mem}
-        \caption{Memory干扰下的性能劣化情况}
+        \caption{Memory干扰下的性能劣化}
         \label{fig:interfer_mem}
     \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{interfer_net}
+        \caption{Net干扰下的性能劣化}
+        \label{fig:interfer_net}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{interfer_io}
+        \caption{IO干扰下的性能劣化}
+        \label{fig:interfer_io}
+    \end{subfigure}
+
 \bicaption{\quad Redis干扰敏感度}{\quad Redis interference sensitivity}
 \label{fig:redis_interf_sensitivity}
 \end{figure}
@@ -459,9 +469,9 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 结合其他应用的资源敏感性分析，可在资源的角度对典型应用进行初步划分，主要为如下3类：
 
 \begin{enumerate}
-    \item 单纯CPU敏感型：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
-    \item CPU与Cache敏感型：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，竖亥Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本研究中将其归类为CPU与Cache敏感型。
-    \item 资源不敏感型：此类应用对于所有干扰的敏感度都偏低。实验中Render在各个干扰下都没有出现较为明显的劣化，这主要有两个原因。一方面，在性能指标上，Render应用使用了完成时间作为性能评价指标，而与其他应用的性能指标不同，完成时间这一指标更偏向于整个运行过程的总体性能述而不是单一处理过程的性能，一些突发的性能劣化不会体现在这一指标上，另一方面，内核调度机制上在未作限制时倾向于公平地分配时间，因此干扰程序会因调度的影响向Render出让CPU时间，而当CPU资源总和足够满足Render使用时，性能指标就不会出现较大变化。
+    \item \textbf{单纯CPU敏感型}：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
+    \item \textbf{CPU与Cache敏感型}：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，竖亥Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本研究中将其归类为CPU与Cache敏感型。
+    \item \textbf{资源不敏感型}：此类应用对于所有干扰的敏感度都偏低。实验中Render在各个干扰下都没有出现较为明显的劣化，这主要有两个原因。一方面，在性能指标上，Render应用使用了完成时间作为性能评价指标，而与其他应用的性能指标不同，完成时间这一指标更偏向于整个运行过程的总体性能述而不是单一处理过程的性能，一些突发的性能劣化不会体现在这一指标上，另一方面，内核调度机制上在未作限制时倾向于公平地分配时间，因此干扰程序会因调度的影响向Render出让CPU时间，而当CPU资源总和足够满足Render使用时，性能指标就不会出现较大变化。
 \end{enumerate}
 
 \section{本章小结}
