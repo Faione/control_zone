@@ -14,7 +14,7 @@
 
 % 软件环境复杂 -> 应用需求不同 -> 软件架构复杂 -> 存在共性的基础应用 -> 基础应用的性能是整体性能的关键 -> 选取典型应用进行分析
 
-随微服务架构、开源软件的不断推广，应用越来越多的使用到开源的公共组件，如数据库、消息中间件等。公共组件为上层应用提供了基础服务，并处于请求链路的关键路径上，同时也意味着这些公共组件的性能能够一定程度上影响到应用的总体性能。因此，本研究结合与云厂商的合作经验，选择了一批云场景中的典型应用作为主要的画像对象，涵盖了传统数据库、键值存储、消息中间件、大数据、媒体处理等领域，具体应用如表~\ref{tab:typical_application}所示。
+随微服务架构、开源软件的不断推广，应用越来越多的使用到开源的公共组件，如数据库、消息中间件等。公共组件为上层应用提供了基础服务，并处于请求链路的关键路径上，同时也意味着这些公共组件的性能能够一定程度上影响到应用的总体性能。因此，本研究结合与云厂商的合作经验，选择了一批云场景中的典型应用作为主要的画像对象，涵盖了传统数据库、键值存储、消息中间件、媒体处理等领域，具体应用如表~\ref{tab:typical_application}所示。
 
 \begin{table}
     \bicaption{\quad 云场景典型应用}{\quad Typical Applications in Cloud Scenarios}% caption
@@ -275,14 +275,16 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致图中一部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只会在一个较小的范围内波动。
 
+具体到应用的差异性如图~\ref{fig:resource_affinity_0}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
+
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
       \includegraphics[width=\textwidth]{profile_redis}
       \caption{Redis资源使用}
       \label{fig:profile_redis}
     \end{subfigure}
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
         \includegraphics[width=\textwidth]{profile_memcached}
         \caption{Memcached资源使用}
         \label{fig:profile_memcached}
@@ -291,24 +293,17 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \label{fig:resource_affinity_0}
 \end{figure}
 
-具体到应用的差异性如图~\ref{fig:resource_affinity_0}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
-
 \begin{enumerate}
     \item \textbf{CPU资源}：应用的运行都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出，但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高，而当请求量足够多时，由于都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用，而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
-    \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
-    \item \textbf{Memory资源}：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
-    \item \textbf{Network资源}：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
-    \item \textbf{I/O资源}：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
-\end{enumerate}
 
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
       \includegraphics[width=\textwidth]{profile_nginx}
       \caption{Nginx资源使用}
       \label{fig:profile_nginx}
     \end{subfigure}
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
         \includegraphics[width=\textwidth]{profile_kafka}
         \caption{Kafka资源使用}
         \label{fig:profile_kafka}
@@ -317,14 +312,21 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \label{fig:resource_affinity_1}
 \end{figure}
 
+
+    \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Niginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
+    
+    \item \textbf{Memory资源}：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，而其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。而在内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，而在华为云的默认负载下，各个应用都会占用一定量的内存而并没有特别的规律性。
+    
+    \item \textbf{Network资源}：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，而因为工作负载中并没有长时间且持续性的请求，Render则因为是离线应用，因此几乎不会使用到网络资源。
+
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
       \includegraphics[width=\textwidth]{profile_elasticsearch}
       \caption{Elasticsearch资源使用}
       \label{fig:profile_elasticsearch}
     \end{subfigure}
-    \begin{subfigure}[b]{0.9\textwidth}
+    \begin{subfigure}[b]{0.85\textwidth}
         \includegraphics[width=\textwidth]{profile_render}
         \caption{Render资源使用}
         \label{fig:profile_render}
@@ -332,6 +334,9 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \bicaption{\quad Elasticsearch与Render资源使用情况}{\quad Resource Usage of Elasticsearch and Render}
 \label{fig:resource_affinity_2}
 \end{figure}
+    
+    \item \textbf{I/O资源}：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
+\end{enumerate}
 
 \section{性能劣化实验设计与分析}
 
@@ -382,18 +387,6 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示：
 
-\begin{itemize}
-    \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
-    
-    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
-    
-    \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
-    
-    \item \textbf{Net干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
-    
-    \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
-\end{itemize}
-
 \begin{figure}[H]
   \centering
   \begin{subfigure}[b]{0.32\textwidth}
@@ -424,6 +417,18 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
   \bicaption{\quad 干扰效果分析}{\quad Interference Effects Analysis}
   \label{fig:interference}
 \end{figure}
+
+\begin{itemize}
+    \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
+    
+    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
+    
+    \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
+    
+    \item \textbf{Net干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
+    
+    \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
+\end{itemize}
 
 考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰，导致类似于CPU或Cache干扰，因此在后续的
 没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
@@ -476,12 +481,8 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \section{本章小结}
 
-本章主要论述了对应用进行画像分析的过程，首先，结合与云厂商的合作经验，确定了在以虚拟机为沙箱环境运行有限个应用的场景，并选取了云场景中常见的7种应用作为画像分析的对象。
+本章主要论述了对云场景典型应用进行画像分析的过程，围绕三个问题展开。首先，在软件环境上，结合与云厂商的合作经验确定了以虚拟机作为应用运行时的典型云场景，随后通过对数据中心软件栈的分析，选取了7种典型应用作为画像分析的对象，涵盖了传统数据库、键值存储、消息中间件、媒体处理等领域。
 
-然后，对场景进行拆解分析，并提出了一种从Host、Hypervisor到App三个层次的协同监控机制设计，利用虚拟机本身作为进程的特殊性，串联三个维度的指标，并创新性地提出了一种基于eBPF对虚拟机监测的方式，对于本身为进程的虚拟机，监测其在系统调用上的吞吐与延时，而针对虚拟机的特殊性，则通过在虚拟化设备后端的关键路径上进行监测，实现更丰富的指标采集。
+随后，为解决引入虚拟化所带来的黑盒监测难题，基于Prometheus生态设计实现了一套面向虚拟机的可观测性系统，能够从Host、Hypervisor到App等多个维度以虚拟机为粒度采集丰富的指标数据，本研究主要设计实现了Libvirt Exporter、KVM Exporetr、Resctrl Exporter以及Kernel Exporter四种采集组件，其中创新性地引入eBPF技术，在应用与内核交互的关键路径，内核与设备交互的关键路径上进行采样分析，从而获取更丰富的指标数据。
 
-随后，根据上述设计，设计实现了一套可观测性系统，除利用到开源的Promethues、Node Exporter外，还根据监控需要，实现了Libvirt Exporter、KVM Exporetr、Resctrl Exporter以及Kernel Exporter，完成所有的设计需求。
-
-在可观测性基础设施实现完毕后，本章继续讨论实验的设计，实验围绕7种典型应用展开，并设计了有干扰实验与无干扰实验，在有干扰实验中，利用资源限制手段来减少干扰中的噪声，通过制造CPU、Cache、Memory及IO四种干扰，来分析应用对于干扰的敏感程度，而通过无干扰实验，来分析应用的资源使用倾向
-
-最后，在所有实验完成之后，分析从Prometheus中采集得到数据，来为应用进行画像分析，提供了应用的资源使用倾向及干扰敏感度评级，并探讨了除LC与BE外更多的混部机会。
+最后，围绕典型应用的资源使用倾向与资源敏感度展开实验分析。其中首先对干扰应用进行参数搜索，找到制造CPU、Cache、Memory、IO以及Network5种干扰的合适参数，并与典型应用进行混部实验。在资源使用倾向上，分析了典型应用资源使用倾向分类，而在资源敏感度上，总结了得到了典型应用的干扰敏感度评级。

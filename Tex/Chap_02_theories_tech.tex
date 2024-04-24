@@ -118,7 +118,7 @@ Ext调度类实现了sched\_class的完整方法并注册在内核调度子系�
     
     \item \textbf{scx\_bpf\_dispatch\_nr\_slots}：查看CPU可调度的任务槽数。允许BPF程序检查当前CPU上可承载的任务余量，避免BPF Scheduler向目标CPU调度过多的任务。
     \item \textbf{scx\_bpf\_dispatch\_cancel}：撤销最近向CPU调度的一个任务。当任务的CPU亲和性发生变化时，BPF Scheduler原先调度的任务就应当进行变化，而此Helper函数便于BPF Scheduler撤销先前的调度决策。
-    \item scx\_bpf\_consume：将BPF scheduler管理的任务调度给CPU。Sched Ext中的任务需要经过从BPF Scheduler的调度队列到CPU本地调度对队列的过程，这一过程的通过此Helper函数完成。
+    \item \textbf{scx\_bpf\_consume}：将BPF scheduler管理的任务调度给CPU。Sched Ext中的任务需要经过从BPF Scheduler的调度队列到CPU本地调度对队列的过程，这一过程的通过此Helper函数完成。
     \item \textbf{scx\_bpf\_kick\_cpu}：激活CPU的重调度。BPF程序能够通过此Helper函数唤醒一个idle CPU或者让繁忙的CPU进入调度循环中，为避免唤醒过程对调度延迟的影响，因此采用向中断队列添加延时任务的形式异步地设置唤醒任务，而在唤醒的过程主要通过Core框架提供的resched\_curr函数完成。
     \item \textbf{scx\_bpf\_pick\_idle\_cpu}：找到一个空闲的CPU。根据不同的调度目标，调度器应当避免任务过度的集中于同一个CPU，BPF Scheduler可以通过此Helper函数找到一个空闲CPU，将任务调度到此CPU上，并结合其他Helper函数来唤醒CPU。
 \end{itemize}
