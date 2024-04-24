@@ -21,7 +21,7 @@
     \label{tab:typical_application}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \renewcommand{\arraystretch}{1.25}% row space 
     \centering
     \begin{tabular}{lc}
         \hline
@@ -98,9 +98,9 @@
     \label{fig:monitor_arch}
 \end{figure}
 
-本研究结合云原生的实践经验，选择基于Prometheus来实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点，Prometheus的核心贡献在于提供了一种扩展性强的时序数据结构Metric以及围绕Metric的PromQL向量查询语言、向量数据存储方式以及编解码机制，在此基础上，Prometheus还实现了一套采集系统，提供了Promethues Server、Grafana及Node Exporter等核心组件，由于Promethues完全开源并提供了各种语言的Metric采集基础库，因此吸引了大量开发者及云厂商的参与，催生出丰富的组件生态。当前Prometheus已经成为指标采集的主要标准，并随DevOps的发展被越来越广泛地使用。
+本研究结合云原生的实践经验，选择使用Prometheus来实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点。Prometheus定义了一种数据采集的标准时序数据结构Metric，并围绕Metric提供高效的编解码机制、灵活的数据存储方式和便捷的PromQL查询语言。此外，Prometheus社区也提供了采集系统的标准实现，包含Promethues Server、Node Exporter等核心组件，并与Grafana社区合作密切，能够轻松地接入并进行图表展示。Promethues完全开源且社区致力于完善多语言Metric库支持，吸引了大量开发者及云厂商参与，并孕育出丰富的采集组件生态。当前，Prometheus已经成为指标采集的主要标准，并随DevOps的发展被越来越广泛地使用。
 
-基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用以Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
+基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中，Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用以Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
 
 \begin{figure}[!htbp]
     \centering
@@ -109,7 +109,7 @@
     \label{fig:exporters} 
 \end{figure}
 
-可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了7种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，原始指标如表~\ref{tab:metric_list}所示，包含CPU、Cache、Memroy、IO、Network等各个子系统，总数量达到344个。
+可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了7种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，每个Exporter具体实现如下：
 
 \begin{enumerate}
     \item Envoy：开源社区提供的一种L7代理和通信总线，面向大型现代服务架构设计，作为基础组件运行在各个Overlay Network系统中。Envoy的首要目的是构造透明网络，同时，为协助解决网络与应用层面的问题排查，Envoy还为各个代理子系统提供了强大的统计功能，统计功能支持大部分L7层传输协议，同时对于一些云原生应用，如Redis、Mysql等，能够进一步统计应用层协议的指标信息，如延迟、请求数等。
@@ -135,37 +135,71 @@
 
 \end{enumerate}
 
+% 解释指标的具体含义（列举少数）
+% 总体概述，然后：
+% - Host
+% - Hypervisor
+% - App
+
+实时可观测性系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
+
+\begin{itemize}
+    \item Host层级指标如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
+eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
+
 \begin{table}[!htbp]
-    \bicaption{\quad 指标列表}{\quad Metric list}% caption
-    \label{tab:metric_list}
+    \bicaption{\quad Host层级指标}{\quad Host Metric list}% caption
+    \label{tab:host_metric}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% ro w space 
+    \renewcommand{\arraystretch}{1.25}% ro w space 
     \centering
-    \begin{tabular}{lcc}
+    \begin{tabular}{ll}
         \hline
         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
         %\cline{i-j}% partial hline from column i to column j
-        层级 & 来源 & 指标\\
+        来源 & 指标\\
         \hline
-        Host & Kernel(271) & [cpu] sys\_time、user\_time、freq ... \\
-        & & [mem] usage、avail、swapfree、bounce、hugepage ...\\
-        & & [network] transmit、netstat、sockstat、ip、speed ...\\
-        & & [disk]flush requests、flush request time、read、write ...\\
-        & & ...\\
-        & eBPF(2) & [syscall] count、duration\\
-        & Resctrl(3) & llc cap、mem b/w local、mem b/w total\\
-        Hypervisor & Libvirt(68) & [vcpu] sys\_time、user\_time、wait、delay...\\
-        & & [mem] usable、avail、dick cache、rss ...\\
-        & & [perf] cycle、instruction、cache miss ...\\
-        & & [block] flush request、flush time、read、write ...\\
-        & & [interface] receive、transmit ...\\
-        & & ...\\
-        & KVM(59) & vm\_exit、io\_exit、irq\_exit、irq\_inject、halt\_poll ...\\
-        App & Log/Envoy & qos, latency, rate, score ...\\
+        Kernel(271) & [cpu] sys\_time、user\_time、freq ... \\
+        & [mem] usage、avail、swapfree、bounce、hugepage ...\\
+        & [network] transmit、netstat、sockstat、ip、speed ...\\
+        & [disk]flush requests、flush request time、read、write ...\\
+        & ...\\
+        eBPF(2) & [syscall] count、duration\\
+        Resctrl(3) & llc cap、mem b/w local、mem b/w total\\
         \hline
     \end{tabular}
 \end{table}
+
+    \item Hypervisor层级的指标如表~\ref{tab:hypervisor_metric}所示，指标来源分别为Libvirt与KVM。从Libvirt采集的指标通常为虚拟机粒度的资源指标，在CPU资源上，一方面从进程角度采集vCPU的时间记账以及调度子系统中的等待时间和调度延迟，另一方面从虚拟机角度采集vCPU内核态与用户态的时间片分布。在Cache资源上，利用Resctrl子系统提供的观测能力，采集虚拟机进程及子进程在LLC与内存带宽上的使用情况。在内存资源上，从ballon内存驱动上采集虚拟机内存资源的使用情况，包括内存总量、可用内存量、磁盘Cache总量以及虚拟机内存fault计数等。在网络资源上，采集虚拟网卡的transmit与receive信息。在磁盘IO资源上，采集虚拟磁盘设备的read、write数量以及read request、write request、flush request计数等。同时考虑虚拟机的进程特性采集Perf指标，性能事件包括Instruction、Branch Instruction、CPI, Cache Miss、Context Switch等。从KVM采集的指标通常描述虚拟机的状态，如针对虚拟机进程描述符，采集虚拟机的陷出事件，包含vm\_exit、io\_exit、irq\_exit等，而针对vCPU描述符，则采集时间子系统上的偏移等信息。
+
+\begin{table}[!htbp]
+    \bicaption{\quad Hypervisor层级指标}{\quad Hypervisor Metric list}% caption
+    \label{tab:hypervisor_metric}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
+    \centering
+    \begin{tabular}{ll}
+        \hline
+        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+        %\cline{i-j}% partial hline from column i to column j
+        来源 & 指标\\
+        \hline
+        Libvirt(68) & [vcpu] sys\_time、user\_time、wait、delay...\\
+        & [mem] usable、avail、dick cache、rss ...\\
+        & [perf] cycle、instruction、cache miss ...\\
+        & [block] flush request、flush time、read、write ...\\
+        & [interface] receive、transmit ...\\
+        & ...\\
+        KVM(59) & vm\_exit、io\_exit、irq\_exit、irq\_inject、halt\_poll ...\\
+        \hline
+    \end{tabular}
+\end{table}
+
+    \item App层级的指标主要从日志、内嵌的指标采集接口以及Envoy网络代理上采集。以Redis为例，通过Envoy网络代理接管传入Redis的所有流量，并在代理中记录各种操作的数量、延时统计等信息。
+    
+\end{itemize}
 
 \section{基准性能实验设计与分析}
 
@@ -178,7 +212,7 @@
     \label{tab:c6_info}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \renewcommand{\arraystretch}{1.25}% row space 
     \centering
     \begin{tabular}{lc}
         \hline
@@ -307,16 +341,19 @@
 % - 干扰有效性
 % - 噪声控制
 
+% TODO: 图例替换为 参数 + 干扰效果
+% - 定义 100% 负载
+
 性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
 
 \begin{table}[H]
-    \bicaption{\quad stress\_ng 实验参数列表}{\quad stress\_ng args list}% caption
-    \label{tab:arg_list}
-    \footnotesize% fontsize
-    \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
     \centering
-    \begin{tabular}{lcc}
+    \bicaption{\quad stress\_ng 实验参数列表}{\quad stress\_ng args list}% caption
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{20pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% ro w space 
+    \label{tab:arg_list}
+    \begin{tabular}{llc}
         \hline
         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
         %\cline{i-j}% partial hline from column i to column j
@@ -355,27 +392,27 @@
 
 \begin{figure}[H]
   \centering
-  \begin{subfigure}[b]{0.45\textwidth}
+  \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{cpu_interference}
     \caption{cpu干扰效果}
     \label{fig:cpu_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
+  \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{cache_interference}
     \caption{cache干扰效果}
     \label{fig:cache_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
+  \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{io_interference}
     \caption{io干扰效果}
     \label{fig:io_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
+  \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{net_interference}
     \caption{net干扰效果}
     \label{fig:net_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.45\textwidth}
+  \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{vm_interference}
     \caption{内存干扰效果}
     \label{fig:vm_interference}
