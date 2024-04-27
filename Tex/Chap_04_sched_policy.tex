@@ -229,6 +229,16 @@ BPF任务调度机制提供了以调度队列为粒度的CPU资源划分，相�
         \caption{Redis请求数量与Epoll Wait事件数量}
         \label{fig:epoll_redis}
     \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{epoll_nginx}
+        \caption{Nginx请求数量与Epoll Wait事件数量}
+        \label{fig:epoll_nginx}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{epoll_mysql}
+        \caption{Mysql请求数量与Epoll Wait事件数量}
+        \label{fig:epoll_mysql}
+    \end{subfigure}
 \bicaption{\quad LC应用负载与Epoll事件}{\quad Requests and Epoll Events on LC}
 \label{fig:epoll_request}
 \end{figure}
@@ -288,15 +298,31 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
-        \includegraphics[width=\textwidth]{bpf_sched_smp_mysql}
-        \bicaption{\quad Mysql与干扰混部}{\quad MySQL with Interference} 
-        \label{fig:bpf_sched_smp_mysql}
+        \includegraphics[width=\textwidth]{bpf_sched_smp_redis}
+        \bicaption{\quad Redis与干扰混部}{\quad Redis with Interference} 
+        \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_memcached}
         \bicaption{\quad Memcached与干扰混部}{\quad Memcached with Interference} 
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smp_nginx}
+        \bicaption{\quad Nginx与干扰混部}{\quad Nginx with Interference} 
+        \label{fig:bpf_sched_smp_memcached}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smp_mysql}
+        \bicaption{\quad Mysql与干扰混部（TpmC）}{\quad MySQL with Interference(TpmC)} 
+        \label{fig:bpf_sched_smp_mysql}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smp_mysql_latency}
+        \bicaption{\quad Mysql与干扰混部（Latency）}{\quad MySQL with Interference(Latency)} 
+        \label{fig:bpf_sched_smp_mysql_latency}
+    \end{subfigure}
+
 \bicaption{\quad CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
 \label{fig:lc_bpf_sched}
 \end{figure}
@@ -314,6 +340,21 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
         \includegraphics[width=\textwidth]{bpf_sched_smt_memcached}
         \bicaption{\quad SMT下Memcached与干扰混部}{\quad Memcached with Interference On SMT} 
         \label{fig:bpf_sched_smt_memcached}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smt_nginx}
+        \bicaption{\quad SMT下Nginx与干扰混部}{\quad Nginx with Interference On SMT} 
+        \label{fig:bpf_sched_smt_nginx}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smt_mysql}
+        \bicaption{\quad SMT下Mysql与干扰混部（TpmC）}{\quad Mysql with Interference On SMT(TpmC)} 
+        \label{fig:bpf_sched_smt_mysql}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{bpf_sched_smt_mysql_latency}
+        \bicaption{\quad SMT下Mysql与干扰混部（Latency}{\quad Mysql with Interference On SMT(Latency)} 
+        \label{fig:bpf_sched_smt_mysql_latency}
     \end{subfigure}
 \bicaption{\quad CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
 \label{fig:lc_bpf_sched}
