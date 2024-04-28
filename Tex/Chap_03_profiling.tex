@@ -247,7 +247,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 无干扰实验中计算各个监测指标的变异系数，得到不同应用对应的资源指标如图~\ref{fig:resource_affinity}所示。
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
       \includegraphics[width=\textwidth]{cof_cpu}
@@ -384,6 +384,13 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示：
 
+\begin{itemize}
+    \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
+    
+    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
+
+    \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
+
 \begin{figure}[H]
   \centering
   \begin{subfigure}[b]{0.32\textwidth}
@@ -415,13 +422,6 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
   \label{fig:interference}
 \end{figure}
 
-\begin{itemize}
-    \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
-    
-    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
-    
-    \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
-    
     \item \textbf{Net干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
     
     \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。

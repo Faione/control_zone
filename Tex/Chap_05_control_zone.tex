@@ -17,10 +17,10 @@
 在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通，而在Control Zone之中，由塔台进行飞机的调度。本研究借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的调度器，Control Zone包含如下特性：
 
 \begin{itemize}
-    \item 轻量级虚拟机：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快的虚拟机启动速度与内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
-    \item 运行容器化的任务：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时享容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
-    \item 可动态定制的调度器：Control Zone支持Sched Ext可扩展调度类，能够运行BPF Scheduler。Control Zone提供基础的BPF Scheduler容器镜像模板，并提供了集中基础的BPF Scheduler容器，使得调度器能够与任务一样一起进行管理，并支持运行时热切换。
-    \item 可观测性基础设施：沙箱系统包含了一个围绕虚拟机的可观测性系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
+    \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快的虚拟机启动速度与内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
+    \item \textbf{容器化的任务}：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时享容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
+    \item \textbf{可动态定制的调度器}：Control Zone支持Sched Ext可扩展调度类，能够运行BPF Scheduler。Control Zone提供基础的BPF Scheduler容器镜像模板，并提供了集中基础的BPF Scheduler容器，使得调度器能够与任务一样一起进行管理，并支持运行时热切换。
+    \item \textbf{可观测性基础设施}：沙箱系统包含了一个围绕虚拟机的可观测性系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
 \end{itemize}
 
 \begin{figure}[!htbp]
@@ -59,11 +59,11 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中，管�
 
 
 \begin{itemize}
-    \item czyaml：Control Zone定义。czyaml包含Meta、Guest、Resource三部分，其中Meta包含一些元数据，用以区分不同的Control Zone。Guest部分则用于声明运行环境，包括使用的系统、调度器及根文件系统。Resource部分用于声明隔离的资源，包括常见的CPU、Memory以及Intel RDT子系统中的LLC和内存带宽。
-    \item czmanager：Control Zone管理。czmanager负责Control Zone的实际管理， 包括创建、查看、启动、暂停、更新以及清除等完善的生命周期管理。过程中czmanager主要负责维护Control Zone的状态，并协同底层虚拟化运行时实现最终的虚拟机管理。而在可观测性上，czmanager利用了虚拟机各层次的信息生成监控配置，并与可观测性基础设施协作以实现Control Zone的持续监控。资源管理上，czmanager主要与虚拟化运行时、Linux Resctrl及Cgroup子系统交互，根据czyaml中的定义实现Control Zone的资源隔离。
-    \item czdaemon：Control Zone守护程序。czdaemon运行在每个Control Zone之中，在启动阶段主要用来信息获取与状态探测。而在启动完成之后，作为Control Zone内外沟通的桥梁，对外与czmanager交互，以接收命令，对内则直接与容器运行时交互，实现镜像及容器的管理。
-    \item czctrl：用户命令行工具。czctrl是所有请求的入口，能够解析用户输入的命令并验证czyaml配置，随后再与czmanager交互以达成用户管理Control Zone和任务的目的。
-    \item 镜像存储服务：容器及其他静态资源管理。应用与BPF Scheduler都以OCI容器镜像的形式保存在镜像存储服务中，并通过容器的形式运行，同时为方便其他静态资源的管理，预编译内核及根文件系统也保存在精简容器镜像的中交给镜像存储服务管理。
+    \item \textbf{czyaml}：Control Zone定义。czyaml包含Meta、Guest、Resource三部分，其中Meta包含一些元数据，用以区分不同的Control Zone。Guest部分则用于声明运行环境，包括使用的系统、调度器及根文件系统。Resource部分用于声明隔离的资源，包括常见的CPU、Memory以及Intel RDT子系统中的LLC和内存带宽。
+    \item \textbf{czmanager}：Control Zone管理。czmanager负责Control Zone的实际管理， 包括创建、查看、启动、暂停、更新以及清除等完善的生命周期管理。过程中czmanager主要负责维护Control Zone的状态，并协同底层虚拟化运行时实现最终的虚拟机管理。而在可观测性上，czmanager利用了虚拟机各层次的信息生成监控配置，并与可观测性基础设施协作以实现Control Zone的持续监控。资源管理上，czmanager主要与虚拟化运行时、Linux Resctrl及Cgroup子系统交互，根据czyaml中的定义实现Control Zone的资源隔离。
+    \item \textbf{czdaemon}：Control Zone守护程序。czdaemon运行在每个Control Zone之中，在启动阶段主要用来信息获取与状态探测。而在启动完成之后，作为Control Zone内外沟通的桥梁，对外与czmanager交互，以接收命令，对内则直接与容器运行时交互，实现镜像及容器的管理。
+    \item \textbf{czctrl}：用户命令行工具。czctrl是所有请求的入口，能够解析用户输入的命令并验证czyaml配置，随后再与czmanager交互以达成用户管理Control Zone和任务的目的。
+    \item \textbf{镜像存储服务}：容器及其他静态资源管理。应用与BPF Scheduler都以OCI容器镜像的形式保存在镜像存储服务中，并通过容器的形式运行，同时为方便其他静态资源的管理，预编译内核及根文件系统也保存在精简容器镜像的中交给镜像存储服务管理。
 \end{itemize}
 
 \subsection{Control Zone流程}
@@ -274,7 +274,46 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 
 在精简内核的对比中，Control Zone内核也存在优势，如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%，对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了对嵌套虚拟化的支持而开启了虚拟化子系统，因此会产生额外的开销，而Control Zone内核所支持的容器环境所需要的支持则相对更少。但是相对于Firecra内核，Control Zone内核则在启动开销上并没有优势，即便使用Qemu虚拟化运行时，Firecracker内核也能达到接近使用CloudHypervisor的Control Zone内核的启动速度，比较配置能够发现， Firecracker内核在功能裁切上更加激进，分析两者的启动日志能够发现这开销的差异主要来自于Control Zone内核中所需要的额外功能，如Netfilter子系统等。这些功能在本设计中时必须的，同时考虑场景上的差异，Firecracker实现时希望以承担安全容器的运行时环境，虚拟机的生命周期与运行在其中的容器绑定，而在Control Zone的设计中，任务与Control Zone并非完全耦合，Control Zone更接近与对于隔离环境的声明，在任务需要运行时启动，而在任务运行完毕后仍然会保留，并提供给下一个任务使用，即Control Zone不会频繁地启动，因此这部分开销在设计中是可以接受的。
 
-% \subsection{性能开销实验}
+\subsection{性能开销实验}
+
+选用6个应用并与CloudHV Kernel、Host进行性能开销比较， 具体结果如图~\ref{fig:perf_app}所示。
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_redis}
+        \bicaption{\quad Redis延迟}{\quad Redis Latency} 
+        \label{fig:perf_redis}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_memcached}
+        \bicaption{\quad Memcached延迟}{\quad Memcached Latency} 
+        \label{fig:perf_memcached}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_mysql}
+        \bicaption{\quad MySQL每秒事务}{\quad MySQL TpmC} 
+        \label{fig:perf_mysql}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_nginx}
+        \bicaption{\quad Nginx延迟}{\quad Nginx Latency} 
+        \label{fig:perf_nginx}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_ffmpeg}
+        \bicaption{\quad FFmpeg运行时间}{\quad FFmpeg Runtime} 
+        \label{fig:perf_ffmpeg}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{perf_graph500}
+        \bicaption{\quad Graph500运行时间}{\quad Graph500 Runtime} 
+        \label{fig:perf_graph500}
+    \end{subfigure}
+\bicaption{\quad 应用性能比较}{\quad Application performance comparison}
+\label{fig:perf_app}
+\end{figure}
+
 
 % \subsection{沙箱隔离性实验}
 
