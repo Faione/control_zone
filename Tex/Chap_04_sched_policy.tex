@@ -318,12 +318,12 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{throughput_kernel_graph500}
-        \bicaption{\quad Graph500与干扰混部}{\quad Graph500 with Interference} 
+        \caption{\quad Graph500与干扰混部}
         \label{fig:throughput_kernel_graph500}
     \end{subfigure}
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{throughput_kernel_ffmpeg}
-        \bicaption{\quad FFmpeg与干扰混部}{\quad FFmpeg with Interference} 
+        \caption{\quad FFmpeg与干扰混部}
         \label{fig:throughput_kernel_ffmpeg}
     \end{subfigure}
     \bicaption{\quad 混部场景下的吞吐量优先内核}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
@@ -343,27 +343,27 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_redis}
-        \bicaption{\quad Redis延迟}{\quad Redis Latency} 
+        \caption{\quad Redis延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_memcached}
-        \bicaption{\quad Memcacehd延迟}{\quad Memcached Latency} 
+        \caption{\quad Memcacehd延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_nginx}
-        \bicaption{\quad Nginx延迟}{\quad NginxLatency} 
+        \caption{\quad Nginx延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_mysql}
-        \bicaption{\quad MySQL每秒事件数量}{\quad MySQL TpmC} 
+        \caption{\quad MySQL每秒事件数量}
         \label{fig:bpf_sched_smp_mysql}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_mysql_latency}
-        \bicaption{\quad MySQL延迟}{\quad MySQL Latency} 
+        \caption{\quad MySQL延迟} 
         \label{fig:bpf_sched_smp_mysql_latency}
     \end{subfigure}
 
@@ -371,11 +371,9 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
 \label{fig:lc_bpf_sched}
 \end{figure}
 
-混部结果如图~\ref{fig:lc_bpf_sched}所示，总体来看，CPU资源感知BPF调度策略几乎总是能够让LC应用达到与未受干扰情况下相近的性能。对于常见的Redis、Memcached与Nginx，CPU资源感知调度策略分别能够实现最高
+混部结果如图~\ref{fig:lc_bpf_sched}所示，总体来看，CPU资源感知BPF调度策略几乎总是能够让LC应用达到与未受干扰情况下相近的性能。对于常见的Redis、Memcached与Nginx，CPU资源感知调度策略分别能够最高实现90.4\%、61.1\%、63.3\%的延迟降低效果，同时在各个负载强度下均能有效保障应用的QoS。同时对于业务逻辑较复杂的MySQL，CPU资源感知调度策略也能够很好地进行QoS保障，如图~\ref{fig:bpf_sched_smp_mysql}所示，在不同负载强度中，MySQL平均事务处理数量最高提升了60.8\%，同时延迟最高降低了68.3\%。
 
-。而对于响应度优先内核不能很好处理的MySQL，在CPU资源感知BPF调度策略之下，如图~\ref{fig:bpf_sched_smp_mysql}所示，MySQL平均事务处理数量最高提升了60.8\%，同时在延时上也能够最高降低68.3\%
-
-如图~\ref{fig:bpf_sched_smp_mysql}所示，MySql性能最高提升了60.8\%，同时，如图~\ref{fig:bpf_sched_smp_memcached}所示，Memcached延迟最高降低了48.2\%，这一方面得益于Ext调度类在调度队列上的隔离性，使得高优先应用总是能够及时地得到调度，同时，通过CPU资源感知，进一步让其他核心上的低优先级任务感知高优先级任务的运行，并根据阈值来判断是否要出让CPU以避免干扰。不同调度算法下的CPU总体利用率如图~\ref{fig:cpu_usage}所示。
+在总体吞吐上，不同调度算法下的系统CPU总体利用率如图~\ref{fig:cpu_usage}所示。其中，对于Redis、Memcached、Nginx而言，混部场景中总体CPU资源使用率几乎都完全占满。同时，对比无干扰下的CPU资源使用率能够发现，额外的CPU资源占用由干扰应用产生。CPU感知调度器能够做到更好的QoS保障效果在于合理地CPU资源分配，首先基于Control Tower任务调度框架的设计，使得低优先任务总是能够在高优先应用需要时及时地出让CPU资源，并在高优先应用运行的过程中确保不进行抢占，从而实现更好的QoS保障效果。
 
 \begin{figure}[!htbp]
     \centering
@@ -403,7 +401,8 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
 \label{fig:cpu_usage}
 \end{figure}
 
-对于SMT场景，由于兄弟核心之间存在片上共享资源，CPU资源感知调度对于这一场景下的QoS保障更为重要，实验在一个2 CPU、1024MB内存的虚拟机中展开，其中CPU配置为兄弟核，同时内核不关闭Core调度机制。实验结果如图~\ref{fig:lc_bpf_sched_smt}所示，相较于EEVDF调度器，CPU资源感知BPF 调度器在SMT场景中， 能够将Redis延迟最高降低79.6\%，并且最低也有33.7\%的延迟降低效果，同时从图~\ref{fig:latency_box}中能够看出，在CPU资源感知BPF调度策略下，Redis的延迟稳定性也得到了一定的保障，这主要是因为CPU资源感知BPF调度策略完全运行在内核态中，能够快速的决策并调度任务，从而避免了许多用户态调度器存在的“乒乓效应”。
+
+混部场景中调度需要考虑硬件的特性，如SMT中兄弟核心之间存在片上共享资源，Linux任务调度策略中的措施是通过调度域名尽量避免将任务调度到SMT上，但这种做法并不能充分利用SMT资源。造成上述问题的核心在于缺少一种CPU感知的机制，让SMT调度时知道兄弟核心的运行情况。CPU感知调度策略能够解决这一问题，而为验证调度效果，混部实验在一个2 SMT CPU、1024 MB内存的虚拟机中展开，并选择Redis、Memcached、Nginx、MySQL四种延时敏感应用与干扰应用构建混部场景。实验结果如图~\ref{fig:lc_bpf_sched_smt}所示，相较于EEVDF，CPU感知调度策略能够在所测应用的各个负载下有效地对应用QoS进行保障，其中对于Redis、Memcached、MySQL分别最高实现71.2\%、48.7\%、49.5\%的延迟降低效果。同时，特别地，Nginx在高负载时由于SMT场景的激烈资源竞争，EEVDF完全无法有效调度，导致Nginx延时呈数量级的上升，而CPU感知调度策略则仍然能够实现Nginx与无干扰类似的性能表现。
 
 \begin{figure}[H]
     \centering
@@ -436,6 +435,8 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
 \label{fig:lc_bpf_sched_smt}
 \end{figure}
 
+CPU感知调度策略在保障延时的同时，同时也保障了延时的稳定度，这点对于LC应用而言也十分重要。以Redis为例，如图~\ref{fig:latency_box}所示，在CPU感知调度策略下，Redis的各个负载下的延时波动都几乎与无干扰状态下类似。实现这一延时保障效果的核心原因在于Control Tower任务调度框架中的eBPF数据源与BPF调度策略都完全运行在内核态，并借助内核提供的数据结构交互，因此在调度决策上速度上能够做到与内核调度周期同步，从而避免了许多用户态调度器存在的“乒乓效应”。
+
 \begin{figure}[!htbp]
     \centering
     \begin{subfigure}[b]{0.24\textwidth}
@@ -445,7 +446,7 @@ CPU感知BPF调度策略实验首先验证调度策略对高优先级任务的Qo
     \end{subfigure}
     \begin{subfigure}[b]{0.24\textwidth}
         \includegraphics[width=\textwidth]{cpu_aware_box_bpf_sched}
-        \caption{CPU感知BPF调度策略}
+        \caption{CPU感知调度策略}
         \label{fig:cpu_aware_box_bpf_sched}
     \end{subfigure}
     \begin{subfigure}[b]{0.24\textwidth}
