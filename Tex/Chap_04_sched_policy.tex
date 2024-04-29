@@ -88,7 +88,7 @@ Linux调度子系统提供了一些编译配置选项，用以针对场景进行
 
 在调度队列层，以默认的CFS调度为例，CFS提供从-20到20的静态优先级，能够影响应用vruntime的积累速度。高优先应用的vruntime相对增加得缓慢，通常能够得到更多的调度机会，但是随高优先应用的vruntime不断累积，在CFS公平调度的机制实现下，存在在被低优先应用抢占的可能。同时，CFS调度器中包含了许多不利于高优先应用QoS保障的启发式逻辑。CFS的执行过程中会为每个调度队列维护一个基准的vruntime，通常是调度队列中vruntime的最小值，新创建和刚唤醒的进程会被赋予基准vruntime值，并在CFS调度算法下得到优先执行。然而，这一启发式逻辑没有考虑到进程之间的优先级，当低优先级大量唤醒或创建时，高优先应用反而会被频繁抢占并产生QoS劣化。其次，调度队列层优先级无法跨CPU地产生作用，这一方面导致高优先应用与运行在其他CPU上的低优先应用争抢资源，另一方面使得高优先应用在不同CPU上迁移时相对优先级变化而导致优先性丧失。
 
-为解决混部场景下Linux任务调度在QoS保障上的问题，本研究设计了Control Tower任务调度框架，能够在保障高优先任务全局优先性的同时支持灵活的调度策略。COntrol Tower任务调度框架基于Sched Ext项目设计。引入Ext调度类的目标首先在于解决Linux任务调度机制中的优先级问题。Ext调度类处于Fair调度类与Idle调度类之间，将低优先任务添加到Ext调度类中可构建调度类优先级差异，从而实现高优先应用就绪时总是能够抢占低优先应用。同时，由于调度类优先级是系统全局的，因此能够在各个CPU以及跨机器迁移时生效。
+为解决混部场景下Linux任务调度在QoS保障上的问题，本研究设计了Control Tower任务调度框架，能够在保障高优先任务全局优先性的同时支持灵活的调度策略。Control Tower任务调度框架基于Sched Ext项目设计。引入Ext调度类的目标首先在于解决Linux任务调度机制中的优先级问题。Ext调度类处于Fair调度类与Idle调度类之间，将低优先任务添加到Ext调度类中可构建调度类优先级差异，从而实现高优先应用就绪时总是能够抢占低优先应用。同时，由于调度类优先级是系统全局的，因此能够在各个CPU以及跨机器迁移时生效。
 
 其次，针对不同混部场景下应用的不同需求，Control Tower任务调度框架能够针对性地设计调度策略，从而根据实际情况更好地进行高优先任务的QoS保障。Control Tower任务调度框架如图~\ref{fig:bpf_scheduler_arch}所示，框架的核心是BPF调度策略，基于Ext提供的接口实现，能够定制Ext调度类的任务调度行为。除此之外，本研究向BPF调度策略引入了额外的数据输入源，包括用户与其他子系统的数据输入。额外的输入数据通过BPF Map等机制提供给BPF调度策略，用以辅助进行调度决策。同时BPF调度策略也能够通过共享内存的方式将数据提供给用户态程序，并借助与用户态程序的协作实现更灵活的任务调度。
 
@@ -247,27 +247,6 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 响应度优先任务调度配置使用HZ\_1000配置时钟中断频率，并配置PREEMPT抢占模式。实验在一个4CPU 1024MB内存的虚拟机上展开，选择Redis、Memcached、Nginx和Mysql四种延迟敏感应用分别与干扰应用进行混部来构建混部场景，并与HZ\_250和VOLUNTARY抢占模式的CloudHV默认Linux内核比较。
 
-% \begin{table}[H]
-%     \centering
-%     \bicaption{\quad 延时敏感应用负载配置}{\quad Latency sensitive application load configuration}% caption
-%     \footnotesize% fontsize
-%     \setlength{\tabcolsep}{10pt}% column separation
-%     \renewcommand{\arraystretch}{1.25}% ro w space 
-%     \label{tab:arg_list}
-%     \begin{tabular}{llc}
-%         \hline
-%         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
-%         %\cline{i-j}% partial hline from column i to column j
-%         应用名称 & 模拟负载 & 最大值\\
-%         \hline
-%         Redis       & memtier benchmark &  \\
-%         Memcached   & memtier benchmark &  \\
-%         MySQL	    & tpcc              &  \\
-%         Nginx	    & wrk2              &  \\
-%         \hline
-%     \end{tabular}
-% \end{table}
-
 混部实验结果如图~\ref{fig:perf_response}所示，响应度优先内核配置几乎在所有混部场景下都实现了更好的应用QoS保障。对于业务逻辑较简单的LC应用，如Redis、Memcached与Nginx，响应度优先内核分别最高实现了39.2\%、36.9\%、35.2\%的延迟降低效果。高响应度的配置能够及时地为LC应用分配CPU资源，避免请求的积压从而保障应用的延时需求。MySQL混部实验中响应度优先内核能在一定程度上提升MySQL的事务处理能力。但由于MySQL线程数多、业务逻辑复杂，在较高负载时，由于NO\_HZ核心配置多线程下失效，频繁的时钟中断也导致执行有效任务的时间减少，使得MySQL的延时上升。
 
 \begin{figure}[H]
@@ -354,31 +333,31 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_redis}
-        \caption{\quad Redis延迟}
+        \caption{\quad Redis请求延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_memcached}
-        \caption{\quad Memcacehd延迟}
+        \caption{\quad Memcached请求延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_nginx}
-        \caption{\quad Nginx延迟}
+        \caption{\quad Nginx请求延迟}
         \label{fig:bpf_sched_smp_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_mysql}
-        \caption{\quad MySQL每秒事件数量}
+        \caption{\quad MySQL每秒事务数量}
         \label{fig:bpf_sched_smp_mysql}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_mysql_latency}
-        \caption{\quad MySQL延迟} 
+        \caption{\quad MySQL请求延迟} 
         \label{fig:bpf_sched_smp_mysql_latency}
     \end{subfigure}
 
-\bicaption{\quad CPU感知调度下的LC应用QoS保障效果}{\quad LC Application Latency Stability}
+\bicaption{\quad 混部场景下CPU感知调度下的LC应用QoS保障效果}{\quad LC Application Latency Stability}
 \label{fig:lc_bpf_sched}
 \end{figure}
 
@@ -420,30 +399,30 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smt_redis}
-        \caption{\quad SMT下Redis}
+        \caption{\quad Redis请求延迟}
         \label{fig:bpf_sched_smt_redis}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smt_memcached}
-        \caption{\quad SMT下Memcached}
+        \caption{\quad Memcached请求延迟}
         \label{fig:bpf_sched_smt_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smt_nginx}
-        \caption{\quad SMT下Nginx}
+        \caption{\quad Nginx请求延迟}
         \label{fig:bpf_sched_smt_nginx}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smt_mysql}
-        \caption{\quad SMT下MySQL（TpmC）}
+        \caption{\quad MySQL每秒事务数量}
         \label{fig:bpf_sched_smt_mysql}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smt_mysql_latency}
-        \caption{\quad SMT下MySQL（Latency}
+        \caption{\quad MySQL请求延迟}
         \label{fig:bpf_sched_smt_mysql_latency}
     \end{subfigure}
-\bicaption{\quad CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
+\bicaption{\quad SMT混部场景下，CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
 \label{fig:lc_bpf_sched_smt}
 \end{figure}
 
@@ -453,7 +432,7 @@ Control Tower CPU感知调度策略在保障延时的同时，同时也保障了
     \centering
     \begin{subfigure}[b]{0.35\textwidth}
         \includegraphics[width=\textwidth]{cpu_aware_box_no_interference}
-        \caption{无干扰}
+        \caption{无干扰场景}
         \label{fig:cpu_aware_box_no_interference}
     \end{subfigure}
     \begin{subfigure}[b]{0.35\textwidth}
