@@ -247,6 +247,27 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 响应度优先任务调度配置使用HZ\_1000配置时钟中断频率，并配置PREEMPT抢占模式。实验在一个4CPU 1024MB内存的虚拟机上展开，选择Redis、Memcached、Nginx和Mysql四种延迟敏感应用分别与干扰应用进行混部来构建混部场景，并与HZ\_250和VOLUNTARY抢占模式的CloudHV默认Linux内核比较。
 
+% \begin{table}[H]
+%     \centering
+%     \bicaption{\quad 延时敏感应用负载配置}{\quad Latency sensitive application load configuration}% caption
+%     \footnotesize% fontsize
+%     \setlength{\tabcolsep}{10pt}% column separation
+%     \renewcommand{\arraystretch}{1.25}% ro w space 
+%     \label{tab:arg_list}
+%     \begin{tabular}{llc}
+%         \hline
+%         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+%         %\cline{i-j}% partial hline from column i to column j
+%         应用名称 & 模拟负载 & 最大值\\
+%         \hline
+%         Redis       & memtier benchmark &  \\
+%         Memcached   & memtier benchmark &  \\
+%         MySQL	    & tpcc              &  \\
+%         Nginx	    & wrk2              &  \\
+%         \hline
+%     \end{tabular}
+% \end{table}
+
 混部实验结果如图~\ref{fig:perf_response}所示，响应度优先内核配置几乎在所有混部场景下都实现了更好的应用QoS保障。对于业务逻辑较简单的LC应用，如Redis、Memcached与Nginx，响应度优先内核分别最高实现了39.2\%、36.9\%、35.2\%的延迟降低效果。高响应度的配置能够及时地为LC应用分配CPU资源，避免请求的积压从而保障应用的延时需求。MySQL混部实验中响应度优先内核能在一定程度上提升MySQL的事务处理能力。但由于MySQL线程数多、业务逻辑复杂，在较高负载时，由于NO\_HZ核心配置多线程下失效，频繁的时钟中断也导致执行有效任务的时间减少，使得MySQL的延时上升。
 
 \begin{figure}[H]
