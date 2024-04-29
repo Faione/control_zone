@@ -133,7 +133,7 @@ BPF调度策略既可以直接定制Ext调度行为，也可以在调度过程�
 
 相较于Linux任务调度机制，Control Tower任务调度框架能够提供更灵活的任务调度机制与调控手段，并通过定制和组合不同的外部数据来源、调度模式与调度策略来满足不同混部场景应用对调度机制的需求，从而更好地保障高优先应用的QoS。
 
-\section{资源感知的BPF任务调度}
+\section{Control Tower资源感知任务调度}
 
 % 对于CPU资源的隔离，常见的方式是显示地隔离不同应用能够使用的CPU，这种静态的划分方式并不能有效的使用资源，而在本章中提出了基于BPF调度器的调度队列隔离，高低优先级的应用在调度队列优先级机制之上共享相同CPU，使得高优先级应用运行时总是能够优先地使用CPU资源。
 
@@ -289,6 +289,24 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{throughput_kernel_graph500_speed}
+        \caption{\quad Graph500与干扰混部}
+        \label{fig:throughput_kernel_graph500_speed}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{throughput_kernel_ffmpeg_speed}
+        \caption{\quad FFmpeg与干扰混部}
+        \label{fig:throughput_kernel_ffmpeg_speed}
+    \end{subfigure}
+    \bicaption{\quad 混部场景下的吞吐量优先内核}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
+    \label{fig:perf_throughput}
+\end{figure}
+
+混部实验结果如图~\ref{fig:perf_throughput}所示。吞吐量优先内核在Graph500的执行速度上相较于CloudHV默认内核提升了165.2\%, 而在如图~\ref{fig:perf_throughput_time}所示的执行时间分布上可以看出，吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，Graph500在内核态的时间大大减少，同时更少的上下文切换也使得应用执行的局部性变好，使得Graph500在用户态的时间也有所减少。而对于FFmjpeg，吞吐量优先内核与CloudHV默认内核的差异并不明显。不同于Graph500，FFmjpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能而言意义并不大。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{throughput_kernel_graph500}
         \caption{\quad Graph500与干扰混部}
         \label{fig:throughput_kernel_graph500}
@@ -298,11 +316,9 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{\quad FFmpeg与干扰混部}
         \label{fig:throughput_kernel_ffmpeg}
     \end{subfigure}
-    \bicaption{\quad 混部场景下的吞吐量优先内核}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
-    \label{fig:perf_throughput}
+    \bicaption{\quad 混部场景下的应用时间分布}{\quad Response Priority Kernel in Mixed Deployment Scenarios}
+    \label{fig:perf_throughput_time}
 \end{figure}
-
-混部实验结果如图~\ref{fig:perf_throughput}所示。吞吐量优先内核在Graph500的执行速度上相较于CloudHV默认内核提升了165.2\%, 而在图~\ref{fig:throughput_kernel_graph500}的时间分布上可以看出，吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，Graph500在内核态的时间大大减少，同时更少的上下文切换也使得应用执行的局部性变好，使得Graph500在用户态的时间也有所减少。而对于FFmjpeg，吞吐量优先内核与CloudHV默认内核的差异并不明显。不同于Graph500，FFmjpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能而言意义并不大。
 
 \subsection{CPU资源感知策略效果}
 
