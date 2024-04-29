@@ -1,6 +1,6 @@
 \chapter{运行时可定制调度的沙箱机制实现}\label{chap:control_zone}
 
-为解决单一调度机制与多样混部场景的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，允许用户提供BPF Scheduler来与混部应用共同部署，一方面，针对不同混部场景，允许用户自由地选择合适的BPF Scheduler，另一方面，允许用户根据混部应用的变化，在运行时对BPF Scheduler进行动态修改，而在不同的Control Zone之间，允许用户借助丰富的资源隔离手段，来定制对混部应用的资源保护。
+为解决单一调度机制与多样混部场景的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，允许用户基于Control Tower任务调度框架定制调度策略容器与混部应用共同部署，一方面，针对不同混部场景，允许用户自由地选择合适的调度策略容器，另一方面，允许用户根据混部应用的变化，在运行时对调度策略容器进行动态修改，而在不同的Control Zone之间，允许用户借助丰富的资源隔离手段，来定制对混部应用的资源保护。
 
 \section{Control Zone设计}
 
@@ -14,12 +14,12 @@
 % - 针对每个问题的解决方式
 % - 设计目标
 
-在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通，而在Control Zone之中，由塔台进行飞机的调度。本研究借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的调度器，Control Zone包含如下特性：
+在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通，而在Control Zone之中，由Control Tower进行客机起降的调度。本研究借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的任务调度框架Control Tower，Control Zone包含如下特性：
 
 \begin{itemize}
     \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快的虚拟机启动速度与内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
     \item \textbf{容器化的任务}：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时享容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
-    \item \textbf{可动态定制的调度器}：Control Zone支持Sched Ext可扩展调度类，能够运行BPF Scheduler。Control Zone提供基础的BPF Scheduler容器镜像模板，并提供了集中基础的BPF Scheduler容器，使得调度器能够与任务一样一起进行管理，并支持运行时热切换。
+    \item \textbf{可动态定制的调度器}：Control Zone支持Control Tower调度框架，运行以容器方式打包的调度策略。Control Zone提供了基础的调度策略容器，同时，调度策略容器与任务容器的管理方式相同，同样支持运行时的修改与切换。
     \item \textbf{可观测性基础设施}：沙箱系统包含了一个围绕虚拟机的可观测性系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
 \end{itemize}
 
@@ -32,9 +32,9 @@
  
 Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中，管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可以根据混部任务的属性动态地对BPF Scheduler进行修改，可观测性基础设置则能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
 
-对于混部场景下的硬件特性差异的挑战，一方面，Control Zone能够利用虚拟化提供的抽象层屏蔽底层硬件的差异，另一方面，Control Zone可以根据配置的硬件特性选择合适的BPF Scheduler，并能够在硬件特性变化时切换另一个合适的BPF Scheduler，过程中不必中断虚拟机的执行。
+对于混部场景下的硬件特性差异的挑战，一方面，Control Zone能够利用虚拟化提供的抽象层屏蔽底层硬件的差异，另一方面，Control Zone可以根据配置的硬件特性选择合适的Control Tower任务调度策略，并能够在硬件特性变化时切换另一个合适的任务调度策略，过程中不需要中断虚拟机的执行。
 
-对于混部场景下软件需求差异的挑战，首先，针对高优先级任务的特性，可以选择匹配的内核来满足任务在响应度或吞吐量上的需求。其次，针对差异的混部场景，则能够选择场景定制的BPF Scheduler来处理QoS保障问题，同时，考虑混部应用的负载的动态特性，一方面可以通过eBPF监测应用的负载，另一方面可以在不同的阶段切换不同的BPF Scheduler来实现灵活的QoS保障策略。
+对于混部场景下软件需求差异的挑战，首先，针对高优先级任务的特性，可以选择匹配的内核来满足任务在响应度或吞吐量上的需求。其次，针对差异的混部场景，则能够选择场景定制的任务调度策略来处理QoS保障问题，同时，考虑混部应用的负载的动态特性，一方面可以通过eBPF监测应用的负载，另一方面可以在不同的阶段切换不同的任务调度策略来实现灵活的QoS保障策略。
 
 \section{Control Zone实现}
 
@@ -62,7 +62,7 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中，管�
     \item \textbf{czmanager}：Control Zone管理。czmanager负责Control Zone的实际管理， 包括创建、查看、启动、暂停、更新以及清除等完善的生命周期管理。过程中czmanager主要负责维护Control Zone的状态，并协同底层虚拟化运行时实现最终的虚拟机管理。而在可观测性上，czmanager利用了虚拟机各层次的信息生成监控配置，并与可观测性基础设施协作以实现Control Zone的持续监控。资源管理上，czmanager主要与虚拟化运行时、Linux Resctrl及Cgroup子系统交互，根据czyaml中的定义实现Control Zone的资源隔离。
     \item \textbf{czdaemon}：Control Zone守护程序。czdaemon运行在每个Control Zone之中，在启动阶段主要用来信息获取与状态探测。而在启动完成之后，作为Control Zone内外沟通的桥梁，对外与czmanager交互，以接收命令，对内则直接与容器运行时交互，实现镜像及容器的管理。
     \item \textbf{czctrl}：用户命令行工具。czctrl是所有请求的入口，能够解析用户输入的命令并验证czyaml配置，随后再与czmanager交互以达成用户管理Control Zone和任务的目的。
-    \item \textbf{镜像存储服务}：容器及其他静态资源管理。应用与BPF Scheduler都以OCI容器镜像的形式保存在镜像存储服务中，并通过容器的形式运行，同时为方便其他静态资源的管理，预编译内核及根文件系统也保存在精简容器镜像的中交给镜像存储服务管理。
+    \item \textbf{镜像存储服务}：容器及其他静态资源管理。应用与Control Tower任务调度策略都以OCI容器镜像的形式保存在镜像存储服务中，并通过容器的形式运行，同时为方便其他静态资源的管理，预编译内核及根文件系统也保存在精简容器镜像的中交给镜像存储服务管理。
 \end{itemize}
 
 \subsection{Control Zone流程}
@@ -322,7 +322,9 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 
 \subsection{性能开销实验}
 
-选用6个应用并与CloudHV Kernel、Host进行性能开销比较， 具体结果如图~\ref{fig:perf_app}所示。
+而为测试实际应用上的性能开销，实验中选择典型应用分析中的6种应用进行性能测试。在内核性能上，选择与CloudHypervisor默认Linux内核进行比较，并同时运行在Control Zone沙箱上。而在沙箱性能上，选择与在Host上以容器的形式部署的应用进行比较。
+
+性能开销实验结果如图~\ref{fig:perf_app}所示，总体来看，Control Zone在内核性能上优于CloudHypervisor默认的Linux内核，而在沙箱性能上，Control Zone也能够在一些应用上取得比Host更好的效果。
 
 \begin{figure}[!htbp]
     \centering
@@ -360,6 +362,7 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 \label{fig:perf_app}
 \end{figure}
 
+Control Zone内核仅以提供隔离的内核环境为目标，在此目标上进行的内核配置裁切能够更加积极。相较于CloudHypervisor默认内核，Control Zone内核在同样仅支持Virtio设备的同时，裁切了如Netfilter等在沙箱中不必的内核功能，从而进一步减少内核中如网络处理路径的长度。在网络应用延迟上，与同样运行在虚拟机中的CloudHypervisor内核相比最高降低了15.7\%, 同时与直接运行在Host上相比也能最高降低了38.5\%。但是，对于一些逻辑复杂的应用，如MySQL，则存在一定的性能劣化，主要原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段能够有效地处理这一问题。
 
 % \subsection{沙箱隔离性实验}
 
@@ -370,12 +373,12 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 
 \section{本章小结}
 
-本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部BPF Scheduler任务调度。
+本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部Control Tower任务调度策略。
 
 随后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程。
 
-由于Control Zone中的BPF Scheduler也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务与调度策略共同部署，通过定制化调度来解决混部下的性能劣化问题。
+由于Control Zone中的Control Tower任务调度策略也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务与调度策略共同部署，通过定制化调度来解决混部下的性能劣化问题。
 
 然后介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
 
-最后，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。
+最后，在实现设计中围绕沙箱的开销展开，在启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
