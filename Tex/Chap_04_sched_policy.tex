@@ -486,12 +486,12 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
 \label{fig:epoll_request}
 \end{figure}
 
-网络资源感知策略下的混部实验选择Nginx作为LC应用，并将其最大负载的20\%作为调度的临界值。混部结果如图~\ref{network_aware_cpu_usage}所示，其中红色虚线部分标注了调度策略的负载临界值。时序图中，Nginx负载不断增加，同时CPU占用率也有所上升，在临界值之前，由于调度策略较宽松，整体调度以吞吐量为目标，因此系统总CPU利用率接近100\%，而随负载的不断增加，应用间CPU资源争抢越来越激烈，整体CPU资源波动较大。临界值之后，调度策略转变为以保障LC应用延时为目标，并开始严格限制低优先任务的CPU资源使用。此时虽然整体CPU利用率随Nginx负载增大而有所降低，但整体CPU利用率波动变得更小，同时也保障了Nginx的QoS。
+网络资源感知策略下的混部实验选择Nginx作为LC应用，并将其最大负载的20\%作为调度的临界值。混部结果如图~\ref{fig:network_aware_cpu_usage}所示，其中红色虚线部分标注了调度策略的负载临界值。时序图中，Nginx负载不断增加，同时CPU占用率也有所上升，在临界值之前，由于调度策略较宽松，整体调度以吞吐量为目标，因此系统总CPU利用率接近100\%，而随负载的不断增加，应用间CPU资源争抢越来越激烈，整体CPU资源波动较大。临界值之后，调度策略转变为以保障LC应用延时为目标，并开始严格限制低优先任务的CPU资源使用。此时虽然整体CPU利用率随Nginx负载增大而有所降低，但整体CPU利用率波动变得更小，同时也保障了Nginx的QoS。
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{network_aware_cpu_usage}
-    \bicaption{\quad LC（Nginx）与BE（干扰）混部场景CPU利用率}{\quad CPU utilization in mixed deployment scenario of LC (Nginx) and BE (interference)}
+    \includegraphics[width=0.9\textwidth]{network_aware_cpu_usage}
+    \bicaption{\quad Nginx混部场景CPU利用率}{\quad CPU utilization in mixed deployment scenario of Nginx}
     \label{fig:network_aware_cpu_usage}
 \end{figure}
 
