@@ -84,46 +84,89 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中，管�
 % - chsd的策略控制
 % - sched ext的策略控制
 
-Control Zone Yaml提供了丰富的资源隔离配置~\ref{tab:cz_config}，隔离性围绕三个层次进行设计，首先，虚拟机本质上是一种特殊的进程，Linux中提供了Cgroup技术来隔离进程的资源，因此在配置文件中，允许声明Cgroup配置参数，来限制如虚拟机能够使用的CPU核心等，同时作为进程，也能够被Linux Resctrl子系统管理，从而构造LLC与内存带宽的隔离。其次，虚拟机本身还由Hypervisor管理，而大部分Hypervisor都提供了额外的资源隔离机制，主要体现在硬件模拟上，如对于CPU，可以限制提供给虚拟机使用的CPU feature，而对于其他设备，则提供了对virtio net设备的收发速度及virtio blk设备的读写速度的控制。最后，虚拟机内的guest os本身也能够提供一些隔离机制，在Control Zone中能够通过调度子系统来对不同的任务进行隔离，如将任务划分到不同优先级的调度队列中， 从而在相同调度队列上构造任务粒度的隔离性，这一配置通常与混部任务一同设置。
+Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的基本配置，并提供丰富的资源隔离声明。
 
-\begin{table}
-    \bicaption{\quad Control Zone配置列表}{\quad Control Zone Config}% caption
-    \label{tab:cz_config}
+\begin{itemize}
+    \item \textbf{基础配置}：Control Zone基础配置如表~\ref{tab:cz_meta_config}所示，首先，在Guest环境上，Control Zone提供了Response、Throughput两种基本内核，用户可根据需要进行选择。为加快启动速度，Control Zone默认不使用initramfs，同时提供了基于Alpine的轻量化rootfs，其中包含基础的软件运行环境，用户也可以根据需要进行修改。其次，在应用管理上，Control Zone使用Pod Yaml来描述混部任务的部署需求，其中Control Tower调度器与常规应用一样基于容器部署，并包含在Pod Yaml中。
+
+\begin{table}[H]
+    \bicaption{\quad Control Zone Meta 配置}{\quad Control Zone Meta Config}% caption
+    \label{tab:cz_meta_config}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \renewcommand{\arraystretch}{1.25}% row space 
     \centering
-    \begin{tabular}{lcc}
+    \begin{tabular}{lc}
         \hline
         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
         %\cline{i-j}% partial hline from column i to column j
-        类型 & 配置 & 说明\\
+        配置 & 说明\\
         \hline
-        Meta & name & Control Zone名称 \\
-        & workdir & Control Zone工作目录，存放日志及其他配置 \\
-        & share\_folder（可选） & 额外共享给Control Zone的目录 \\
-        & label & 标签，数个key-value对 \\
-        & vrun & 虚拟机运行时，可选CloudHypervisor、Qemu或Libvirtd \\
-        Guest & kernel（可选） & Control Zone使用的内核，从镜像存储拉取 \\
-        & initramfs（可选） & 初始化内存文件系统，默认情况下不使用 \\
-        & rootfs（可选） & Control Zone使用的根文件系统，从镜像存储拉取\\
-        & kcmdline（可选） & 内核的运行命令 \\
-        Resource & [cgroup] & 虚拟机Cgroup配置 \\
-        & cpu.max & 最大CPU使用限制 \\
-        & cpu.max.burst & 最大突发CPU使用限制 \\
-        & cpuset.cpus & CPU亲和性 \\
-        & cpuset.mems & 内存节点亲和性 \\
-        & [hypervisor] & 虚拟机hypervisor配置 \\
-        & cpu features& vCPU可用的特性\\
-        & bw\_size & 设备带宽大小（byte/s）\\
-        & bw\_one\_time\_burst & 设备突发带宽大小（byte/s）\\
-        & bw\_refill\_time & 设备带宽恢复时间（ms）\\
-        & ops\_size & 设备操作速度（op/s）\\
-        & ops\_one\_time\_burst & 设备突发操作速度（op/s）\\
-        & ops\_refill\_time & 设备操作速度恢复时间（ms）\\
+        name & Control Zone名称 \\
+        workdir & Control Zone工作目录，存放日志及其他配置 \\
+        share\_folder（可选） & 额外共享给Control Zone的目录 \\
+        label & 标签，数个key-value对 \\
+        vrun & 虚拟机运行时，可选CloudHypervisor、Qemu或Libvirtd \\
+        initramfs（可选） & 初始化内存文件系统，默认情况下不使用 \\
+        rootfs（可选） & Control Zone使用的根文件系统，从镜像存储拉取\\
+        kcmdline（可选） & 内核的运行命令 \\
+        pods（可选） & Pod 配置 \\
         \hline
     \end{tabular}
 \end{table}
+
+    \item \textbf{资源配置}：KVM虚拟机是一种特殊的进程，Control Zone在创建虚拟机的过程中，会为vCPU及emulator线程创建Cgroup与Resctrl Monitor Group来方便进行资源管理，具体的资源配置选项如表~\ref{tab:cz_cgroup_config}所示。首先，基于Cgroup，用户可以配置vCPU在pCPU上的资源使用，围绕CPU亲和性与CPU时间片使用展开。其次，通过Resctrl子系统，也可以为整个虚拟机线程组配置LLC掩码，以进行Cache资源的隔离。
+
+\begin{table}[H]
+    \bicaption{\quad Control Zone Resource 配置}{\quad Control Zone Resource Config}% caption
+    \label{tab:cz_cgroup_config}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{30pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+        %\cline{i-j}% partial hline from column i to column j
+        配置 & 说明\\
+        \hline
+        cpu.max & 最大CPU使用限制 \\
+        cpu.max.burst & 最大突发CPU使用限制 \\
+        cpuset.cpus & CPU亲和性 \\
+        cpuset.mems & 内存节点亲和性 \\
+        llc mask& 可用LLC掩码 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+    \item \textbf{Hypervisor配置}：虚拟机硬件通常由Hypervisor模拟，其中如virtio设备等在模拟设备后端驱动上提供了丰富的配置选项。通过Hypervisor提供的调控接口，可以进一步在设备上进行资源隔离的配置，具体配置如表~\ref{tab:cz_hv_config}所示。首先，对于CPU，可以配置提供给虚拟机使用的CPU feature。而对于virtio网络设备和块设备，则可以在收发速度上进行限制。
+
+\begin{table}[H]
+    \bicaption{\quad Control Zone Hypervisor 配置}{\quad Control Zone Hypervisor Config}% caption
+    \label{tab:cz_hv_config}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{30pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+        %\cline{i-j}% partial hline from column i to column j
+        配置 & 说明\\
+        \hline
+        cpu features& vCPU可用的特性\\
+        bw\_size & 设备带宽大小（byte/s）\\
+        bw\_one\_time\_burst & 设备突发带宽大小（byte/s）\\
+        bw\_refill\_time & 设备带宽恢复时间（ms）\\
+        ops\_size & 设备操作速度（op/s）\\
+        ops\_one\_time\_burst & 设备突发操作速度（op/s）\\
+        ops\_refill\_time & 设备操作速度恢复时间（ms）\\
+        \hline
+    \end{tabular}
+\end{table}
+
+\end{itemize}
+
 
 运行时可定制调度的沙箱提供了create、start、stop、remove、update四种操作来管理Control Zone的生命周期，在不同操作下Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中 sync 过程由czdaemon完成，而对于不能直接达到的状态，czmanager会试图进行多次状态切花以达到目标状态，而对于不可达的状态，czmanager将会提示操作非法。update操作对于状态的影响取决于所更新的参数，如对内核的修改将要求Control Zone进行重新启动。
 
