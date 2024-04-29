@@ -57,7 +57,6 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中，管�
     \label{fig:cz_components}
 \end{figure}
 
-
 \begin{itemize}
     \item \textbf{czyaml}：Control Zone定义。czyaml包含Meta、Guest、Resource三部分，其中Meta包含一些元数据，用以区分不同的Control Zone。Guest部分则用于声明运行环境，包括使用的系统、调度器及根文件系统。Resource部分用于声明隔离的资源，包括常见的CPU、Memory以及Intel RDT子系统中的LLC和内存带宽。
     \item \textbf{czmanager}：Control Zone管理。czmanager负责Control Zone的实际管理， 包括创建、查看、启动、暂停、更新以及清除等完善的生命周期管理。过程中czmanager主要负责维护Control Zone的状态，并协同底层虚拟化运行时实现最终的虚拟机管理。而在可观测性上，czmanager利用了虚拟机各层次的信息生成监控配置，并与可观测性基础设施协作以实现Control Zone的持续监控。资源管理上，czmanager主要与虚拟化运行时、Linux Resctrl及Cgroup子系统交互，根据czyaml中的定义实现Control Zone的资源隔离。
@@ -179,47 +178,51 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
 
 Control Zone的创建流程如图~\ref{fig:cz_create}所示，过程中首先进行配置的合法性监测，创建过程中的检测主要判断资源是否重复分配，如对于cpuset，czmanager会检查全局的cpu mask来判断cpuset的设置是否合法。随后进行工作目录的创建，用来单独保存每个Control Zone的关键数据，如根文件系统等。创建过程仅为虚拟机的启动做好准备，而并不会启动虚拟机，相当于为虚拟机的启动预留了空间。
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.5\textwidth]{cz_create}
-    \bicaption{\quad Control Zone创建流程}{\quad Create Control Zone}
-    \label{fig:cz_create}
+    \begin{subfigure}[b]{0.43\textwidth}
+        \includegraphics[width=\textwidth]{cz_create}
+        \caption{\quad Control Zone创建流程}
+        \label{fig:cz_create}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.56\textwidth}
+        \includegraphics[width=\linewidth]{cz_start}
+        \caption{\quad Control Zone启动流程}
+        \label{fig:cz_start}
+    \end{subfigure}
+\bicaption{\quad Control Zone创建与启动流程}{\quad Control Zone creation and startup process}
+\label{fig:cz_create_start}
 \end{figure}
 
 Control Zone的启动流程如图~\ref{fig:cz_start}所示，过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配，对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用目标虚拟化运行时来启动虚拟机，而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化，czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
 
-\begin{figure}[!htbp]
-        \centering
-        \includegraphics[width=0.6\linewidth]{cz_start}
-        \bicaption{\quad Control Zone启动流程}{\quad Start Control Zone}
-        \label{fig:cz_start}
-\end{figure}
-
 Control Zone的停止过程如图~\ref{fig:cz_stop}所示，考虑停止之后存在重新启动的可能，因此沙箱采用了较为保守的关闭策略。关闭过程中需要czmanager与czdaemon协同合作，在验证配置之后，czmanager首先会通知czdaemon进行关闭处理，而czdaemon在接收到关闭信号之后，会对当前系统的状态进行保存，如必要的信息、混部应用状态等，再将托管的任务关闭，随后再通知czmanager， 直到此时czmanager才会真正地调用执行器来关闭虚拟机，并在必要时通知可观测性基础设置停止监测。Control Zone停止之后仍然会保有相关的资源记录，便于后续重新启动。
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{cz_stop}
-    \bicaption{\quad Control Zone关闭流程}{\quad Stop Control Zone}
-    \label{fig:cz_stop}
-\end{figure}
-
-Control Zone的更新过程如图~\ref{fig:cz_update}所示，Control Zone Yaml中的绝大部分字段都允许被更新，一些字段的更新由czmanager调用资源管理接口完成，如修改cgroup或resctrl等字段中的内容，czmanager发现只有这些字段被修改时，就会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。 而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改，czmanager检测到这些字段发生修改后，就会进如重新启动的流程，并在关闭虚拟机之后，实施相关更新内容，再启动虚拟机。更新完毕后，观测配置可能会过时，因此必要时czmanager还会与可观测性基础设施同步观测配置的变化。
-
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.7\textwidth]{cz_update}
-    \bicaption{\quad Control Zone更新流程}{\quad Stop Control Zone}
-    \label{fig:cz_update}
+    \begin{subfigure}[b]{0.46\textwidth}
+        \includegraphics[width=\textwidth]{cz_stop}
+        \caption{\quad Control Zone关闭流程}
+        \label{fig:cz_stop}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.53\textwidth}
+        \includegraphics[width=\textwidth]{cz_remove}
+        \caption{\quad Control Zone删除流程}
+        \label{fig:cz_remove}
+    \end{subfigure}
+\bicaption{\quad Control Zone关闭与删除流程}{\quad Control Zone closing and deletion process}
+\label{fig:cz_create_start}
 \end{figure}
 
 Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经停止的Control Zone能够被删除，而为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，在进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
-\begin{figure}[!htbp]
+Control Zone的更新过程如图~\ref{fig:cz_update}所示，Control Zone Yaml中的绝大部分字段都允许被更新，一些字段的更新由czmanager调用资源管理接口完成，如修改cgroup或resctrl等字段中的内容，czmanager发现只有这些字段被修改时，就会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。 而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改，czmanager检测到这些字段发生修改后，就会进如重新启动的流程，并在关闭虚拟机之后，实施相关更新内容，再启动虚拟机。更新完毕后，观测配置可能会过时，因此必要时czmanager还会与可观测性基础设施同步观测配置的变化。
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\textwidth]{cz_remove}
-    \bicaption{\quad Control Zone删除流程}{\quad Remove Control Zone}
-    \label{fig:cz_remove}
+    \includegraphics[width=0.7\textwidth]{cz_update}
+    \bicaption{\quad Control Zone更新流程}{\quad Stop Control Zone}
+    \label{fig:cz_update}
 \end{figure}
 
 \subsection{Control Zone开销优化}
@@ -254,7 +257,7 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
     \label{tab:exp_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \renewcommand{\arraystretch}{1.25}% row space 
     \centering
     \begin{tabular}{lc}
         \hline
@@ -273,12 +276,12 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 
 每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS，Ubuntu同时也是Sched Ext优先支持的发行版，能够较方便地通过包管理工具安装预编译的Sched Ext内核。在虚拟换运行时上，Qemu采用发行版所支持的稳定版，而以轻量为目标的CloudHyeprvirsor则采用自编译的最新发布版本。
 
-\begin{table}
+\begin{table}[H]
     \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
     \label{tab:system_env}
     \footnotesize% fontsize
-    \setlength{\tabcolsep}{4pt}% column separation
-    \renewcommand{\arraystretch}{1.5}% row space 
+    \setlength{\tabcolsep}{30pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
     \centering
     \begin{tabular}{lc}
         \hline
@@ -325,32 +328,32 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_redis}
-        \bicaption{\quad Redis延迟}{\quad Redis Latency} 
+        \caption{\quad Redis延迟}
         \label{fig:perf_redis}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_memcached}
-        \bicaption{\quad Memcached延迟}{\quad Memcached Latency} 
+        \caption{\quad Memcached延迟}
         \label{fig:perf_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_mysql}
-        \bicaption{\quad MySQL每秒事务}{\quad MySQL TpmC} 
+        \caption{\quad MySQL每秒事务}
         \label{fig:perf_mysql}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_nginx}
-        \bicaption{\quad Nginx延迟}{\quad Nginx Latency} 
+        \caption{\quad Nginx延迟}
         \label{fig:perf_nginx}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_ffmpeg}
-        \bicaption{\quad FFmpeg运行时间}{\quad FFmpeg Runtime} 
+        \caption{\quad FFmpeg运行时间}
         \label{fig:perf_ffmpeg}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_graph500}
-        \bicaption{\quad Graph500运行时间}{\quad Graph500 Runtime} 
+        \caption{\quad Graph500运行时间}
         \label{fig:perf_graph500}
     \end{subfigure}
 \bicaption{\quad 应用性能比较}{\quad Application performance comparison}
