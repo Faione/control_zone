@@ -322,7 +322,7 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 
 \subsection{性能开销实验}
 
-而为测试实际应用上的性能开销，实验中选择典型应用分析中的6种应用进行性能测试。在内核性能上，选择与CloudHypervisor默认Linux内核进行比较，并同时运行在Control Zone沙箱上。而在沙箱性能上，选择与在Host上以容器的形式部署的应用进行比较。
+实验中选择典型应用分析中的6种应用进行性能测试，分析Control Zone上实际应用的性能。在内核性能上，选择与CloudHypervisor默认Linux内核进行比较，并同时运行在Control Zone沙箱上。而在沙箱性能上，选择与在Host上以容器的形式部署的应用进行比较。
 
 性能开销实验结果如图~\ref{fig:perf_app}所示，总体来看，Control Zone在内核性能上优于CloudHypervisor默认的Linux内核，而在沙箱性能上，Control Zone也能够在一些应用上取得比Host更好的效果。
 
@@ -366,19 +366,21 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 \subsection{性能保障实验}
 
+
+
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{cpu_series_memcached_ct}
-        \caption{\quad Control Zone性能保障}
+        \caption{\quad Control Zone性能保障效果}
         \label{fig:cpu_series_memcached_ct}
     \end{subfigure}
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{cpu_series_memcached_eevdf}
-        \caption{\quad EEVDF性能保障}
+        \caption{\quad EEVDF性能保障效果}
         \label{fig:cpu_series_memcached_eevdf}
     \end{subfigure}
-    \bicaption{\quad 混部场景下BE应用时间分布}{\quad BE application time distribution in Co-Location scenario}
+    \bicaption{\quad 混部场景下Memcached性能保障}{\quad Memcached performance protection in co-location scenario}
     \label{fig:cpu_series_memcached}
 \end{figure}
 
