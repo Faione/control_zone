@@ -324,65 +324,71 @@ Control Zone的启动开销计算从虚拟化运行时开始到系统引导至in
 
 实验中选择典型应用分析中的6种应用进行性能测试，分析Control Zone上实际应用的性能。在内核性能上，选择与CloudHypervisor默认Linux内核进行比较，并同时运行在Control Zone沙箱上。而在沙箱性能上，选择与在Host上以容器的形式部署的应用进行比较。
 
-性能开销实验结果如图~\ref{fig:perf_app}所示，总体来看，Control Zone在内核性能上优于CloudHypervisor默认的Linux内核，而在沙箱性能上，Control Zone也能够在一些应用上取得比Host更好的效果。
+性能开销实验结果如图~\ref{fig:perf_app}所示，总体来看，Control Zone在内核性能上优于CloudHypervisor默认的Linux内核，而在沙箱性能上，Control Zone在一些应用上能够实现优于直接在Host上部署的性能。
 
 \begin{figure}[!htbp]
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_redis}
-        \caption{\quad Redis延迟}
+        \caption{\quad Redis请求延迟}
         \label{fig:perf_redis}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_memcached}
-        \caption{\quad Memcached延迟}
+        \caption{\quad Memcached请求延迟}
         \label{fig:perf_memcached}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_mysql}
-        \caption{\quad MySQL每秒事务}
+        \caption{\quad MySQL每秒事务数量}
         \label{fig:perf_mysql}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_nginx}
-        \caption{\quad Nginx延迟}
+        \caption{\quad Nginx请求延迟}
         \label{fig:perf_nginx}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_ffmpeg}
-        \caption{\quad FFmpeg运行时间}
+        \caption{\quad FFFmpeg 每秒处理帧数量}
         \label{fig:perf_ffmpeg}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_graph500}
-        \caption{\quad Graph500运行时间}
+        \caption{\quad Graph500 每分钟执行数量}
         \label{fig:perf_graph500}
     \end{subfigure}
 \bicaption{\quad 应用性能比较}{\quad Application performance comparison}
 \label{fig:perf_app}
 \end{figure}
 
-Control Zone内核仅以提供隔离的内核环境为目标，在此目标上进行的内核配置裁切能够更加积极。相较于CloudHypervisor默认内核，Control Zone内核在同样仅支持Virtio设备的同时，裁切了如Netfilter等在沙箱中不必的内核功能，从而进一步减少内核中如网络处理路径的长度。在网络应用延迟上，与同样运行在虚拟机中的CloudHypervisor内核相比，Control Zone实现了99分位尾延迟降低最高15.7\%的效果。同时，与直接运行在Host上相比，Control Zone即便引入了虚拟化开销，也能够实现99分尾延迟降低最高38.5\%的效果。但是，对于一些逻辑复杂的应用，如MySQL，则存在一定的性能劣化，主要原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段能够有效地处理这一问题。
+Control Zone内核仅以提供隔离的内核环境为目标，在此目标上进行的内核配置裁切能够更加激进。相较于CloudHypervisor默认内核，Control Zone内核在同样仅支持Virtio设备的同时，裁切了如Netfilter等在沙箱中不必的内核功能，从而进一步减少内核中如网络处理等关键路径的长度。因此网络应用延迟上，与同样运行在虚拟机中的CloudHypervisor内核相比，Control Zone实现了99分位尾延迟降低最高15.7\%的效果。同时，与直接运行在Host上相比，Control Zone即便引入了虚拟化开销，也能够实现99分尾延迟降低最高38.5\%的效果。
+
+但对于一些逻辑复杂的应用，如MySQL，Control Zone存在一定的性能瓶颈。造成这一问题的核心原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段可以有效地处理这一问题，因此Control Zone内核中保留了PCI总线配置以便驱动直通的硬件。
 
 \subsection{性能保障实验}
 
+性能保障实验在4 CPU、1024MB内存的Control Zone中展开，选择Qemu组合CloudHypervisor默认内核作为运行环境的对比。Control Zone中的混部方案为Memcached、stress\_ng CPU干扰应用与Control Tower调度策略，Qemu的混部方案为Memcached、stress\_ng CPU干扰。实验方式为分别在两个混部方案中运行一段时间相同的Memacached负载，并从可观测系统中截取对应时间段的指标数据。
 
+时序数据如图~\ref{fig:cpu_series_memcached}所示，包含虚拟机总体的CPU使用率、混部应用各自的CPU使用率以及Memcached的99分位尾延迟，其中红色虚线部分表示stress\_ng CPU负载启动的时间点。在干扰负载启动时段之前，Control Zone中Memcached性能并无明显差异，而在干扰负载启动之后，Control Zone在Memcached延时保障上效果十分明显，实现高优先应用99分尾延迟降低最高63.8\%的效果。
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{cpu_series_memcached_ct}
-        \caption{\quad Control Zone性能保障效果}
+        \caption{\quad Control Zone混部性能}
         \label{fig:cpu_series_memcached_ct}
     \end{subfigure}
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{cpu_series_memcached_eevdf}
-        \caption{\quad EEVDF性能保障效果}
+        \caption{\quad Qemu + CloudHV Kernel混部性能}
         \label{fig:cpu_series_memcached_eevdf}
     \end{subfigure}
     \bicaption{\quad 混部场景下Memcached性能保障}{\quad Memcached performance protection in co-location scenario}
     \label{fig:cpu_series_memcached}
 \end{figure}
+
+而从CPU资源分配的角度上来看，Memcached在Control Zone中运行时能被更优先地分配CPU资源，从而能够更好地进行请求处理，实现延时的降低。与此同时，虚拟机总体CPU使用率确没有明显下降，这得益于Control Tower调度策略对于高优先应用CPU资源使用的感知，通过更合理的CPU分配来保障高优先应用的性能。
 
 % 补充实验
 % - 总体性能指标
@@ -399,4 +405,6 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 然后介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
 
-最后，在实现设计中围绕沙箱的开销展开，在启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
+实验设计中，在沙箱启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
+
+而在混部性能保障上，Control Zone部署混部应用能够利用Contorl Tower调度策略的灵活性与调控能力，通过更符合混部场景的CPU资源分配策略，能够实现高优先应用99分尾延迟降低最高63.8\%的效果。
