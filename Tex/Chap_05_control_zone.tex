@@ -370,7 +370,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 性能保障实验在4 CPU、1024MB内存的Control Zone中展开，选择Qemu组合CloudHypervisor默认内核作为运行环境的对比。Control Zone中的混部方案为Memcached、stress\_ng CPU干扰应用与Control Tower调度策略，Qemu的混部方案为Memcached、stress\_ng CPU干扰。实验方式为分别在两个混部方案中运行一段时间相同的Memacached负载，并从可观测系统中截取对应时间段的指标数据。
 
-时序数据如图~\ref{fig:cpu_series_memcached}所示，包含虚拟机总体的CPU使用率、混部应用各自的CPU使用率以及Memcached的99分位尾延迟，其中红色虚线部分表示stress\_ng CPU负载启动的时间点。在干扰负载启动时段之前，Control Zone中Memcached性能并无明显差异，而在干扰负载启动之后，Control Zone在Memcached延时保障上效果十分明显，实现高优先应用99分尾延迟降低最高63.8\%的效果。
+时序数据如图~\ref{fig:cpu_series_memcached}所示，包含虚拟机总体的CPU使用率、混部应用各自的CPU使用率以及Memcached的99分位尾延迟，其中红色虚线部分表示stress\_ng CPU负载启动的时间点。在干扰负载启动之前的时段，Memcached在Control Zone中的性能表现无明显差异。而在干扰负载启动之后的时段，Memcached在Control Zone中运行时的延迟需求得到了有效的保障，并实现99分尾延迟降低最高63.8\%的效果。
 
 \begin{figure}[H]
     \centering
@@ -388,7 +388,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
     \label{fig:cpu_series_memcached}
 \end{figure}
 
-而从CPU资源分配的角度上来看，Memcached在Control Zone中运行时能被更优先地分配CPU资源，从而能够更好地进行请求处理，实现延时的降低。与此同时，虚拟机总体CPU使用率确没有明显下降，这得益于Control Tower调度策略对于高优先应用CPU资源使用的感知，通过更合理的CPU分配来保障高优先应用的性能。
+而从CPU资源分配的角度上来看，Memcached在Control Zone中运行时能被更优先地分配CPU资源，从而能够更好地进行请求处理，实现延迟的降低。与此同时，虚拟机总体CPU使用率却没有明显下降，这得益于Control Tower调度策略对于高优先应用CPU资源使用的感知，并通过合理的CPU分配实现高优先应用的性能保障。
 
 % 补充实验
 % - 总体性能指标
