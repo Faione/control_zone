@@ -17,7 +17,7 @@
 在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通，而在Control Zone之中，由Control Tower进行客机起降的调度。本文借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的任务调度框架Control Tower，Control Zone包含如下特性：
 
 \begin{itemize}
-    \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快的虚拟机启动速度与更少的内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
+    \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快启动速度和更少的内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
     \item \textbf{容器化的任务}：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
     \item \textbf{可动态定制的调度器}：Control Zone支持Control Tower调度框架，运行以容器方式打包的调度策略。Control Zone提供了基础的调度策略容器，同时，调度策略容器与任务容器的管理方式相同，同样支持运行时的修改与切换。
     \item \textbf{可观测性基础设施}：沙箱系统包含了一个围绕虚拟机的可观测性系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
@@ -105,7 +105,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
         workdir & Control Zone工作目录，存放日志及其他配置 \\
         share\_folder（可选） & 额外共享给Control Zone的目录 \\
         label & 标签，数个key-value对 \\
-        vrun & 虚拟机运行时，可选CloudHypervisor、Qemu或Libvirtd \\
+        vrun & 虚拟机监视器，可选CloudHypervisor、Qemu \\
         initramfs（可选） & 初始化内存文件系统，默认情况下不使用 \\
         rootfs（可选） & Control Zone使用的根文件系统，从镜像存储拉取\\
         kcmdline（可选） & 内核的运行命令 \\
@@ -167,7 +167,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
 \end{itemize}
 
 
-运行时可定制调度的沙箱提供了create、start、stop、remove、update四种操作来管理Control Zone的生命周期，在不同操作下Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中 sync 过程由czdaemon完成，而对于不能直接达到的状态，czmanager会试图进行多次状态切换以达到目标状态，而对于不可达的状态，czmanager将会提示操作非法。update操作对于状态的影响取决于所更新的参数，如对内核的修改将要求Control Zone进行重新启动。
+运行时可定制调度的沙箱提供了create、start、stop、remove、update五种操作来管理Control Zone的生命周期，在不同操作下Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中 sync 过程由czdaemon完成，而对于不能直接达到的状态，czmanager会试图进行多次状态切换以达到目标状态，而对于不可达的状态，czmanager将会提示操作非法。update操作对于状态的影响取决于所更新的参数，如对内核的修改将要求Control Zone进行重新启动。
 
 \begin{figure}[!htbp]
     \centering
@@ -214,7 +214,7 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示，考虑停止之后�
 \label{fig:cz_create_start}
 \end{figure}
 
-Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经停止的Control Zone能够被删除，而为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，在进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
+Control Zone的删除过程如图~\ref{fig:cz_remove}所示，通常只有已经停止的Control Zone能够被删除，而为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，再进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
 Control Zone的更新过程如图~\ref{fig:cz_update}所示，Control Zone Yaml中的绝大部分字段都允许被更新，一些字段的更新由czmanager调用资源管理接口完成，如修改cgroup或resctrl等字段中的内容，czmanager发现只有这些字段被修改时，就会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。 而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改，czmanager检测到这些字段发生修改后，就会进如重新启动的流程，并在关闭虚拟机之后，实施相关更新内容，再启动虚拟机。更新完毕后，观测配置可能会过时，因此必要时czmanager还会与可观测性基础设施同步观测配置的变化。
 
@@ -233,7 +233,7 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示，Control Zone Yaml�
 % 系统功能要求
 % 镜像共享
 
-Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安全性两个因素的考虑。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源，有限的竞争应用等，其次，修改任务的调度信息是较为风险的行为，如过设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。
+Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安全性两个因素的考虑。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源，有限的竞争应用等，其次，修改任务的调度信息是较为风险的行为，设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。
 
 虚拟机的引入会带来额外的开销，主要体现在虚拟化运行时与系统环境两个层次。一方面，虚拟化运行时需要准备一个完整的虚拟机，而对各个模拟设备进行初始化及配置的过程会产生额外的开销，同时，在虚拟机运行过程中，虚拟化运行时在需要对设备进行模拟，模拟过程中也会产生额外的开销。另一方面，容器中的应用运行之前，还需要经过经过作操作系统、软件环境以及容器运行时三个阶段的运行环境初始化，每个阶段都会产生额外的开销。
 
@@ -250,7 +250,7 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
 
 \subsection{实验环境}
 
-实验环境有两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
+实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node，同时，CPU均开启超线程，并使能Intel RDT，从而为可观测性基础设施提供末级缓存及内存带宽的监控，并为虚拟机提供按路数的末级缓存划分和固定补偿的内存带宽调控功能。在网络资源上，服务网卡支持SRIOV技术，能够为有网络性能需求的虚拟机提供硬件直通服务。
 
 \begin{table}[H]
     \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
@@ -274,7 +274,7 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
     \end{tabular}
 \end{table}
 
-每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS，Ubuntu同时也是Sched Ext优先支持的发行版，能够较方便地通过包管理工具安装预编译的Sched Ext内核。在虚拟换运行时上，Qemu采用发行版所支持的稳定版，而以轻量为目标的CloudHyeprvirsor则采用自编译的最新发布版本。
+每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS，Ubuntu同时也是Sched Ext优先支持的发行版，能够较方便地通过包管理工具安装预编译的Sched Ext内核。在虚拟机监视器上，Qemu采用发行版所支持的稳定版，而以轻量为目标的CloudHyeprvirsor则采用自编译的最新发布版本。
 
 \begin{table}[H]
     \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
