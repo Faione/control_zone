@@ -8,7 +8,7 @@
 
 % 最后，本章设计了有干扰实验与无干扰实验，分析不同应用在资源使用倾向与敏感度上的特点与差异。
 
-为解决数据中心的软件环境复杂性带来的挑战，本章围绕数据中心典型应用展开监测画像，研究应用的资源使用倾向即资源敏感度。首先，结合对数据中心软件栈分析以及与云厂商的合作经验，选择了一批典型应用，并采用云环境中广泛使用的虚拟机作为应用运行环境。随后，围绕虚拟机设计实现了一套黑盒可观测性系统，从Host、Hypervisor与App等多重维度，采集丰富的指标信息。最后，在可观测性系统的基础之上展开对典型应用的资源倾向与敏感度实验，并给出画像结论。
+为解决数据中心的软件环境复杂性带来的挑战，本章围绕数据中心典型应用展开监测画像，研究应用的资源使用倾向即资源敏感度。首先，结合对数据中心软件栈分析以及与云厂商的合作经验，选择了一批典型应用，并采用云环境中广泛使用的虚拟机作为应用运行环境。随后，围绕虚拟机设计实现了一套黑盒可观测性系统，从Host、Hypervisor与Guest等多个维度，采集丰富的指标信息。最后，在可观测性系统的基础之上展开对典型应用的资源倾向与敏感度实验，并给出画像结论。
 
 \section{云场景典型应用选择}
 
@@ -62,20 +62,22 @@
 
 KVM虚拟机相对黑盒的运行环境为应用性能的监测带来了挑战。而为解决虚拟机场景下的应用性能分析问题，本文通过从不同维度采集丰富的指标信息，提供更全面、深入的观测，来推断应用的性能。
 
-本文从如图~\ref{fig:vm_arch}所示的Host、Hypervisor、Guest三个维度来设计指标采集方式。在Host维度，KVM虚拟机本身由多个进程组成，因此可以利用Host内核提供的进程观测接口来获取虚拟机的指标信息。如通过“/proc”内核文件系统来获取进程内核资源使用统计信息，或者利用cgroup来获取进程的CPU时间记账信息等。在Hypervisor维度，虚拟机使用的虚拟硬件设备如vCPU、Block设备、Network设备等由Hypervisor提供，因此可以利用KVM内核模块提供的虚拟设备观测接口来获取相关信息。如在KVM模块的Debug内核文件系统中，就提供了丰富的vCPU设备运行信息，包括IO、挂起、中断等vCPU陷出统计，以及模拟MMU缓存缺失统计等。在Guest维度，一方面可以从Guest内核侧获取应用的资源使用信息，另一方面对于C-S类型的网络服务应用，则能够利用Overlay网络层来对请求的延时、吞吐进行观测。同时，大部分开源的应用都提供的完善的观测接口，能够提供更加准确的性能指标。
+本文从如图~\ref{fig:vm_arch}所示的Host、Hypervisor、Guest三个维度来设计指标采集方式。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.65\textwidth]{vm_arch}
+    \includegraphics[width=0.6\textwidth]{vm_arch}
     \bicaption{\quad 虚拟机多维度指标采集}{\quad Multi-dimensional metrics from virtual machines}
     \label{fig:vm_arch}
 \end{figure}
+
+在Host维度，KVM虚拟机本身由多个进程组成，因此可以利用Host内核提供的进程观测接口来获取虚拟机的指标信息。如通过“/proc”内核文件系统来获取进程内核资源使用统计信息，或者利用cgroup来获取进程的CPU时间记账信息等。在Hypervisor维度，虚拟机使用的虚拟硬件设备如vCPU、Block设备、Network设备等由Hypervisor提供，因此可以利用KVM内核模块提供的虚拟设备观测接口来获取相关信息。如在KVM模块的Debug内核文件系统中，就提供了丰富的vCPU设备运行信息，包括IO、挂起、中断等vCPU陷出统计，以及模拟MMU缓存缺失统计等。在Guest维度，一方面可以从Guest内核侧获取应用的资源使用信息，另一方面对于C-S类型的网络服务应用，则能够利用Overlay网络层来对请求的延时、吞吐进行观测。同时，大部分开源的应用都提供的完善的观测接口，能够提供更加准确的性能指标。
 
 Linux内核提供的观测接口有限，而为提供更丰富的内核观测数据，本文基于eBPF设计了多种内核监测机制。Linux中进程对硬件资源的使用通常需要通过系统调用完成，如通过Send、Recv等系统调用来使用网络资源、通过Read、Write等系统来使用IO资源。常用的系统调用观测工具为strace，但在云场景中使用strace并不方便且不够灵活。而本文使用eBPF在系统调用分发处进行插桩，并能够捕获系统调用的参数与返回结构，从而定制更灵活的信息统计机制。不同于进程，虚拟机使用硬件资源的方式更为特殊。以网络资源为例，早期虚拟机的实现中需要两次陷出到用户态Qemu程序再进行网络设备的模拟，这种方式严重影响了虚拟机的网络性能。而为提升虚拟机使用网络资源的性能，一方面在Guest侧引入了virtio半虚拟化驱动，另一方面在宿主机上引入了vHost net网络设备。如图~\ref{fig:vhost_net}所示，vHost net作为一种内核态实现的模拟网络设备后端，在虚拟机首次陷出后就直接进入vHost Net模块，并最终由Worker内核线程完成网络包的处理。通过eBPF在Worker线程函数上的插桩，就能够观测虚拟机模拟网络设备后端的性能。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.65\textwidth]{vhost_net}
+    \includegraphics[width=0.6\textwidth]{vhost_net}
     \bicaption{\quad vHost Net模拟网络设备后端}{\quad vHost Net Simulate network device backend}
     \label{fig:vhost_net}
 \end{figure}
@@ -99,11 +101,11 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
     \label{fig:monitor_arch}
 \end{figure}
 
-本文结合云原生的实践经验，基于Prometheus生态实现可观测性系统。Prometheus\citep{prometheus}是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点。基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中，Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
+本文结合云原生的实践经验，基于Prometheus\citep{prometheus}生态实现可观测性系统。Prometheus是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点。基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中，Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{exporters}
+    \includegraphics[width=0.8\textwidth]{exporters}
     \bicaption{\quad Exporters设计}{\quad Exporters Design}
     \label{fig:exporters} 
 \end{figure}
@@ -121,7 +123,7 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 
     \begin{figure}[H]
         \centering
-        \includegraphics[width=0.7\textwidth]{syscall_hook}
+        \includegraphics[width=0.6\textwidth]{syscall_hook}
         \bicaption{\quad eBPF Syscall插桩}{\quad eBPF Syscall Hooking}
         \label{fig:syscall_hook}
     \end{figure}
@@ -142,7 +144,7 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 
 实时可观测性系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
 
-\begin{itemize}
+\begin{enumerate}
     \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
 eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
 
@@ -198,13 +200,13 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
     \item \textbf{App层级的指标}：主要从日志、内嵌的指标采集接口以及Envoy网络代理上采集。以Redis为例，通过Envoy网络代理接管传入Redis的所有流量，并在代理中记录各种操作的数量、延时统计等信息。
     
-\end{itemize}
+\end{enumerate}
 
 \section{基准性能实验设计与分析}
 
 \subsection{基准性能实验设计}
 
-实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
+实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
@@ -479,6 +481,6 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 本章主要论述了对云场景典型应用进行画像分析的过程，围绕三个问题展开。首先，在软件环境上，结合与云厂商的合作经验确定了以虚拟机作为应用运行时的典型云场景，随后通过对数据中心软件栈的分析，选取了7种典型应用作为画像分析的对象，涵盖了传统数据库、键值存储、消息中间件、媒体处理等领域。
 
-随后，为解决引入虚拟化所带来的黑盒监测难题，基于Prometheus生态设计实现了一套面向虚拟机的可观测性系统，能够从Host、Hypervisor到App等多个维度以虚拟机为粒度采集丰富的指标数据，本文主要设计实现了Libvirt Exporter、KVM Exporter、Resctrl Exporter以及Kernel Exporter四种采集组件，其中创新性地引入eBPF技术，在应用与内核交互的关键路径，内核与设备交互的关键路径上进行采样分析，从而获取更丰富的指标数据。
+随后，为解决引入虚拟化所带来的黑盒监测难题，基于Prometheus生态设计实现了一套面向虚拟机的可观测性系统，从Host、Hypervisor到Guest等多个维度以虚拟机为粒度采集丰富的指标数据。本文主要设计实现了Libvirt Exporter、KVM Exporter、Resctrl Exporter以及Kernel Exporter四种采集组件。其中创新性地引入eBPF技术，在应用与内核交互的关键路径，内核与设备交互的关键路径上进行采样分析，获取更丰富的指标数据。
 
-最后，围绕典型应用的资源使用倾向与资源敏感度展开实验分析。其中首先对干扰应用进行参数搜索，找到制造CPU、Cache、Memory、IO以及Network5种干扰的合适参数，并与典型应用进行混部实验。在资源使用倾向上，分析了典型应用资源使用倾向分类，而在资源敏感度上，总结了得到了典型应用的干扰敏感度评级。
+最后，围绕典型应用的资源使用倾向与资源敏感度展开实验分析。其中首先对干扰应用进行参数搜索，找到制造CPU、Cache、Memory、IO以及Network五种干扰的合适参数，并与典型应用进行混部实验。在资源使用倾向上，分析了典型应用资源使用倾向分类，而在资源敏感度上，总结了得到了典型应用的干扰敏感度评级。
