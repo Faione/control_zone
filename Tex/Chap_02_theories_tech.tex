@@ -14,7 +14,7 @@
 % TODO: 修改图例
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{sched_arch}
+    \includegraphics[width=0.8\textwidth]{sched_arch}
     \bicaption{\quad 调度子系统架构}{\quad Scheduling subsystem architecture}
     \label{fig:sched_arch}
 \end{figure}
@@ -23,7 +23,7 @@ Core层作为最基本的调度框架，是所有调度机制的基本入口。C
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{schedule_core}
+    \includegraphics[width=0.5\textwidth]{schedule_core}
     \bicaption{\quad Core任务调度}{\quad Core scheduling tasks}
     \label{fig:schedule_core}
 \end{figure}
@@ -32,7 +32,7 @@ Core层作为最基本的调度框架，是所有调度机制的基本入口。C
 
 \begin{figure}[!htbp]
     \centering 
-    \includegraphics[width=0.7\textwidth]{shcedule_loop}
+    \includegraphics[width=0.6\textwidth]{shcedule_loop}
     \bicaption{\quad 调度循环}{\quad Schedule Loop}
     \label{fig:shcedule_loop}
 \end{figure}
@@ -41,7 +41,7 @@ Core层作为最基本的调度框架，是所有调度机制的基本入口。C
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{schedule_tick}
+    \includegraphics[width=0.5\textwidth]{schedule_tick}
     \bicaption{\quad 抢占调度时钟滴答}{\quad Schedule Tick}
     \label{fig:schedule_tick}
 \end{figure}
@@ -64,8 +64,8 @@ BPF虚拟机包含10个通用寄存器以及1个只读的帧指针寄存器，�
 BPF技术通常会与同样作为内核功能扩展的内核模块比较，而相较于内核模块，BPF技术的优势体现在更高的安全性上，主要体现在两个方面：
 
 \begin{enumerate}
-    \item \textbf{BPF程序的编写有严格的限制}。一方面，BPF并非图灵完备的，因此程序逻辑通常较为简单，并一定程度上减少未定义行为的出现。另一方面，Linux内核会在BPF程序加载时进行验证，并拒绝加载非法的BPF程序，从而避免执行不安全的代码。
-    \item \textbf{BPF程序与内核的交互是受控的}。内核模块与内核的交互通过直接的函数与变量访问实现，而不做限制的交互模式存在较大的安全风险。相反，BPF程序仅允许通过BPF Helper函数来与内核交互，包括对内核数据的读写、共享内存使用等。BPF Helper函数限制了BPF程序所能访问的内核功能，以达到受控的交互。其次，部分BPF Helper函数保证线程安全，提供基本的安全性保证。最后，BPF程序所能附着的插桩位点由内核提供，因此BPF程序的影响范围也是受内核控制的。
+    \item BPF程序的编写有严格的限制。一方面，BPF并非图灵完备的，因此程序逻辑通常较为简单，并一定程度上减少未定义行为的出现。另一方面，Linux内核会在BPF程序加载时进行验证，并拒绝加载非法的BPF程序，从而避免执行不安全的代码。
+    \item BPF程序与内核的交互是受控的。内核模块与内核的交互通过直接的函数与变量访问实现，而不做限制的交互模式存在较大的安全风险。相反，BPF程序仅允许通过BPF Helper函数来与内核交互，包括对内核数据的读写、共享内存使用等。BPF Helper函数限制了BPF程序所能访问的内核功能，以达到受控的交互。其次，部分BPF Helper函数保证线程安全，提供基本的安全性保证。最后，BPF程序所能附着的插桩位点由内核提供，因此BPF程序的影响范围也是受内核控制的。
 \end{enumerate}
 
 % TODO: 修改图例
@@ -99,11 +99,11 @@ BPF技术开源社区维护十分积极，当前主流生态可分为BCC（BPF C
 
 \section{可扩展调度类}
 
-Sched Ext可扩展调度类项目\citep{schedext}，最早于2022年由Meta工程师提出，用来解决Meta数据中心对调度的需求与Linux内核调度修改难、迭代慢的矛盾。Sched Ext项目的整体架构如图~\ref{fig:sched_ext_arch}所示，主要包含两个部分，其中内核部分为Ext调度类补丁集，由Meta工程师与内核社区工作者共同维护，当前尚未合入内核主线，用户态部分包含BPF Scheduler开发框架，基于Libbpf封装并主要支持C与Rust语言。Sched Ext项目当前已经在Meta集群中部署与测试，同时项目社区更新十分活跃。
+Sched Ext可扩展调度类项目\citep{schedext}，最早于2022年由Meta工程师提出，用来解决Meta数据中心对调度的需求与Linux内核调度修改难、迭代慢的矛盾。Sched Ext项目的整体架构如图~\ref{fig:sched_ext_arch}所示，主要包含两个部分，其中内核部分为Ext调度类补丁集，由Meta工程师与内核社区工作者共同维护，当前尚未合入内核主线，用户态部分包含BPF Scheduler开发框架，基于Libbpf封装并支持C与Rust语言。Sched Ext项目当前已经在Meta集群中部署与测试，同时项目社区更新十分活跃。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{sched_ext_arch}
+    \includegraphics[width=0.75\textwidth]{sched_ext_arch}
     \bicaption{\quad Sched Ext架构}{\quad Sched Ext Arch}
     \label{fig:sched_ext_arch}
 \end{figure}
@@ -112,7 +112,7 @@ Sched Ext项目启发自ghOSt\citep{humphries2021ghost}，通过设计一种插�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\textwidth]{sched_ext_priorty}
+    \includegraphics[width=0.9\textwidth]{sched_ext_priorty}
     \bicaption{\quad Sched Ext 调度优先级}{\quad Sched Ext Priorty}
     \label{fig:sched_ext_priorty}
 \end{figure}
