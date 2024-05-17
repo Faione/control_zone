@@ -1,4 +1,4 @@
-\chapter{运行时可定制调度的沙箱机制实现}\label{chap:control_zone}
+\chapter{调度动态可定制沙箱实现}\label{chap:control_zone}
 
 为解决单一调度机制与多样混部场景的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，能够将Control Tower任务调度策略容器与混部应用协同部署。Control Zone允许将Control Tower调度器与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度器。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
 
@@ -48,7 +48,7 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中管理�
 %   - chsd: 调度策略管理
 % - observity: 可观测性
 
-运行时可定制调度的沙箱包括Control Zone管理、应用管理及可观测性三个主要部分。如图~\ref{fig:cz_components}所示，用户通过czyaml配置文件来定义一个Control Zone，而Control Zone的管理主要czctrl、czmanager及虚拟机监视器三个组件协作完成。每个Control Zone都运行有一个czdaemon，并与czctrl、czmanager协作实现应用管理。可观测性沿用了第3章中设计的在线指标监测系统，并与czmanager的协作完成对于虚拟机的监控。镜像存储服务负责管理OCI镜像，并在Control Zone运行的各个阶段中提供镜像存储服务。
+调度动态可定制沙箱包括Control Zone管理、应用管理及可观测性三个主要部分。如图~\ref{fig:cz_components}所示，用户通过czyaml配置文件来定义一个Control Zone，而Control Zone的管理主要czctrl、czmanager及虚拟机监视器三个组件协作完成。每个Control Zone都运行有一个czdaemon，并与czctrl、czmanager协作实现应用管理。可观测性沿用了第3章中设计的在线指标监测系统，并与czmanager的协作完成对于虚拟机的监控。镜像存储服务负责管理OCI镜像，并在Control Zone运行的各个阶段中提供镜像存储服务。
 
 \begin{figure}[!htbp]
     \centering
@@ -166,7 +166,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
 
 \end{itemize}
 
-运行时可定制调度的沙箱提供了create、start、stop、remove、update五种操作来管理Control Zone的生命周期。Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中sync过程由czdaemon完成，并同步给czmanager。对于不能直接达到的状态，czmanager会试图多次切换状态以满足目标。对于无法达到的状态，czmanager会提示操作非法，并终止正在进行的操作。update操作并未在图中，其过程由多个已有的其他操作组成。取决于更新的内容，update具体的操作也有所不同，如对内核的修改将使得Control Zone重新启动，而仅修改CPU时间片大小则不会影响Control Zone的运行状态。
+调度动态可定制沙箱提供了create、start、stop、remove、update五种操作来管理Control Zone的生命周期。Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中sync过程由czdaemon完成，并同步给czmanager。对于不能直接达到的状态，czmanager会试图多次切换状态以满足目标。对于无法达到的状态，czmanager会提示操作非法，并终止正在进行的操作。update操作并未在图中，其过程由多个已有的其他操作组成。取决于更新的内容，update具体的操作也有所不同，如对内核的修改将使得Control Zone重新启动，而仅修改CPU时间片大小则不会影响Control Zone的运行状态。
 
 \begin{figure}[!htbp]
     \centering
