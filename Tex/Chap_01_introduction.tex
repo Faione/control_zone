@@ -134,7 +134,7 @@ CFS调度器\citep{pabla2009completely}是Linux中的默认任务调度器，于
         \end{tabular}
     \end{table}
 
-    \item 部分片上资源存在隐含的竞争破坏了调度域的隔离性。AVX（Advanced Vector Extensions）指令属于SIMD的一部分，旨在提高CPU的浮点运算性能，最早由Intel提出并于2011开始在实际产品中加入。AVX指令涉及到CPU中加速单元的使用，而使用加速单元意味着更高的能耗。为防止过热，现代CPU通常会在加速单元工作时降低运行频率。这就引发了两个Linux任务调度上的公平性问题。首先，由于CPU频率的恢复需要一定的时间，当同一Core调度域中的任务切换发生在恢复过程中时，就存在相互影响的可能。其次，兄弟核心共享了同一个物理核，物理核心的频率会使得所有兄弟核心受到影响。为解决这两个公平性问题，Gottschlag\citep{gottschlag2020avx}对现有调度机制进行了修改。首先，Gottschlag设计了一种监测手段，能够通过向量寄存器的使用情况来判断是否有AVX指令的执行。随后，Gottschlag在任务调度机制中增加了vruntime补偿逻辑，通过调整受影响的Core调度域与SMT调度域上的任务的vruntime来解决公平性问题。
+    \item 部分片上资源存在隐含的竞争破坏了调度域的隔离性。AVX（Advanced Vector Extensions）指令属于SIMD的一部分，旨在提高CPU的浮点运算性能，最早由Intel提出并于2011开始在实际产品中加入。AVX指令涉及到CPU中加速单元的使用，而使用加速单元意味着更高的能耗。为防止过热，现代CPU通常会在加速单元工作时降低运行频率。这就引发了两个Linux任务调度上的公平性问题\citep{gottschlag2020avx}。首先，由于CPU频率的恢复需要一定的时间，当同一Core调度域中的任务切换发生在恢复过程中时，就存在相互影响的可能。其次，兄弟核心共享了同一个物理核，物理核心的频率会使得所有兄弟核心受到影响。为解决这两个公平性问题，Gottschlag\citep{gottschlag2021fair}对现有调度机制进行了修改。首先，Gottschlag设计了一种监测手段，能够通过向量寄存器的使用情况来判断是否有AVX指令的执行。随后，Gottschlag在任务调度机制中增加了vruntime补偿逻辑，通过调整受影响的Core调度域与SMT调度域上的任务的vruntime来解决公平性问题。
 \end{itemize}
 
 另一种通过任务调度保障混部应用QoS的思路是微秒级调度\citep{ousterhout2019shenango,fried2020caladan,prekas2017zygos}，其核心在于将调度延时降低到LC应用允许的延迟范围内，及时分配CPU资源来避免应用QoS劣化。Caladan\citep{fried2020caladan}实现了一种用户态的任务运行时，并通过DPDK（Data Plane Development Kit）、SPDK（Storage Performance Development Kit）解决硬件驱动问题。Caladan将操作系统的大部分功能实现到用户态，一方面去除了地址空间隔离，能够大大减少上下文切换的开销。另一方面打破Linux调度子系统的限制，能够更灵活地开发调度策略。Caladan使用集中式的调度模式，在负责调度的核心上基于高精度时钟实现微秒级调度延时。同时，Caladan能够从DPDK、SPDK中读取硬件资源的分配状况，这些额外信息能够有效辅助进行调度决策。
