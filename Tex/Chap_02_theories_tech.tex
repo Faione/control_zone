@@ -65,7 +65,7 @@ eBPF的前身是BPF（Berkeley Packet Filter），由McCannel和Jacobson提出\c
 
 BPF虚拟机包含10个通用寄存器以及1个只读的帧指针寄存器，位宽均为64-bits。与JVM类似，BPF虚拟机采用字节码作为执行指令的格式，并定义了一套完整的指令集。BPF字节码作为一种中间语言，解耦了编译环境与执行环境，实现可移植性的同时保证了运行性能。同时，BPF字节码相较于机器码语义更清晰，使得内核能够更好进行验证来减少风险代码。
 
-cBPF程序仅支持BPF汇编编写，而当前随GCC、Clang等主流编译器对BPF字节码的支持，开发者可以使用C、Rust等高级语言开发BPF程序\citep{ebpfguidence}。然而BPF程序并非是图灵完备的，因此仅能使用高级语言的子集进行开发。编译好的BPF程序是常规的ELF文件，并由内核态的BPF虚拟机执行。BPF程序的加载运行依赖一系列系统调用完成。在加载BPF程序的系统调用中，内核首先会尝试运行BPF程序，并验证其中的未定义行为，如越界的内存访问、不确定的循环等。对合法的BPF程序，内核会将其保存到专门的内存区域，并附加到指定的内核插桩点。此后，每次到达插桩点时，内核就会跳转至BPF虚拟机并解释执行附加的BPF程序。
+cBPF程序仅支持BPF汇编编写，而当前随GCC、Clang等主流编译器对BPF字节码的支持，开发者可使用C、Rust等高级语言开发BPF程序\citep{ebpfguidence}。然而BPF程序并非是图灵完备的，因此仅能使用高级语言的子集进行开发。编译好的BPF程序是常规的ELF文件，并由内核态的BPF虚拟机执行。BPF程序的加载运行依赖一系列系统调用完成。在加载BPF程序的系统调用中，内核首先会尝试运行BPF程序，并验证其中的未定义行为，如越界的内存访问、不确定的循环等。对合法的BPF程序，内核会将其保存到专门的内存区域，并附加到指定的内核插桩点。此后，每次到达插桩点时，内核就会跳转至BPF虚拟机并解释执行附加的BPF程序。
 
 BPF技术通常会与同样作为内核功能扩展的内核模块比较，而相较于内核模块，BPF技术的优势体现在更高的安全性上，主要体现在两个方面：
 
@@ -81,7 +81,7 @@ BPF技术通常会与同样作为内核功能扩展的内核模块比较，而�
     \label{fig:bpf_user_kernel}
 \end{figure}
 
-BPF技术具有高度的灵活性。首先，开发者可以利于libbpf等库来对BPF程序进行操作，如读写BPF程序中的全局变量、选择性地加载部分BPF程序等。其次，BPF程序中可以通过如图~\ref{fig:bpf_user_kernel}所示的BPF Map实现共享内存。一方面，用户程序可以通过BPF Map来安全地读写内核数据，如读取BPF程序采集的信息或者修改BPF程序的行为。另一方面，BPF程序之间可以通过BPF Map实现彼此之间的协作。最后，BPF程序之间也能够进行如图~\ref{fig:bpf_to_bpf}所示的相互调用，突破内核对单个BPF函数的限制，实现更复杂的逻辑。
+BPF技术具有高度的灵活性。首先，开发者可利用libbpf等库来对BPF程序文件进行操作，如读写BPF程序中的全局变量、选择性地加载部分BPF程序等。其次，开发者可通过如图~\ref{fig:bpf_user_kernel}所示的BPF Map实现BPF程序之间、BPF程序与用户态程序间的共享内存。一方面，用户程序可通过BPF Map来安全地读写内核数据，如读取BPF程序采集的信息或者修改BPF程序的行为。另一方面，BPF程序之间可通过BPF Map传递数据以实现彼此间的合作。最后，开发者可在BPF程序间进行如图~\ref{fig:bpf_to_bpf}所示的相互调用，从而突破内核对单个BPF函数的限制，实现更复杂的逻辑。
 
 \begin{figure}[!htbp]
     \centering
@@ -90,20 +90,23 @@ BPF技术具有高度的灵活性。首先，开发者可以利于libbpf等库�
     \label{fig:bpf_to_bpf}
 \end{figure}
 
-BPF程序通常在加载后由BPF虚拟机进行解释执行，这种相对低效的执行方式会对内核性能产生一定的影响。为提升BPF程序的执行效率，Linux内核提供了BPF JIT配置选项，允许在BPF程序加载时将字节码直接编译为本机机器码，并替换原来的BPF程序。并且在插桩点触发时也不再由BPF虚拟机解释执行，而是在捕获到内核栈上数据后就直接跳转到BPF程序处执行。BPF JIT配置在保留BPF程序移植性的同时，大大提高了BPF程序的执行效率。
+BPF程序通常在加载后由BPF虚拟机解释执行，这种低效方式会对内核性能产生一定的影响。为提升BPF程序的执行效率，Linux内核提供了BPF JIT配置选项，允许BPF程序在加载时直接编译为本机机器码，并替换原BPF程序。此后，插桩点触发时不再由BPF虚拟机解释执行，而是在捕获到内核栈上数据后就直接跳转到BPF程序处执行。BPF JIT配置在保持BPF程序移植性的同时，大大提高了BPF程序的执行效率。
 
-BPF技术也存在一些不足。首先，BPF程序并非图灵完备且在栈空间上有严格的要求，尽管保证了一定的安全性，但也因此无法实现较大规模的程序。其次，BPF运行在内核环境中，依赖BPF Helper函数来与内核交互，而内核当前仅在有限的子系统中开放了交互功能，进一步限制了BPF程序的能力。不过，BPF技术在灵活性与安全性上的优势仍得到了内核开发者以及云原生社区的重视。例如，Linux内核社区中的BPF-next SIG致力于解决BPF技术当前的种种问题，并尝试逐步增强BPF程序的功能以便于向更多子系统推广。
+BPF技术也存在一些不足。首先，BPF程序并非图灵完备且在栈空间上有严格的要求，尽管保证了一定的安全性，但也因此无法实现较大规模的程序。其次，BPF运行在内核环境中，依赖BPF Helper函数来与内核交互，而当前内核仅在有限的子系统中开放了交互功能。不过BPF技术在灵活性与安全性上的优势得到了内核开发者以及云原生社区的重视。当前Linux内核社区中的BPF-next SIG致力于解决BPF技术的种种问题，并尝试逐步增强BPF程序的功能以便于向更多子系统推广。
 
 BPF技术开源社区维护十分积极，当前主流生态可分为BCC（BPF Compiler Collection）\citep{bcc}与libbpf\citep{libbpf}两支：
 
 \begin{enumerate}
-    \item BCC提供了基于Pyhton语言的元编程框架。框架中，开发者只需要定义少量的BPF程序文本，而完整的BPF代码生成、内核兼容性、编译环境选择均由BCC完成。实际BCC包含了完整的BPF编译环境，并在运行时自动识别目标机器的内核来进行BPF程序编译河加载。BCC元编程框架大大减少了BPF程序的开发难度，同时选择在目标机器上进行编译，也有利于解决迁移时的内核兼容性问题。然而这种方式一方面引入了额外的编译环境开销，另一方面编程框架的过度封装也不利于BPF新特性的快速接入。
-    \item libbpf采用CO-RE（Compile Once – Run Everywhere）的思想。CO-RE即在本地就将BPF编译为字节码并保存为只读数据。开发者可以通过libbpf提供一系列辅助函数读写编译好的BPF程序，并利用库函数完成BPF程序的加载、附加及卸载。相较于BCC，使用libbpf开发的BPF项目在空间占用上更小，同时也不需要在目标机器上进行编译，因此能够做到在不同机器上快速部署。而为解决内核版本的兼容性问题，一方面开发者可以借助bpftool工具来获取目标内核中的数据结构信息，从而编译得到适用目标内核版的BPF程序。另一方面，开发者可以在BPF程序中声明兼容性，从而指导内核加载的过程。
+
+    \item BCC提供了基于Pyhton语言的元编程框架。BCC包含了完整的BPF编译环境，并在运行时自动识别目标机器的内核来进行BPF程序编译和加载。开发者只需要定义少量的BPF程序文本，完整的BPF代码生成、内核兼容性、编译环境选择均由BCC完成。元编程框架大大降低了BPF程序的开发难度，在目标机器上进行编译也有利于解决内核版本兼容性问题。但这种方式不仅引入了额外的编译环境开销，同时编程框架的过度封装也不利于快速使用新的BPF特性。
+
+    \item libbpf采用CO-RE（Compile Once – Run Everywhere）的思想。CO-RE即在本地将BPF编译为字节码并保存为只读数据。开发者可通过libbpf提供一系列辅助函数读写编译好的BPF程序，并利用库函数完成BPF程序的加载、附加及卸载。相较于BCC，使用libbpf能够减少存储空间的占用，同时由于不需要在目标机器上编译，能够做到更快速地部署。为解决内核版本的兼容性问题，开发者可使用bpftool工具来生成目标内核版本的符号信息，并编译适用目标内核的BPF程序。此外，开发者也可在BPF程序中声明内核版本兼容性，避免不兼容版本内核的加载。
+
 \end{enumerate}
 
 \section{可扩展调度类}
 
-Sched Ext可扩展调度类项目\citep{schedext}，由Meta工程师在2022年提出，用来满足Meta数据中心对内核调度策略定制的需求。Sched Ext项目的整体架构如图~\ref{fig:sched_ext_arch}所示，主要包含两个部分：Ext调度类和调度器开发工具。其中Ext调度类包含一系列补丁集，由Meta工程师与内核社区工作者共同维护。调度器开发工具提供了C与Rust语言的开发库支持，协助对BPF Scheduler的控制以及用户态调度器的开发。Sched Ext项目当前已经在Meta集群中部署与测试，同时项目社区十分活跃。
+Sched Ext可扩展调度类项目\citep{schedext}，由Meta工程师在2022年提出，用来满足Meta数据中心对内核调度策略定制的需求。Sched Ext项目的整体架构如图~\ref{fig:sched_ext_arch}所示，主要包含两个部分：Ext调度类和调度器开发工具。其中Ext调度类包含一系列补丁集，由Meta工程师与内核社区工作者共同维护。调度器开发工具提供了C与Rust语言的开发库支持，协助对BPF程序的管理及用户态调度器的开发。Sched Ext项目当前已在Meta集群中部署与测试，且项目社区十分活跃。
 
 \begin{figure}[!htbp]
     \centering
@@ -121,13 +124,13 @@ Sched Ext项目启发自ghOSt\citep{humphries2021ghost}，通过插件化的内�
     \label{fig:sched_ext_priorty}
 \end{figure}
 
-Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实现这一目标依赖DSQ（Dispatch Queue）与一系列BPF Helper函数。DSQ用于在Ext调度类和BPF程序之间共享任务队列。初始化时，Ext调度类会为每个CPU创建一个Local DSQ。而在运行过程中，Ext调度类管理的每个CPU都会尝试从Local DSQ中获取任务。此外，BPF程序也可以创建独立一个或数个DSQ，用来设计复杂的调度策略。Sched Ext项目还提供了额外的BPF Helper函数，用来进行DSQ的管理以及与Ext调度类的交互，具体BPF Helper函数的作用如下：
+Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实现这一目标依赖DSQ（Dispatch Queue）与一系列BPF Helper函数。DSQ用于在Ext调度类和BPF程序之间共享任务队列。初始化时，Ext调度类会为每个CPU创建一个Local DSQ。而在运行过程中，Ext调度类管理的每个CPU都会尝试从Local DSQ中获取任务。此外，BPF程序也可创建独立的数个DSQ来支持复杂调度策略的设计。Sched Ext项目提供了额外的BPF Helper函数，用来进行DSQ的管理及与Ext调度类的交互，具体BPF Helper函数的作用如下：
 
 \begin{itemize}
 
-    \item \textbf{scx\_bpf\_create\_dsq}： 定义DSQ来对任务进行管理。BPF程序可创建数个DSQ，每个DSQ都有自己的独立ID。同时允许指定DSQ所在的NUMA node，实现更高的内存访问效率。
+    \item \textbf{scx\_bpf\_create\_dsq}： 定义DSQ来对任务进行管理。BPF程序可创建数个DSQ，每个DSQ都有自己的独立ID。同时允许指定DSQ所在的NUMA node以实现更高的内存访问效率。
 
-    \item \textbf{scx\_bpf\_dispatch、scx\_bpf\_dispatch\_vtime}：调度任务到指定的DSQ中。BPF程序可通过ID来将任务调度到指定的DSQ，并为任务设置此次调度的时间片大小。时间片大小由BPF程序定义，其中特殊值SCX\_SLICE\_INF会让任务保持运行直到结束或主动释放。DSQ使用FIFO来管理其中的任务，Sched Ext还提供了vtime DSQ，实现类似CFS的任务管理逻辑。
+    \item \textbf{scx\_bpf\_dispatch、scx\_bpf\_dispatch\_vtime}：调度任务到指定的DSQ中。BPF程序可指定DSQ ID来将任务调度到DSQ上。同时，BPF程序可为任务设置此次调度的时间片大小。时间片的特殊值SCX\_SLICE\_INF会让任务保持运行直到结束或主动释放。DSQ默认使用FIFO策略来管理任务的出入队，Sched Ext还提供了vtime DSQ，能够实现类CFS的任务管理。
 
     \begin{figure}[!htbp]
         \centering
@@ -136,15 +139,15 @@ Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实�
         \label{fig:sched_ext_helpers}
     \end{figure}
     
-    \item \textbf{scx\_bpf\_dispatch\_nr\_slots}：查看CPU可调度的任务槽数。BPF程序在调度任务之前可检查目标CPU Local DSQ上的空余任务数量，从而了解目标CPU上的负载强度，避免调度过多的任务。
+    \item \textbf{scx\_bpf\_dispatch\_nr\_slots}：查看CPU可调度的任务槽数。BPF程序在调度任务前可检查目标CPU Local DSQ上的空余任务槽位的数量，避免向目标CPU调度过多的任务。
 
-    \item \textbf{scx\_bpf\_dispatch\_cancel}：撤销最近调度的一个任务。BPF程序可撤销最近向DSQ上调度的任务，重复执行此操作看撤回更多的任务。BPF程序中可以定义多个DSQ，提供回撤手段便于管理已调度的任务。
+    \item \textbf{scx\_bpf\_dispatch\_cancel}：撤销最近调度的一个任务。BPF程序可撤销向DSQ上最近调度的任务，重复执行此操作可撤回更多的任务。BPF程序中可以定义多个DSQ，回撤手段便于管理已调度的任务。
     
-    \item \textbf{scx\_bpf\_consume}：从其他DSQ调度一个任务到当前CPU上。BPF程序可通过这一Helper函数便捷地将其他DSQ中的任务调度到当前CPU上。
+    \item \textbf{scx\_bpf\_consume}：从其他DSQ调度一个任务到当前CPU上。在DSQ之间迁移任务需要考虑并发问题，此Helper函数则提供了方便的封装，BPF程序可便捷地将其他DSQ中的任务调度到当前CPU上。
 
-    \item \textbf{scx\_bpf\_kick\_cpu}：唤醒目标CPU。对于进入Idle状态或其他CPU，BPF程序可通过此Helper函数向目标CPU发送IPI。IPI会唤起目标CPU上调度循环的执行，从而恢复常规的调度状态或执行抢占。BPF程序也可以在此Helper函数上进入等待状态，期间会重复执行低功耗指令并保持CPU的占用。
+    \item \textbf{scx\_bpf\_kick\_cpu}：唤醒目标CPU。BPF程序可向目标CPU发送IPI。IPI会唤起目标CPU上调度循环的执行，从而唤醒Idle CPU或进行抢占。BPF程序可在此Helper函数上等待，期间会重复执行低功耗指令并保持CPU的占用。
 
-    \item \textbf{scx\_bpf\_pick\_idle\_cpu}：寻找空闲的CPU。BPF程序能够通过此Helper函数获取空闲CPU的ID。Ext调度类会追踪CPU的状态，并记录空闲的CPU。依据不同的调度目标，BPF程序可以将任务分发到不同的CPU中，而通过此Helper函数BPF程序能够较方便地找到空闲CPU。
+    \item \textbf{scx\_bpf\_pick\_idle\_cpu}：寻找空闲的CPU。BPF程序可获取一个空闲CPU的ID。Ext调度类会追踪CPU的状态，并记录空闲的CPU。依据不同的调度目标，BPF程序可以将任务分发到不同的CPU中，而通过此Helper函数BPF程序能够较方便地找到空闲CPU。
 
 \end{itemize}
 
@@ -160,24 +163,24 @@ Ext调度类还提供了一系列插桩位点，便于BPF程序参与到调度�
 
 \begin{itemize}
 
-    \item \textbf{select\_cpu}：Ext调度类选择CPU过程的位点。BPF程序可以为唤醒的任务选择一个CPU，需要考虑任务的特性以及CPU的负载情况。由于CPU的选择结果会影响到系统总体的性能，
-    因此BPF程序的选择结果并不一定时最终调度的结果，Ext调度类还会结合其他自身的判断来调整决策。
+    \item \textbf{select\_cpu}：Ext调度类选择CPU过程的位点。BPF程序可为唤醒的任务选择一个CPU，需要考虑任务的特性以及CPU的负载情况。CPU的选择结果会影响到系统总体的性能，
+    因此Ext调度类还会结合其他信息来CPU选择的决策。
 
     \item \textbf{enqueue}：Ext调度类处理任务的入队过程的位点。Ext调度类管理的任务就绪时，会唤起此BPF程序的执行。BPF程序可以为此任务选择一个CPU，或者将其加入自定义的DSQ中来管理。
 
     \item \textbf{dequeue}：Ext调度类处理任务的出队过程的位点。修改任务的调度参数，如静态优先级时，会触发Ext调度类的出队逻辑，并唤起此BPF程序的执行。BPF程序可以通过捕获传入的参数，并结合已有的数据来定制优先级机制的实现。
     
-    \item \textbf{dispatch}：Ext调度类处理任务调度过程的位点。BPF程序可以创建DSQ来保持任务，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务。当CPU的Local DSQ为空时，就会触发此BPF程序的执行。BPF程序可以定制调度的逻辑，并调度一个或多个任务到CPU的Local DSQ中。
+    \item \textbf{dispatch}：Ext调度类处理任务调度过程的位点。Ext调度类中每个CPU都有自己的Local DSQ，同时BPF程序也可以创建数个DSQ。当CPU发现Local DSQ为空时，就会触发此BHPF程序。BPF程序可调度一个或数个任务到CPU的Local DSQ中，也可以不进行调度。当BPF程序没有返回有效的任务时，Ext调度类便会放弃CPU的管理权。
     
-    \item \textbf{tick}：Ext调度类处理任务滴答过程的位点。Ext调度类在处理任务滴答时，会唤起此BPF程序的执行。BPF程序可以获取滴答时正在执行的任务，并自定义滴答逻辑，如更新时间记账信息、遍历DSQ等。同时，BPF程序可以滴答处理过程中将任务的时间片设置为0。在回到Ext调度类时，若任务的时间片被设置为0，则会立刻触发一次dispatch操作。通过这种方式可以让BPF程序定制抢占的逻辑。
+    \item \textbf{tick}：Ext调度类处理任务滴答过程的位点。Ext调度类在处理任务滴答时，会唤起此BPF程序的执行。BPF程序可以获取滴答时正在执行的任务，并自定义滴答逻辑，如更新时间记账信息、遍历DSQ等。同时，BPF程序可将任务的时间片设置为0，使得在回到Ext调度类时立刻触发一次dispatch操作。
 
-    \item \textbf{runnable、running、stopping、quiescent}：Ext调度类追踪任务状态的过程中。任务通常会在如下三种情况进入Runnable状态：被唤醒时、回到调度对队列时、从其他CPU迁入时。例如，当任务从等待IO状态中恢复、完成静态优先级的修改时，都会进入Runnable状态。而其余状态与Runnable类似，如quiescent流程完全与runnable相反，running对应任务将要在CPU上调度时，stopping对应任务将要从CPU上换下时。如上BPF程序能够感知任务的状态变化，并协助进行调度决策。
+    \item \textbf{runnable、running、stopping、quiescent}：Ext调度类追踪任务状态的过程中。任务通常会在如下三种情况进入Runnable状态：被唤醒、回到调度队列、从其他CPU迁入时，如任务从等待IO状态中恢复、完成静态优先级的修改时，都会进入Runnable状态，并唤起BPF程序的执行。其余位点原理类似，其中quiescent状态转化与runnable相反，running对应任务将要在CPU上调度时，而stopping对应任务将要从CPU上换下时。BPF程序通过感知任务状态的变换，能够实现自定义的处理逻辑。
+    
+    \item \textbf{yield}：Ext调度类处理任务出让CPU资源过程的位点。对于多线程，Linux提供了sched\_yield系统调用来允许任务主动放弃CPU资源。线程的退出之后依赖调度器来选择下一个任务。Ext调度类会唤起BPF程序的执行，BPF程序可定制下一个任务的选择逻辑。
 
-    \item \textbf{yield}：Ext调度类处理任务出让CPU资源过程的位点。对于多线程，Linux提供了sched\_yield系统调用来允许任务主动放弃CPU资源。线程的退出之后依赖调度器来选择下一个任务。Ext调度类提供此BPF程序来定制下一个任务的选择。
+    \item \textbf{cpu\_acquire、cpu\_release}：Ext调度类追踪CPU占用情况过程的位点。Ext调度类获取CPU管理权时，会触发cpu\_acquire处BPF程序的执行，反之则触发cpu\_release处BPF程序的执行。CPU管理权变化通常意味着更高优先级的调度类没有要执行的任务，或当前调度类没有要执行的任务。BPF程序可通过这两个位点来追踪Ext调度类能够管理的CPU。
 
-    \item \textbf{cpu\_acquire、cpu\_release}：Ext调度类追踪CPU占用情况过程的位点。当CPU对于Ext调度类来可用时，就会触发cpu\_acquire处BPF程序的执行，反之则会触发cpu\_release。CPU可用意味着更高优先级的调度类没有要执行的任务，CPU不可用则意味着当前调度类没有要执行的任务。BPF程序可通过这两个位点来了解Ext调度类所管理的CPU。
-
-    \item \textbf{init\_task、exit\_task}：Ext调度类追踪任务的创建与退出过程的位点。Ext调度类在任务的创建与退出时会唤起对应BPF程序的执行。而BPF程序可以在这些位点处为每个任务单独创建额外的追踪信息，并在任务结束后销毁。
+    \item \textbf{init\_task、exit\_task}：Ext调度类追踪任务的创建与退出过程的位点。Ext调度类在任务的创建与退出时会唤起对应BPF程序的执行。BPF程序可在这些位点处为每个任务单独创建额外的追踪信息，并在任务结束时进行销毁。
 
 \end{itemize}
 

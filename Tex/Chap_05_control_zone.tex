@@ -30,11 +30,11 @@
     \label{fig:controlzone_arch}
 \end{figure}
  
-Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可以根据混部任务的属性动态地对Control Tower调度器进行修改。除此之外，可观测性基础能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
+Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可根据混部任务的属性动态地对Control Tower调度器进行修改。除此之外，可观测性基础能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
 
 针对混部场景下的硬件特性差异的挑战。Control Zone一方面能够利用虚拟化提供的抽象层屏蔽底层硬件的差异，另一方面则根据配置的硬件特性选择合适的Control Tower任务调度策略。同时，在硬件特性变化时，Control Zone任务调度策略可以同步修改，而无需中断虚拟机的执行。
 
-针对混部场景下软件需求差异的挑战。首先，Control Zone可以针对高优先级任务的特性，匹配的合适的内核调度配置来满足任务在响应度或吞吐量上的需求。其次，针对混部场景的特性，能够进一步选择或定制合适的Control Tower调度器来进行QoS保障。同时，考虑混部应用的负载的动态特性，一方面可以通过eBPF监测应用的负载，另一方面可以在不同的阶段切换不同的Control Tower调度器来实现不同的调度目标。
+针对混部场景下软件需求差异的挑战。首先，Control Zone可针对高优先级任务的特性，匹配的合适的内核调度配置来满足任务在响应度或吞吐量上的需求。其次，针对混部场景的特性，能够进一步选择或定制合适的Control Tower调度器来进行QoS保障。同时，考虑混部应用的负载的动态特性，一方面可以通过eBPF监测应用的负载，另一方面可以在不同的阶段切换不同的Control Tower调度器来实现不同的调度目标。
 
 \section{Control Zone实现}
 
@@ -86,7 +86,7 @@ Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中管理�
 Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的基本配置，并提供丰富的资源隔离声明。
 
 \begin{itemize}
-    \item \textbf{基础配置}：Control Zone基础配置如表~\ref{tab:cz_meta_config}所示，首先，在Guest环境上，Control Zone提供了Response、Throughput两种基本内核，用户可根据需要进行选择。而为加快启动速度，Control Zone默认不使用initramfs，并采用基于Alpine的轻量化rootfs。轻量化rootfs中仅包含基础的软件运行环境，用户也可以根据需要进行修改。在应用管理上，Control Zone使用类似Pod Yaml的配置文件来描述混部任务的部署需求，其中Control Tower调度器与常规应用一样包含在配置文件中。
+    \item \textbf{基础配置}：Control Zone基础配置如表~\ref{tab:cz_meta_config}所示，首先，在Guest环境上，Control Zone提供了Response、Throughput两种基本内核，用户可根据需要进行选择。而为加快启动速度，Control Zone默认不使用initramfs，并采用基于Alpine的轻量化rootfs。轻量化rootfs中仅包含基础的软件运行环境，用户也可根据需要进行修改。在应用管理上，Control Zone使用类似Pod Yaml的配置文件来描述混部任务的部署需求，其中Control Tower调度器与常规应用一样包含在配置文件中。
 
 \begin{table}[H]
     \bicaption{\quad Control Zone Meta 配置}{\quad Control Zone Meta Config}% caption
@@ -138,7 +138,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
     \end{tabular}
 \end{table}
 
-    \item \textbf{Hypervisor配置}：虚拟机硬件通常由Hypervisor模拟，其中如virtio设备等在模拟设备后端驱动上提供了丰富的配置选项。通过Hypervisor提供的调控接口，可以进一步在设备上进行资源隔离的配置。具体配置如表~\ref{tab:cz_hv_config}所示。首先，对于CPU资源，可配置虚拟机所能使用的CPU feature。对于virtio网络设备和块设备，则可在读写速度上进行配置。
+    \item \textbf{Hypervisor配置}：虚拟机硬件通常由Hypervisor模拟，其中如virtio设备等在模拟设备后端驱动上提供了丰富的配置选项。通过Hypervisor提供的调控接口，可进一步在设备上进行资源隔离的配置。具体配置如表~\ref{tab:cz_hv_config}所示。首先，对于CPU资源，可配置虚拟机所能使用的CPU feature。对于virtio网络设备和块设备，则可在读写速度上进行配置。
 
 \begin{table}[H]
     \bicaption{\quad Control Zone Hypervisor 配置}{\quad Control Zone Hypervisor Config}% caption
@@ -321,7 +321,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
     \label{fig:boot_time_cdf}
 \end{figure}
 
-而对于精简内核，由于支持的PCI设备更少，因此在模拟设备初始化时间上的优化效果就并不明显。但与其余精简内核相比，Control Zone内核也存在一定优势。如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%。对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了如虚拟化子系统在内的配置，因此存在额外的开销。Control Zone内核由于只需要支持容器运行环境，因此能够取得更快的启动速度。但是相较于Firecracker默认内核，Control Zone即便在CloudHypervisor下也仅能达到Firecracker在Qemu下的启动时间。比较两者的配置能够发现，Firecracker内核在功能裁切上更加激进，不支持容器运行环境与BPF子系统。然而在Control Zone内核中，这些功能则是必要的。在具体使用场景中，Firecracker注重安全容器的需求，虚拟机的生命周期与运行在其中的应用绑定。但在Control Zone的设计中，Control Zone并不完全与混部应用绑定，而是一种可复用的运行环境。Control Zone在混部应用部署时启动，而在应用结束后仍然会保留一段时间，并提供给需要类似隔离环境的其他混部应用使用。因此在启动时间上花费更多的时间在Control Zone的设计中是可以接受的。
+而对于精简内核，由于支持的PCI设备更少，因此在模拟设备初始化时间上的优化效果就并不明显。但与其余精简内核相比，Control Zone内核也存在一定优势。如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%。对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了如虚拟化子系统在内的配置，因此存在额外的开销。Control Zone内核由于只需要支持容器运行环境，因此能够取得更快的启动速度。但是相较于Firecracker默认内核，Control Zone即便在CloudHypervisor下也仅能达到Firecracker在Qemu下的启动时间。比较两者的配置能够发现，Firecracker内核在功能裁切上更加激进，不支持容器运行环境与BPF子系统。然而在Control Zone内核中，这些功能则是必要的。在具体使用场景中，Firecracker注重安全容器的需求，虚拟机的生命周期与运行在其中的应用绑定。但在Control Zone的设计中，Control Zone并不完全与混部应用绑定，而是一种可复用的运行环境。Control Zone在混部应用部署时启动，而在应用结束后仍然会保留一段时间，并提供给需要类似隔离环境的其他混部应用使用。因此在启动时间上花费更多的时间在Control Zone的设计中是可接受的。
 
 \subsection{性能开销实验}
 
@@ -367,7 +367,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
 
 Control Zone内核仅以提供隔离的内核环境为目标，在此目标上进行的内核配置裁切能够更加激进。相较于CloudHypervisor默认内核，Control Zone内核在同样仅支持Virtio设备的同时，裁切了如Netfilter等在沙箱中不必的内核功能，从而进一步减少内核中如网络处理等关键路径的长度。因此网络应用延迟上，与同样运行在虚拟机中的CloudHypervisor内核相比，Control Zone实现了99分位尾延迟降低最高15.7\%的效果。同时，与直接运行在Host上相比，Control Zone即便引入了虚拟化开销，也能够实现99分尾延迟降低最高38.5\%的效果。
 
-但对于一些逻辑复杂的应用，如MySQL，Control Zone存在一定的性能瓶颈。造成这一问题的核心原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段可以有效地处理这一问题，因此Control Zone内核中保留了PCI总线配置以便驱动直通的硬件。
+但对于一些逻辑复杂的应用，如MySQL，Control Zone存在一定的性能瓶颈。造成这一问题的核心原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段可有效地处理这一问题，因此Control Zone内核中保留了PCI总线配置以便驱动直通的硬件。
 
 \subsection{性能保障实验}
 
