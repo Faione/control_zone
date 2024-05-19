@@ -217,6 +217,8 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后�
 
 Control Zone的删除过程如图~\ref{fig:cz_remove}所示。通常只有已经停止的Control Zone能够被删除。为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，再进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
+% TODO: 描述CT调度器切换的过程
+
 Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml中的绝大部分字段都允许被更新。部分配置的更新在Control Zone运行中完成，如修改cgroup或resctrl等字段中的内容。czmanager发现这部分字段修改时，会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改。czmanager检测到这些字段发生修改后，首先会关闭虚拟机，随后在工作目录中更新配置所要求的内容，最后再启动虚拟机。通常更新完毕后，由于虚拟机进程的变化，可观测配置有可能过时，因此czmanager还会同步配置给可观测性基础设施。
 
 \begin{figure}[H]

@@ -206,7 +206,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \subsection{基准性能实验设计}
 
-实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
+实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置NUMA亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
@@ -388,7 +388,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \begin{itemize}
     \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
     
-    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属Numa的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
+    \item \textbf{Cache干扰}：使用Resctrl统计进程的LLC Usage作为表征指标，恰好占满进程所属NUMA的LLC时的参数配置作为Cache干扰强度100\%的定义。实验中干扰效果如图~\ref{fig:cache_interference}所示，随Cache干扰强度的不断上升，干扰应用逐渐能够占用全部的LLC。而在前段部分，Cache占用上升较快，而在后段上升由于Cache总量有限，于是上升速度变慢。
 
     \item \textbf{IO干扰}：使用IO Throuphput Bytes作为表征指标，并将虚拟机IO接近完全占用时的参数配置作为IO干扰100\%的定义。实验干扰效果如图~\ref{fig:io_interference}所示，在前段，随干扰强度的上升，干扰应用占用越来越多的IO带宽，但在后段，由于IO线程的增加，在有限的CPU资源下这些IO线程彼此之间出现相互竞争，导致IO吞吐量上升速度变慢，而在实验过程中发现，更高的配置不仅无法使得IO占用上升，反而由于干扰应用内的较大竞争，导致IO吞吐下降，因此IO干扰配置选用接近最大吞吐时的配置。
 

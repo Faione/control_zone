@@ -71,7 +71,7 @@
 
 \subsection{基准性能实验设计}
 
-实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置Numa亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark中的模拟负载多样的负载来监测不同场景下的基准性能。
+实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置NUMA亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个应用的基础性能，对于每个典型应用，使用华为云提供的竖亥Benchmark中的模拟负载多样的负载来监测不同场景下的基准性能。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
