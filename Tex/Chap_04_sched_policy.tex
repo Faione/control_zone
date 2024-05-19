@@ -92,9 +92,9 @@ Linux调度子系统提供了一些编译配置选项，用以针对场景进行
 
 \end{itemize}
 
-优先级机制上的缺陷导致Linux难以在混部场景中有效地进行QoS保障，同时Linux内核调度在开发、部署于迭代上十分困难。而为解决这些问题，本文首先设计了Control Tower任务调度框架，支持灵活的调度策略设计并提供友好的调度策略开发方式。Control Tower任务调度框架基于Sched Ext项目实现。引入Sched Ext项目，一方面支持使用BPF技术来定制调度策略，并借助Ext调度类插件化的特性优化调度策略的开发流程。另一方面，Ext调度类优先级位于Fair调度类于Idle调度类之间，因此能够在不破坏Idle调度类设计语义的同时方便地构造调度类优先级差异。
+优先级机制上的缺陷导致Linux难以在混部场景中有效地进行QoS保障，同时Linux内核调度在开发、部署于迭代上十分困难。而为解决这些问题，本文首先设计了Control Tower任务调度框架，支持灵活的调度策略设计并提供友好的调度策略开发方式。Control Tower任务调度框架基于Sched Ext项目实现。引入Sched Ext项目，一方面，支持使用BPF技术来定制调度策略，并借助Ext调度类插件化的特性优化调度策略的开发流程。另一方面，利用Ext调度类构造调度类优先级差异，既能够实现根据场景量身定制调度策略，又不会破坏现有调度子系统的设计。
 
-Control Tower任务调度框架提供了针对混部场景下对调度机制的不同需求量身定制调度策略的基础。如图~\ref{fig:bpf_scheduler_arch}所示，Control Tower任务调度框架的核心是BPF调度策略，能够通过Sched Ext项目提供的接口来定制Ext调度类的任务调度行为。同时，Control Tower任务调度框架允许向BPF调度策略引入额外的数据输入源，包括用户与其他子系统的数据输入。这些额外的输入数据通过BPF Map等数据共享机制提供给BPF调度策略，并辅助进行调度决策。此外，Control BPF调度框架也允许BPF调度策略与用户态程序协作，来实现更灵活的调度机制设计。
+Control Tower任务调度框架如图~\ref{fig:bpf_scheduler_arch}所示，其中核心是BPF调度策略，能够通过Sched Ext项目提供的接口来定制Ext调度类的调度行为。同时，Control Tower任务调度框架允许向BPF调度策略引入额外的数据输入源，包括用户与其他子系统的数据输入。这些额外的输入数据通过BPF Map等数据共享机制提供给BPF调度策略，并辅助进行调度决策。此外，Control BPF调度框架也允许BPF调度策略与用户态程序协作，来实现更灵活的调度机制设计。
 
 \begin{figure}[H]
     \centering
@@ -116,7 +116,7 @@ BPF调度策略既可以直接定制Ext调度行为，也可以在调度过程�
         \caption{Per-CPU调度模式}
         \label{fig:bpf_per_cpu}
     \end{subfigure}
-    \hfill
+    \hspace{0.5cm}
     \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{bpf_global}
         \caption{全局调度模式}

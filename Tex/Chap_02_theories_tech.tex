@@ -13,37 +13,44 @@
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{sched_arch}
+    \includegraphics[width=0.7\textwidth]{sched_arch}
     \bicaption{\quad 调度子系统架构}{\quad Scheduling subsystem architecture}
     \label{fig:sched_arch}
 \end{figure}
 
-Sched Core层作为最基本的调度框架，是所有调度类的入口。其中非抢占式调度源于批处理调度，该场景下任务依次执行直到退出。如图~\ref{fig:schedule_core}所示，非抢占式调度需要为新fork出来的任务选择合适的CPU，当任务主动出让CPU或退出时，再选择下一个任务并执行任务切换。任务切换的完整过程就是调度循环。如图~\ref{fig:shcedule_loop}所示，调度循环由中断和系统调用驱动，通常在返回用户态之前判断标志位来决定是否进入调度循环。抢占式调度基于CPU的分时复用，并由时钟中断驱动。如图~\ref{fig:schedule_tick}所示，在时钟中断处理中会进行task\_tick，包含处理当前任务所属调度类的相关回调函数，如更新记账信息、抢占决策等。抢占决策通过内核函数resched\_curr实现，通常仅设置抢占标志位并等待调度循环来完成抢占。
+\begin{itemize}
+
+    \item Sched Core层作为最基本的调度框架，是所有调度类的入口。其中非抢占式调度源于批处理调度，该场景下任务依次执行直到退出。如图~\ref{fig:schedule_core}所示，非抢占式调度需要为新fork出来的任务选择合适的CPU，当任务主动出让CPU或退出时，再选择下一个任务并执行任务切换。任务切换的完整过程就是调度循环。如图~\ref{fig:shcedule_loop}所示，调度循环由中断和系统调用驱动，通常在返回用户态之前判断标志位来决定是否进入调度循环。抢占式调度基于CPU的分时复用，并由时钟中断驱动。如图~\ref{fig:schedule_tick}所示，在时钟中断处理中会进行task\_tick，包含处理当前任务所属调度类的相关回调函数，如更新记账信息、抢占决策等。抢占决策通过内核函数resched\_curr实现，通常仅设置抢占标志位并等待调度循环来完成抢占。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.5\textwidth]{schedule_core}
-    \bicaption{\quad Core任务调度}{\quad Core scheduling tasks}
-    \label{fig:schedule_core}
+    \begin{subfigure}[b]{0.42\textwidth}
+        \includegraphics[width=\textwidth]{schedule_core}
+        \caption{\quad 非抢占式调度}
+        \label{fig:schedule_core}
+    \end{subfigure}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{0.42\textwidth}
+        \includegraphics[width=\textwidth]{schedule_tick}
+        \caption{\quad 抢占调度时钟滴答}
+        \label{fig:schedule_tick}
+    \end{subfigure}
+    \bicaption{\quad 非抢占式调度与抢占式调度}{\quad Non-preemptive Scheduling and Preemptive Scheduling}
+    \label{fig:cpu_series_memcached}
 \end{figure}
 
-Sched Class调度类层基于Core调度框架实现。当前Linux中主要包含Stop、Deadline、Realtime、Fair、Idle五种调度类\citep{scheduler}。其中，Stop调度类的实现最简单，其本质上是从批处理调度中提取出简单逻辑。Fair调度类最复杂，使用到如红黑树等高级数据结构，并采用了较复杂的启发式算法与记账逻辑。Fair调度类以公平作为调度的目标，由于在多数场景下的稳定性能，因此长久以来都是Linux中任务的默认调度类。其余调度类也有各自的设计目标，如Deadline调度类保证任务按固定的周期执行固定的时间，从而提供良好的实时性保证。调度子系统允许相同逻辑核上的任务属于不同的调度类，各调度类优先级如图~\ref{fig:sched_arch}所示从左向右逐渐降低。每个调度循环都会从最高优先级调度类开始尝试获取下一个任务，使得较高优先级调度类的任务总能优先调度。
+    \item Sched Class调度类层基于Core调度框架实现。当前Linux中主要包含Stop、Deadline、Realtime、Fair、Idle五种调度类\citep{scheduler}。其中，Stop调度类的实现最简单，其本质上是从批处理调度中提取出简单逻辑。Fair调度类最复杂，使用到如红黑树等高级数据结构，并采用了较复杂的启发式算法与记账逻辑。Fair调度类以公平作为调度的目标，由于在多数场景下的稳定性能，因此长久以来都是Linux中任务的默认调度类。其余调度类也有各自的设计目标，如Deadline调度类保证任务按固定的周期执行固定的时间，从而提供良好的实时性保证。调度子系统允许相同逻辑核上的任务属于不同的调度类，各调度类优先级如图~\ref{fig:sched_arch}所示从左向右逐渐降低。每个调度循环都会从最高优先级调度类开始逐个遍历，直到能从调度类中拿到下一个任务。因此，将任务设置为更高的优先级能够保障任务总是优先被调度。
 
 \begin{figure}[!htbp]
     \centering 
-    \includegraphics[width=0.5\textwidth]{shcedule_loop}
+    \includegraphics[width=0.6\textwidth]{shcedule_loop}
     \bicaption{\quad 调度循环}{\quad Schedule Loop}
     \label{fig:shcedule_loop}
 \end{figure}
 
-Sched Policy调度策略层基于调度类层，并提供优先级机制的实现。不同调度策略的优先级机制的实现各不相同。FIFO调度策略提供了多个优先级队列，并保证高优先级队列中的任务总被优先调度。NORMAL与BATCH调度策略中的优先级决定了vruntime的积累速度，而在Fair调度类中任务的vruntime越小则获得调度的概率越高。
+    \item Sched Policy调度策略层基于调度类层，并提供优先级机制的实现。不同调度策略的优先级机制的实现各不相同。FIFO调度策略提供了多个优先级队列，并保证高优先级队列中的任务总被优先调度。RR调度策略中所有任务按时间片轮流执行，当一个时间片结束时，调度器会检查Run Queue上的所有任务，并选择优先级最高的进行执行。NORMAL与BATCH调度策略中的优先级决定了vruntime的积累速度，而在Fair调度类中任务的vruntime越小则获得调度的概率越高。
 
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=0.5\textwidth]{schedule_tick}
-    \bicaption{\quad 抢占调度时钟滴答}{\quad Schedule Tick}
-    \label{fig:schedule_tick}
-\end{figure}
+\end{itemize}
 
 \section{BPF技术}
 
@@ -69,7 +76,7 @@ BPF技术通常会与同样作为内核功能扩展的内核模块比较，而�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{bpf_user_kernel}
+    \includegraphics[width=0.5\textwidth]{bpf_user_kernel}
     \bicaption{\quad BPF中用户态与内核态的交互}{\quad Interaction between user mode and kernel mode in BPF}
     \label{fig:bpf_user_kernel}
 \end{figure}
@@ -100,7 +107,7 @@ Sched Ext可扩展调度类项目\citep{schedext}，由Meta工程师在2022年�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{sched_ext_arch}
+    \includegraphics[width=0.65\textwidth]{sched_ext_arch}
     \bicaption{\quad Sched Ext架构}{\quad Sched Ext Arch}
     \label{fig:sched_ext_arch}
 \end{figure}
@@ -109,7 +116,7 @@ Sched Ext项目启发自ghOSt\citep{humphries2021ghost}，通过插件化的内�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.9\textwidth]{sched_ext_priorty}
+    \includegraphics[width=0.75\textwidth]{sched_ext_priorty}
     \bicaption{\quad Sched Ext 调度优先级}{\quad Sched Ext Priorty}
     \label{fig:sched_ext_priorty}
 \end{figure}
@@ -120,12 +127,12 @@ Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实�
 
     \item \textbf{scx\_bpf\_create\_dsq}： 定义DSQ来对任务进行管理。BPF程序可创建数个DSQ，每个DSQ都有自己的独立ID。同时允许指定DSQ所在的NUMA node，实现更高的内存访问效率。
 
-    \item \textbf{scx\_bpf\_dispatch、scx\_bpf\_dispatch\_vtime}：调度任务到指定的DSQ中。BPF程序可通过ID来将任务调度到指定的DSQ，并为任务设置此次调度的时间片大小。时间片大小由BPF程序定义，其中特殊值SCX_SLICE_INF会让任务保持运行直到结束或主动释放。DSQ使用FIFO来管理其中的任务，Sched Ext还提供了vtime DSQ，实现类似CFS的任务管理逻辑。
+    \item \textbf{scx\_bpf\_dispatch、scx\_bpf\_dispatch\_vtime}：调度任务到指定的DSQ中。BPF程序可通过ID来将任务调度到指定的DSQ，并为任务设置此次调度的时间片大小。时间片大小由BPF程序定义，其中特殊值SCX\_SLICE\_INF会让任务保持运行直到结束或主动释放。DSQ使用FIFO来管理其中的任务，Sched Ext还提供了vtime DSQ，实现类似CFS的任务管理逻辑。
 
     \begin{figure}[!htbp]
         \centering
-        \includegraphics[width=0.85\textwidth]{sched_ext_helpers}
-        \bicaption{\quad Sched Ext BPF Helper 函数}{\quad Sched Ext BPF Helpers}
+        \includegraphics[width=0.8\textwidth]{sched_ext_helpers}
+        \bicaption{\quad Sched Ext BPF Helper函数}{\quad Sched Ext BPF Helpers}
         \label{fig:sched_ext_helpers}
     \end{figure}
     
@@ -143,11 +150,9 @@ Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实�
 
 Ext调度类还提供了一系列插桩位点，便于BPF程序参与到调度决策过程中。以调度循环为例，Ext调度类通过如图~\ref{fig:ext_bpf}所示的流程来与BPF程序协作完成调度过程。其中，Ext调度类会在核心逻辑的关键点处唤起BPF程序执行，并将BPF程序的返回结果作为决策依据之一。Sched Ext项目中将这些插桩点抽象为sched\_ext\_ops函数集合，BPF程序可以实现其中的部分或全部的函数，每个函数的插桩点与具体作用为：
 
-% TODO: 调大文字
-
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.85\textwidth]{ext_bpf}
+    \includegraphics[width=0.95\textwidth]{ext_bpf}
     \bicaption{\quad Ext调度类与BPF程序协作进行调度循环}{\quad 
     Ext scheduling class cooperates with BPFScheduler}
     \label{fig:ext_bpf}
@@ -155,24 +160,24 @@ Ext调度类还提供了一系列插桩位点，便于BPF程序参与到调度�
 
 \begin{itemize}
 
-    \item \textbf{select\_cpu}：Ext调度类选择CPU的过程中。BPF程序可以为唤醒的任务选择一个CPU，需要考虑任务的特性以及CPU的负载情况。由于CPU的选择结果会影响到系统总体的性能，
+    \item \textbf{select\_cpu}：Ext调度类选择CPU过程的位点。BPF程序可以为唤醒的任务选择一个CPU，需要考虑任务的特性以及CPU的负载情况。由于CPU的选择结果会影响到系统总体的性能，
     因此BPF程序的选择结果并不一定时最终调度的结果，Ext调度类还会结合其他自身的判断来调整决策。
 
-    \item \textbf{enqueue}：Ext调度类处理任务的入队的过程中。Ext调度类管理的任务就绪时，会唤起此BPF程序的执行。BPF程序可以为此任务选择一个CPU，或者将其加入自定义的DSQ中来管理。
+    \item \textbf{enqueue}：Ext调度类处理任务的入队过程的位点。Ext调度类管理的任务就绪时，会唤起此BPF程序的执行。BPF程序可以为此任务选择一个CPU，或者将其加入自定义的DSQ中来管理。
 
-    \item \textbf{dequeue}：Ext调度类处理任务的出队的过程中。修改任务的调度参数，如静态优先级时，会触发Ext调度类的出队逻辑，并唤起此BPF程序的执行。BPF程序可以通过捕获传入的参数，并结合已有的数据来定制优先级机制的实现。
+    \item \textbf{dequeue}：Ext调度类处理任务的出队过程的位点。修改任务的调度参数，如静态优先级时，会触发Ext调度类的出队逻辑，并唤起此BPF程序的执行。BPF程序可以通过捕获传入的参数，并结合已有的数据来定制优先级机制的实现。
     
-    \item \textbf{dispatch}：Ext调度类处理任务的调度的过程中。BPF程序可以创建DSQ来保持任务，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务。当CPU的Local DSQ为空时，就会触发此BPF程序的执行。BPF程序可以定制调度的逻辑，并调度一个或多个任务到CPU的Local DSQ中。
+    \item \textbf{dispatch}：Ext调度类处理任务调度过程的位点。BPF程序可以创建DSQ来保持任务，同时每个CPU也拥有自己的Local DSQ来保存要执行的任务。当CPU的Local DSQ为空时，就会触发此BPF程序的执行。BPF程序可以定制调度的逻辑，并调度一个或多个任务到CPU的Local DSQ中。
     
-    \item \textbf{tick}：Ext调度类处理任务滴答的过程中。Ext调度类在处理任务滴答时，会唤起此BPF程序的执行。BPF程序可以获取滴答时正在执行的任务，并自定义滴答逻辑，如更新时间记账信息、遍历DSQ等。同时，BPF程序可以滴答处理过程中将任务的时间片设置为0。在回到Ext调度类时，若任务的时间片被设置为0，则会立刻触发一次dispatch操作。通过这种方式可以让BPF程序定制抢占的逻辑。
+    \item \textbf{tick}：Ext调度类处理任务滴答过程的位点。Ext调度类在处理任务滴答时，会唤起此BPF程序的执行。BPF程序可以获取滴答时正在执行的任务，并自定义滴答逻辑，如更新时间记账信息、遍历DSQ等。同时，BPF程序可以滴答处理过程中将任务的时间片设置为0。在回到Ext调度类时，若任务的时间片被设置为0，则会立刻触发一次dispatch操作。通过这种方式可以让BPF程序定制抢占的逻辑。
 
     \item \textbf{runnable、running、stopping、quiescent}：Ext调度类追踪任务状态的过程中。任务通常会在如下三种情况进入Runnable状态：被唤醒时、回到调度对队列时、从其他CPU迁入时。例如，当任务从等待IO状态中恢复、完成静态优先级的修改时，都会进入Runnable状态。而其余状态与Runnable类似，如quiescent流程完全与runnable相反，running对应任务将要在CPU上调度时，stopping对应任务将要从CPU上换下时。如上BPF程序能够感知任务的状态变化，并协助进行调度决策。
 
-    \item \textbf{yield}：Ext调度类处理任务出让CPU资源的过程中。对于多线程，Linux提供了sched\_yield系统调用来允许任务主动放弃CPU资源。线程的退出之后依赖调度器来选择下一个任务。Ext调度类提供此BPF程序来定制下一个任务的选择。
+    \item \textbf{yield}：Ext调度类处理任务出让CPU资源过程的位点。对于多线程，Linux提供了sched\_yield系统调用来允许任务主动放弃CPU资源。线程的退出之后依赖调度器来选择下一个任务。Ext调度类提供此BPF程序来定制下一个任务的选择。
 
-    \item \textbf{cpu\_acquire、cpu\_release}：Ext调度类追踪CPU占用情况的过程中。当CPU对于Ext调度类来可用时，就会触发cpu\_acquire处BPF程序的执行，反之则会触发cpu\_release。CPU可用意味着更高优先级的调度类没有要执行的任务，CPU不可用则意味着当前调度类没有要执行的任务。BPF程序可通过这两个位点来了解Ext调度类所管理的CPU。
+    \item \textbf{cpu\_acquire、cpu\_release}：Ext调度类追踪CPU占用情况过程的位点。当CPU对于Ext调度类来可用时，就会触发cpu\_acquire处BPF程序的执行，反之则会触发cpu\_release。CPU可用意味着更高优先级的调度类没有要执行的任务，CPU不可用则意味着当前调度类没有要执行的任务。BPF程序可通过这两个位点来了解Ext调度类所管理的CPU。
 
-    \item \textbf{init\_task、exit\_task}：Ext调度类追踪任务的创建与退出的过程中。Ext调度类在任务的创建与退出时会唤起对应BPF程序的执行。而BPF程序可以在这些位点处为每个任务单独创建额外的追踪信息，并在任务结束后销毁。
+    \item \textbf{init\_task、exit\_task}：Ext调度类追踪任务的创建与退出过程的位点。Ext调度类在任务的创建与退出时会唤起对应BPF程序的执行。而BPF程序可以在这些位点处为每个任务单独创建额外的追踪信息，并在任务结束后销毁。
 
 \end{itemize}
 

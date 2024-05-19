@@ -82,14 +82,14 @@ FIRM\citep{qiu2020firm}基于Kubernetes设计了一种两级的机器学习模�
 
 节点资源有一定的隔离性，同时存在丰富的软硬件手段，能够进一步强化隔离性。软件上，Linux各个资源子系统作为软硬件的中间层，提供了丰富的资源隔离机制，包括Cgroup、Traffic Control等。硬件上，芯片制造厂商通过在硬件上引入额外特性，实现更细粒度的隔离机制。如针对内存带宽、末级缓存等资源，各大CPU厂商均提供了相关的硬件调控技术，包括Intel Resource Director Technology（Intel RDT）\citep{guide2011intel}、AMD Platform Quality of Service Extensions（AMD PQoS）\citep{amdpqos}、ARM Memory System Resource Partitioning and Monitoring（ARM MPAM）\citep{armmpam}等。节点上更细粒度的资源隔离手段能够有效协助解决"吵闹邻居"问题\citep{xu2018dcat, maricq2018taming, rzadca2020autopilot, kwon2020dc}。
 
-基于节点资源的隔离性，相关研究围绕放置策略展开。Paragon\citep{delimitrou2013paragon}将推荐系统中常用的协同过滤技术（Collaborative filtering technique）引入到放置问题中，通过预测应用对节点上其他应用的影响以及应用能够承受的干扰，来进行应用的放置决策，实现了大多数工作负载场景下的QoS保障。而结合丰富的节点资源隔离手段，相关研究通过避免应用在关键资源上的竞争来实现应用的QoS保障。Quasar\citep{delimitrou2014quasar}预先对应用进行画像分析，并建立分类模型。Quasar通过分类模型快速确定应用的资源需求以及干扰的敏感度，并利用资源隔离技术来调整资源分配。Heracles\citep{lo2015heracles}从应用资源敏感度的角度入手，分析了不同应用在不同负载下对于多种资源的敏感度，并依据分析结果优先保证敏感资源供给，从而实现应用的QoS保障。Parties\citep{chen2019parties}则进一步分析了如图~\ref{fig:parties_app_dif}所示更丰富的资源种类。同时Parties通过应用间的资源拆借，在保障QoS的同时提升整体资源利用率。CLITE\citep{patel2020clite}利用贝叶斯优化构建资源隔离模型，将多个LC应用与BE应用进行混部，并利用Intel MBA技术对内存带宽进行控制以保障LC应用的QoS需求。LIBRA\citep{zhang2021libra}则基于一种新型硬件节流机制，实现内存带宽的动态调控，并根据应用的需求变化动态调整，及时地保障内存带宽资源供给。
-
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\textwidth]{parties_app_dif}
-    \bicaption{\quad 不同资源干扰对应用性能的影响（图片引用自文献\citep{chen2019parties}）}{\quad Impact of diferent resource interference on application performance (picture quoted from paper\citep{chen2019parties})}
+    \includegraphics[width=0.85\textwidth]{parties_app_dif}
+    \bicaption{\quad 不同资源干扰对应用性能的影响（图片引用自文献\citep{chen2019parties}）}{\quad diferent resource interference on application performance(quoted from paper\citep{chen2019parties})}
     \label{fig:parties_app_dif}
 \end{figure}
+
+基于节点资源的隔离性，相关研究围绕放置策略展开。Paragon\citep{delimitrou2013paragon}将推荐系统中常用的协同过滤技术（Collaborative filtering technique）引入到放置问题中，通过预测应用对节点上其他应用的影响以及应用能够承受的干扰，来进行应用的放置决策，实现了大多数工作负载场景下的QoS保障。而结合丰富的节点资源隔离手段，相关研究通过避免应用在关键资源上的竞争来实现应用的QoS保障。Quasar\citep{delimitrou2014quasar}预先对应用进行画像分析，并建立分类模型。Quasar通过分类模型快速确定应用的资源需求以及干扰的敏感度，并利用资源隔离技术来调整资源分配。Heracles\citep{lo2015heracles}从应用资源敏感度的角度入手，分析了不同应用在不同负载下对于多种资源的敏感度，并依据分析结果优先保证敏感资源供给，从而实现应用的QoS保障。Parties\citep{chen2019parties}则进一步分析了如图~\ref{fig:parties_app_dif}所示更丰富的资源种类。同时Parties通过应用间的资源拆借，在保障QoS的同时提升整体资源利用率。CLITE\citep{patel2020clite}利用贝叶斯优化构建资源隔离模型，将多个LC应用与BE应用进行混部，并利用Intel MBA技术对内存带宽进行控制以保障LC应用的QoS需求。LIBRA\citep{zhang2021libra}则基于一种新型硬件节流机制，实现内存带宽的动态调控，并根据应用的需求变化动态调整，及时地保障内存带宽资源供给。
 
 \subsection{围绕任务调度的混部场景QoS保障研究}
 
@@ -100,16 +100,16 @@ FIRM\citep{qiu2020firm}基于Kubernetes设计了一种两级的机器学习模�
 
 CFS调度器\citep{pabla2009completely}是Linux中的默认任务调度器，于2009年提出，用来解决交互式应用与非交互式应用在调度上的公平性问题。CFS的核心在于CPU vruntime的计算与维护。CFS调度器为Run Queue中的每一个调度实体维护一个时间记账信息，并在每个时钟中断根据不同调度实体的优先级更新记账信息。优先级越高的调度实体，vruntime的积累速度越慢。而在每个调度循环中，CFS会选择Run Queue中vruntime最小的调度实体中的进程运行。CFS中使用了许多启发式的策略，在大多数场景下都能公平地进行调度。然而在混部场景中，CFS的部分启发式逻辑会导致严重的QoS劣化问题。如CFS调度器会为每个调度队列维护一个基准vruntime值，并将其赋予新创建的或新唤醒的进程。基准vruntime通常为Run Queue中的最小值，因此新创建或新唤醒的进程总能优先执行。在LC与BE混部的场景中，通常会为LC应用设置更高的优先级，使得在每个调度循环中LC应用都有更高概率被选中执行。然而此时如果有新创建的或新唤醒的进程，在CFS的启发式策略中，这些进程会抢占高优先级的LC应用。当新创建或新唤醒的进程数量较多时，LC应用容易因得不到及时的调度而引发严重的QoS劣化。
 
-为解决CFS存在的种种问题，Linux 6.6版本中引入了EEVDF调度器来替换CFS。EEVDF调度器\citep{stoica1995earliest}于1995年提出，调度器会为每个进程维护一个虚拟截止时间，并在每次调度时选择最早截止时间的任务执行。不同于CFS，EEVDF调度器的优先级设计考虑到了应用对时间片的不同需求，并增加了latency-nice机制。如图~\ref{fig:eevdf_scheduling}所示，为任务设置较高的latency-nice值会让任务总是获得长而少的时间片，这样能够减少上下文切换的次数，对于计算密集型的应用而言有利于提高吞吐。而为任务设置较低latency-nice值则会让任务总是获得短而多的时间片，这样能够让CPU资源更快地分配，从而提升应用的响应度。
-
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{eevdf_scheduling}
+    \includegraphics[width=0.65\textwidth]{eevdf_scheduling}
     \bicaption{\quad EEVDF可变时间片机制}{\quad EEVDF Variable Time Slice Mechanism}
     \label{fig:eevdf_scheduling}
 \end{figure}
 
-而为针对CPU拓扑，Linux 2.6中引入了调度域(Scheduler Domains)\citep{schedulerdomains}，用来协助处理多核处理器上的调度。如表~\ref{tab:resourcesharing}所示，不同调度域充分反映了对于CPU拓扑上的资源共享信息。而调度子系统可基于调度域这层抽象来了解CPU间的差异性，进而针对性地进行调度。然而Linux任务调度机制在处理不同调度域时仍有不足：
+为解决CFS存在的种种问题，Linux 6.6版本中引入了EEVDF调度器来替换CFS。EEVDF调度器\citep{stoica1995earliest}于1995年提出，调度器会为每个进程维护一个虚拟截止时间，并在每次调度时选择最早截止时间的任务执行。不同于CFS，EEVDF调度器的优先级设计考虑到了应用对时间片的不同需求，并增加了latency-nice机制。如图~\ref{fig:eevdf_scheduling}所示，为任务设置较高的latency-nice值会让任务总是获得长而少的时间片，这样能够减少上下文切换的次数，对于计算密集型的应用而言有利于提高吞吐。而为任务设置较低latency-nice值则会让任务总是获得短而多的时间片，这样能够让CPU资源更快地分配，从而提升应用的响应度。
+
+针对CPU拓扑，Linux 2.6中引入了调度域(Scheduler Domains)\citep{schedulerdomains}，用来协助处理多核处理器上的调度。如表~\ref{tab:resourcesharing}所示，不同调度域充分反映了对于CPU拓扑上的资源共享信息。而调度子系统可基于调度域这层抽象来了解CPU间的差异性，进而针对性地进行调度。然而Linux任务调度机制在处理不同调度域时仍有不足：
 
 \begin{itemize}
     \item 超线程调度域中兄弟核心存在如表~\ref{tab:resourcesharing}所示的共享资源，部署在兄弟核心上的应用存在竞争的可能。Elfen\citep{yang2016elfen}设计了一种新的内核调度机制，首先提供了一种全新的系统调用nanonap，允许进程快速地释放CPU资源但保留对CPU的所占有状态。同时，Elfen通过向BE应用插入探测代码，使得BE应用在运行过程中能够快速的探测兄弟核心上任务的运行并及时调用nanonap释放资源。通过以上设计，Elfen实现了LC应用与BE应用在部署到兄弟核心时的交替执行，从而避免因资源竞争导致的QoS劣化。 
@@ -171,13 +171,13 @@ CFS调度器\citep{pabla2009completely}是Linux中的默认任务调度器，于
 
 \begin{figure}[!htbp]
     \centering
-    \begin{subfigure}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.4\textwidth}
         \includegraphics[width=\textwidth]{arch_dif_cz}
         \caption{Control Zone}
         \label{fig:arch_dif_cz}
     \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{0.4\textwidth}
         \includegraphics[width=\textwidth]{arch_dif_fc}
         \caption{Firecracker}
         \label{fig:arch_dif_fc}
@@ -192,7 +192,7 @@ CFS调度器\citep{pabla2009completely}是Linux中的默认任务调度器，于
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.85\textwidth]{paper_organization}
+    \includegraphics[width=0.8\textwidth]{paper_organization}
     \bicaption{\quad 本文组织架构}{\quad Paper Organization}
     \label{fig:paper_organization}
 \end{figure}
