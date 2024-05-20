@@ -4,11 +4,11 @@
 
 % 针对如上挑战，本章首先分析了数据中心软件环境的组成，通过选取典型应用的方式提炼重要的监测对象，并结合与云厂商的合作经验选取了7种典型应用作为画像目标。
 
-% 虚拟机时云场景中主要的运行时环境，为解决虚拟机所引入的黑盒性能监测的问题，本章中设计了一套面向虚拟机的可观测性系统，通过广泛的性能指标采集来解决虚拟机的性能监测问题。
+% 虚拟机时云场景中主要的运行时环境，为解决虚拟机所引入的黑盒性能监测的问题，本章中设计了一套面向虚拟机的观测系统，通过广泛的性能指标采集来解决虚拟机的性能监测问题。
 
 % 最后，本章设计了有干扰实验与无干扰实验，分析不同应用在资源使用倾向与敏感度上的特点与差异。
 
-为解决数据中心的软件环境复杂性带来的挑战，本章围绕数据中心典型应用展开监测画像，研究应用的资源使用倾向即资源敏感度。首先，结合对数据中心软件栈分析以及与云厂商的合作经验，选择了一批典型应用，并采用云环境中广泛使用的虚拟机作为应用运行环境。随后，围绕虚拟机设计实现了一套黑盒可观测性系统，从Host、Hypervisor与Guest等多个维度，采集丰富的指标信息。最后，在可观测性系统的基础之上展开对典型应用的资源倾向与敏感度实验，并给出画像结论。
+为解决数据中心的软件环境复杂性带来的挑战，本章围绕数据中心典型应用展开监测画像，研究应用的资源使用倾向即资源敏感度。首先，结合对数据中心软件栈分析以及与云厂商的合作经验，选择了一批典型应用，并采用云环境中广泛使用的虚拟机作为应用运行环境。随后，围绕虚拟机设计实现了Black Box观测系统，从Host、Hypervisor与Guest等多个维度，采集丰富的指标信息。最后，在Black Box观测系统基础之上展开对典型应用的资源倾向与敏感度实验，并给出画像结论。
 
 \section{云场景典型应用选择}
 
@@ -51,7 +51,7 @@
 
 应用的运行依赖一定的软件环境。云场景中为达到足够的隔离性，避免多租户间的相互影响，通常会采用沙箱环境隔离不同的应用。本文结合与云厂商的合作经验，选择云厂商使用较广泛的KVM虚拟机作为应用的沙箱环境。
 
-\section{观测系统设计与指标收集}
+\section{Black Box观测系统设计与指标收集}
 
 \subsection{面向虚拟机的多维指标采集设计}
 
@@ -60,7 +60,7 @@
 % - 采集侧
 % - 查询、存储、分析侧
 
-KVM虚拟机相对黑盒的运行环境为应用性能的监测带来了挑战。而为解决虚拟机场景下的应用性能分析问题，本文通过从不同维度采集丰富的指标信息，提供更全面、深入的观测，来推断应用的性能。
+KVM虚拟层的引入为应用性能监测带来了挑战。而为解决虚拟机场景下的应用性能分析问题，本文通过从不同维度采集丰富的指标信息，提供更全面、深入的观测，来推断应用的性能。
 
 本文从如图~\ref{fig:vm_arch}所示的Host、Hypervisor、Guest三个维度来设计指标采集方式。
 
@@ -82,9 +82,9 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
     \label{fig:vhost_net}
 \end{figure}
 
-综合以上分析，本文设计了一种实时指标采集分析系统，从Host、Hypervisor、Guest三个维度以虚拟机为粒度进行指标采集，并提供指标的存储、查询与分析服务。观测系统占中定义了Observer与Observed两种角色，并采用统一的指标编码。其中，Observed角色对外暴漏指标采集接口，Observer角色则周期性地轮询以获取指标数据。Observer角色还需要将获取到的指标进行存储，并提供基本的查询服务。系统中可以有多个Observer角色来分摊采集压力，节点也可以按需要同时承担Observer与Observed角色。
+综合以上分析，本文设计了Black Box观测系统，能够从Host、Hypervisor、Guest三个维度以虚拟机为粒度进行指标采集，并提供指标的存储、查询与分析服务。Black Box观测系统中为每个节点定义了Observer与Observed两组微服务。其中Observer微服务提供指标采集、存储与查询功能，Observed微服务则提供一系列指标采集接口。系统中可以有多个节点承担Observer微服务来分摊压力，同时一个节点也可以同时部署两套微服务。
 
-\subsection{实时可观测性系统实现}
+\subsection{Black Box观测系统实现}
 
 % Observer实现
 % - Prometheus、Grafana、Collector Utils
@@ -97,22 +97,23 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.75\textwidth]{monitor_arch}
-    \bicaption{\quad 采集系统架构}{\quad Metric Collection System Architecture}
+    \bicaption{\quad Black Box观测系统架构}{\quad Black Box Observation System Architecture}
     \label{fig:monitor_arch}
 \end{figure}
 
-本文结合云原生的实践经验，基于Prometheus\citep{prometheus}生态实现可观测性系统。Prometheus是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点。基于Prometheus生态的实时可观测性系统架构如图~\ref{fig:monitor_arch}所示，其中，Observer的基于Prometheus Server与Grafana标准组件实现，在向量数据存储上，将原生的TiDB替换位InfluxDB，InfluDB使用Rust语言编写，性能更强、扩展性更好。在采集上，Observer中虚拟机各维度数据的采集组织为一个服务发现配置文件，基于Prometheus的服务发现规则编写。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer提供了PromQL编写了基本的聚合规则，实现对于标量数据的变化速率、99分位数据等的统计，同时这些规则会转化为Grafana中的Dashboard以进行实时监测。
+本文结合云原生的实践经验，基于Prometheus\citep{prometheus}生态实现Black Box观测系统。Prometheus是云厂商中广泛使用的一种指标监测系统，具有可扩展性强、灵活性好、生态丰富、部署便捷等特点。基于Prometheus生态的Black Box观测系统架构如图~\ref{fig:monitor_arch}所示，其中，Observer微服务包括Prometheus Server与Grafana等组件。在向量数据存储上，Observer微服务替换Prometheus默认的TiDB为InfluxDB。InfluDB使用Rust语言编写，性能更强、扩展性更好。在采集上，Observer微服务对虚拟机各维度数据的采集统筹为一个Prometheus的服务发现配置。而在数据聚合上，各维度原始数据首先需要进行初步处理以生成有效数据，Observer微服务包含了PromQL编写了基本的聚合规则，能够对标量数据的变化速率、99分位数据等进行统计。此外这些规则也能够应用到Grafana中，以创建Dashboard进行实时监测。
 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{exporters}
-    \bicaption{\quad Exporters设计}{\quad Exporters Design}
+    \bicaption{\quad Black Box观测系统Exporters设计}{\quad Design of Exporters for Black Box Observation System}
     \label{fig:exporters} 
 \end{figure}
 
-可观测性系统中Observed的实现则包含了各个维度的Exporter的开发与配置。如图~\ref{fig:exporters}所示，Observed中包含了7种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，每个Exporter具体实现如下：
+Observed微服务包含了各个维度的Exporter的开发与配置，并由Push Gateway统筹单个节点的指标数据。如图~\ref{fig:exporters}所示，Observed微服务中包含了7种Exporter，能够在Host、Hypervisor、App三个维度围绕虚拟机提供丰富的数据采集，每个Exporter具体实现如下：
 
 \begin{enumerate}
+
     \item \textbf{Envoy Exporter}：开源社区提供的一种L7代理和通信总线，面向大型现代服务架构设计，作为基础组件运行在各个Overlay Network系统中。Envoy的首要目的是构造透明网络，同时，为协助解决网络与应用层面的问题排查，Envoy还为各个代理子系统提供了强大的统计功能，统计功能支持大部分L7层传输协议，同时对于一些云原生应用，如Redis、Mysql等，能够进一步统计应用层协议的指标信息，如延迟、请求数等。
     
     \item \textbf{Libvirt Exporter}：Prometheus开源社区开发的监控组件，提供了Hypervisor维度的指标采集。Libvirt是一个统一的虚拟化接口层，提供了丰富的虚拟机管理选项，Libvirt Exporter基于Libvirt Monitor接口实现，能够采集虚拟机的各个设备的性能指标，如vCPU时间片、内存使用量、网络设备的吞吐量及IO设备的吞吐量等。Observed实现中为Libvirt Exporter增加的Perf Event监测功能，从而能够提供虚拟机粒度的性能事件指标信息，如cycles、instruction及cache miss等。
@@ -142,7 +143,7 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 % - Hypervisor
 % - App
 
-实时可观测性系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
+Black Box观测系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
 
 \begin{enumerate}
     \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
@@ -206,7 +207,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \subsection{基准性能实验设计}
 
-实验中使用两台C6服务器作为Client和Server，服务器具体配置如表~\ref{tab:c6_info}所示，其中Client服务器额外承担实验管理的功能，同时作为Observer角色部署Prometheus Server等组件，而Server主要承载具体的应用，同时作为Observed角色部署上述设计实现的6种Exporter，并为Exporter设置NUMA亲和性以避免对应用产生干扰。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
+实验中使用华为云提供的两台C6实例服务器作为实验环境。C6实列服务器的具体配置如表~\ref{tab:c6_info}所示。在两台服务器上部署Black Box观测系统，其中由于不需要采集应用级数据，因此Observed微服务仅部署了除Envoy Exporter外的6种Exporter。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
@@ -232,6 +233,9 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
+
+% TODO: 竖亥Benchmark负载说明
+
 % 1）Redis、Memcached。使用memtier_benchmark来产生负载，负载的模型由华为云提供，包括Normal、Random两类模拟负载
 
 % 2）Mysql。使用TPCC作为基准实验负载
@@ -246,7 +250,12 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \subsection{典型应用资源倾向分析}
 
-无干扰实验中计算各个监测指标的变异系数，得到不同应用对应的资源指标如图~\ref{fig:resource_affinity}所示。
+无干扰实验中使用变异系数来进行对不同的监测指标进行标准化。变异系数使用公式~\eqref{eq:cv}计算，得到不同应用对应不同资源指标均值的变异系数如图~\ref{fig:resource_affinity}所示，其中横轴为指标均值的变异系数值，纵轴为具体的指标，使用不同颜色的柱状图来区分不同应用。
+
+\begin{equation}
+    CV = \frac{\sigma}{\mu}
+\label{eq:cv}
+\end{equation}
 
 \begin{figure}[H]
     \centering
@@ -270,13 +279,13 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
         \caption{网络资源指标}
         \label{fig:cof_mem}
     \end{subfigure}
-\bicaption{\quad 总资源变异系数}{\quad Coefficient of Variation of Total Resources}
+\bicaption{\quad 资源平均值变异系数比较}{\quad Coefficient of Variation of Total Resources}
 \label{fig:resource_affinity}
 \end{figure}
 
 从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致图中一部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只会在一个较小的范围内波动。
 
-具体到应用的差异性如图~\ref{fig:resource_affinity_0}所示，不同应用对于主要的5种系统资源的需求呈现处较大的差异：
+具体到每个应用的指标差异如图~\ref{fig:resource_affinity_0}所示，其中横坐标是指标名称，纵坐标是分别对应极差、均值与标准差，并使用不同颜色的柱状图来区分。不同应用对于主要的5种系统资源的需求呈现处较大的差异：
 
 \begin{figure}[H]
     \centering
@@ -312,7 +321,6 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \bicaption{\quad Nginx与Kafka资源使用情况}{\quad Resource Usage of Nginx and Kafka}
 \label{fig:resource_affinity_1}
 \end{figure}
-
 
     \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Nginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
     
@@ -383,7 +391,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
-正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从可观测性系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示：
+正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU 8G Memory虚拟机，并在其中按照上述配置运行stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程相关，对于CPU干扰，采用线性的干扰强度，即干扰强度正比于CPU负载，而对于其他干扰则使用指数映射，即干扰强度与线程数量呈指数关系，以便于快速探测干扰峰值。具体实验的结果从观测系统中获取，每种干扰选择一个表征指标用以说明，具体结果如图~\ref{fig:interference}所示：
 
 \begin{itemize}
     \item \textbf{CPU干扰}：使用进程CPU使用率作为表征指标，恰好占满所有CPU时的参数配置作为CPU干扰强度100\%的定义。实验干扰效果如图~\ref{fig:cpu_interference}所示，随CPU干扰强度的不断提升，干扰应用能够完全占用CPU资源。CPU干扰强度与干扰效果几乎呈线性关系，但在强度较低时存在波动。
@@ -428,8 +436,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
 \end{itemize}
 
-考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰，导致类似于CPU或Cache干扰，因此在后续的
-没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
+考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰。因此在后续分析中没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
 
 \subsection{典型应用资源敏感度分析}
 
@@ -467,20 +474,46 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 \label{fig:redis_interf_sensitivity}
 \end{figure}
 
-以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。
-
-结合其他应用的资源敏感性分析，可从资源的角度对典型应用进行初步划分，主要为如下3类：
+以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。综合所有典型应用得到如表~\ref{tab:interf_sensitivity}所示的资源敏感度评价，其中性能劣化程度归一化为高、中、低三档，并依据资源敏感度将应用分为如下3类：
 
 \begin{enumerate}
+    
     \item \textbf{单纯CPU敏感型}：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
+
     \item \textbf{CPU与Cache敏感型}：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，竖亥Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本文中将其归类为CPU与Cache敏感型。
+
     \item \textbf{资源不敏感型}：此类应用对于所有干扰的敏感度都偏低。实验中Render在各个干扰下都没有出现较为明显的劣化，这主要有两个原因。一方面，在性能指标上，Render应用使用了完成时间作为性能评价指标，而与其他应用的性能指标不同，完成时间这一指标更偏向于整个运行过程的总体性能述而不是单一处理过程的性能，一些突发的性能劣化不会体现在这一指标上，另一方面，内核调度机制上在未作限制时倾向于公平地分配时间，因此干扰程序会因调度的影响向Render出让CPU时间，而当CPU资源总和足够满足Render使用时，性能指标就不会出现较大变化。
+
 \end{enumerate}
+
+\begin{table}[H]
+    \centering
+    \bicaption{\quad 典型应用干扰敏感度}{\quad Typical application interference sensitivity}% caption
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{20pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% ro w space 
+    \label{tab:interf_sensitivity}
+    \begin{tabular}{llc}
+        \hline
+        %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
+        %\cline{i-j}% partial hline from column i to column j
+        应用             & 易受干扰类型 & 性能劣化程度\\
+        \hline
+        Memcached       & CPU        &  高 \\
+	    Kafka           &            &  中 \\
+        Redis           & CPU/Cache  &  中 \\
+        Elasticsearch   &            &  高 \\
+        Nginx           & 大部分干扰   &  中 \\
+        Render          & 不易受干扰   &  低 \\
+        \hline
+    \end{tabular}
+\end{table}
+
 
 \section{本章小结}
 
 本章主要论述了对云场景典型应用进行画像分析的过程，围绕三个问题展开。首先，在软件环境上，结合与云厂商的合作经验确定了以虚拟机作为应用运行时的典型云场景，随后通过对数据中心软件栈的分析，选取了7种典型应用作为画像分析的对象，涵盖了传统数据库、键值存储、消息中间件、媒体处理等领域。
 
-随后，为解决引入虚拟化所带来的黑盒监测难题，基于Prometheus生态设计实现了一套面向虚拟机的可观测性系统，从Host、Hypervisor到Guest等多个维度以虚拟机为粒度采集丰富的指标数据。本文主要设计实现了Libvirt Exporter、KVM Exporter、Resctrl Exporter以及Kernel Exporter四种采集组件。其中创新性地引入eBPF技术，在应用与内核交互的关键路径，内核与设备交互的关键路径上进行采样分析，获取更丰富的指标数据。
+随后，为解决引入虚拟化所带来的黑盒监测难题，基于Prometheus生态设计实现了面向虚拟机的Black Box观测系统，能够从Host、Hypervisor到Guest等多个维度以虚拟机为粒度采集丰富的指标数据。本文主要设计实现了Libvirt Exporter、KVM Exporter、Resctrl Exporter以及eBPF Exporter四种采集组件。其中创新性地引入eBPF技术，在应用与内核交互的关键路径，内核与设备交互的关键路径上进行采样分析，获取更丰富的指标数据。
 
 最后，围绕典型应用的资源使用倾向与资源敏感度展开实验分析。其中首先对干扰应用进行参数搜索，找到制造CPU、Cache、Memory、IO以及Network五种干扰的合适参数，并与典型应用进行混部实验。在资源使用倾向上，分析了典型应用资源使用倾向分类，而在资源敏感度上，总结了得到了典型应用的干扰敏感度评级。

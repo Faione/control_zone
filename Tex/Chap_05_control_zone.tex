@@ -14,23 +14,23 @@
 % - 针对每个问题的解决方式
 % - 设计目标
 
-在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通。Control Zone中依赖Control Tower进行客机起降的调度。本文借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的任务调度框架Control Tower。Control Zone包含如下特性：
+在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通。Control Zone中依赖Control Tower进行客机起降的调度，同时Black Box提供客机飞行数据的监测。本文借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的任务调度框架Control Tower，同时使用Black Box观测系统来监测虚拟机性能。Control Zone包含如下特性：
 
 \begin{itemize}
     \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快启动速度和更少的内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
     \item \textbf{容器化的任务}：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
     \item \textbf{可动态定制的调度器}：Control Zone支持Control Tower调度框架，运行以容器方式打包的调度策略。Control Zone提供了基础的调度策略容器，同时，调度策略容器与任务容器的管理方式相同，同样支持运行时的修改与切换。
-    \item \textbf{可观测性基础设施}：沙箱系统包含了一个围绕虚拟机的可观测性系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
+    \item \textbf{可观测性基础设施}：沙箱系统包含了Black Box观测系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
 \end{itemize}
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{controlzone_arch}
+    \includegraphics[width=0.8\textwidth]{cz_arch}
     \bicaption{\quad Control Zone基本架构}{\quad Control Zone Architectural}
-    \label{fig:controlzone_arch}
+    \label{fig:cz_arch}
 \end{figure}
  
-Control Zone整体架构如图~\ref{fig:controlzone_arch}所示，其中管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可根据混部任务的属性动态地对Control Tower调度器进行修改。除此之外，可观测性基础能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
+Control Zone整体架构如图~\ref{fig:cz_arch}所示，其中管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可根据混部任务的属性动态地对Control Tower调度器进行修改。除此之外，Black Box观测系统能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
 
 针对混部场景下的硬件特性差异的挑战。Control Zone一方面能够利用虚拟化提供的抽象层屏蔽底层硬件的差异，另一方面则根据配置的硬件特性选择合适的Control Tower任务调度策略。同时，在硬件特性变化时，Control Zone任务调度策略可以同步修改，而无需中断虚拟机的执行。
 
@@ -371,7 +371,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 \subsection{性能保障实验}
 
-性能保障实验在4 CPU、1024MB内存的Control Zone中展开，选择Qemu组合CloudHypervisor默认内核作为运行环境的对比。Control Zone中的混部方案为Memcached、stress\_ng CPU干扰应用与Control Tower调度策略，Qemu的混部方案为Memcached、stress\_ng CPU干扰。实验方式为分别在两个混部方案中运行一段时间相同的Memacached负载，并从可观测系统中截取对应时间段的指标数据。
+性能保障实验在4 CPU、1024MB内存的Control Zone中展开，选择Qemu组合CloudHypervisor默认内核作为运行环境的对比。Control Zone中的混部方案为Memcached、stress\_ng CPU干扰应用与Control Tower调度策略，Qemu的混部方案为Memcached、stress\_ng CPU干扰。实验方式为分别在两个混部方案中运行一段时间相同的Memacached负载，并从Black Box观测系统中截取对应时间段的指标数据。
 
 时序数据如图~\ref{fig:cpu_series_memcached}所示，包含虚拟机总体的CPU使用率、混部应用各自的CPU使用率以及Memcached的99分位尾延迟，其中红色虚线部分表示stress\_ng CPU负载启动的时间点。在干扰负载启动之前的时段，Memcached在Control Zone中的性能表现无明显差异。而在干扰负载启动之后的时段，Memcached在Control Zone中运行时的延迟需求得到了有效的保障，并实现99分尾延迟降低最高63.8\%的效果。
 
