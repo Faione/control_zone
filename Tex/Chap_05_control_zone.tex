@@ -1,6 +1,6 @@
 \chapter{调度动态可定制沙箱实现}\label{chap:control_zone}
 
-为解决单一调度机制与多样混部场景的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，能够将Control Tower任务调度策略容器与混部应用协同部署。Control Zone允许将Control Tower调度器与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度器。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
+为解决单一调度机制与多样混部场景矛盾的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，并支持以容器的形式协同部署Control Tower任务调度策略与混部应用。一方面能够针对混部场景量身定制调度策略，另一方面借助BPF技术的动态性实现运行时可变的调度策略。同时，Control Zone还支持丰富的软硬件手段来对资源进行隔离，以提供精细的Control Zone资源分配。
 
 \section{Control Zone设计}
 
@@ -14,31 +14,58 @@
 % - 针对每个问题的解决方式
 % - 设计目标
 
-在航空领域，Control Zone指受控空域的一部分，通常在机场的周围，保护进出机场的的空中交通。Control Zone中依赖Control Tower进行客机起降的调度，同时Black Box提供客机飞行数据的监测。本文借用Control Zone概念设计沙箱系统，在外层提供足够强的隔离性，而在内层则提供运行时可定制的任务调度框架Control Tower，同时使用Black Box观测系统来监测虚拟机性能。Control Zone包含如下特性：
+服务器资源丰富，支持大量应用同时运行，这些应用构成了多样的混部场景。然而Linux提供的调度策略有限，难以覆盖每个混部场景。同时，由于应用共享同一个内核，因此调整调度策略时容易对其他应用造成影响。此外，围绕混部场景的任务调度研究通常也只关注有限的混部场景，提供的调度机制或算法在扩展性及灵活性上存在缺陷。而为解决单一调度机制与多样混部场景矛盾，实现单个机器上多种调度机制共存，本文提出了Control Zone，一种基于KVM的面向混部场景的调度动态可定制沙箱。
 
-\begin{itemize}
-    \item \textbf{轻量级虚拟机}：Control Zone使用虚拟机来提供更强的隔离性，而轻量化体现在两方面，一方面采用轻量化的Hypervisor，提供更快启动速度和更少的内存占用， 另一方使用最小化Guest内核及精简根文件系统，提供快速的系统引导与基本的系统功能。
-    \item \textbf{容器化的任务}：Control Zone包含一个最小化的容器环境与容器运行时，支持大量容器化应用的运行，同时容器镜像与目录文件能够在不同的Control Zone之间共享，支持跨Control Zone的任务协作。
-    \item \textbf{可动态定制的调度器}：Control Zone支持Control Tower调度框架，运行以容器方式打包的调度策略。Control Zone提供了基础的调度策略容器，同时，调度策略容器与任务容器的管理方式相同，同样支持运行时的修改与切换。
-    \item \textbf{可观测性基础设施}：沙箱系统包含了Black Box观测系统，能够从Host、Hypervisor、App三个层次以虚拟机为粒度采集丰富的指标，并提供实时监测与离线分析功能来全面地分析虚拟机及其中任务的性能。
-\end{itemize}
+航空领域中Control Zone指受控空域的一部分，通常在机场的周围负责保护进出的空中交通。Control Zone中由Control Tower进行客机起降的调度，同时Black Box提供了客机飞行数据的监测。本文借用航空领域的上述概念设计Control Zone，具体架构如图~\ref{fig:cz_arch}所示，包含三个主要部分：Control Zone管理器、Control Zone虚拟机、Black Box观测系统。
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{cz_arch}
+    \includegraphics[width=0.9\textwidth]{cz_arch}
     \bicaption{\quad Control Zone基本架构}{\quad Control Zone Architectural}
     \label{fig:cz_arch}
 \end{figure}
- 
-Control Zone整体架构如图~\ref{fig:cz_arch}所示，其中管理器负责进行Control Zone的管理，提供隔离环境的定制能力，并可根据混部任务的属性动态地对Control Tower调度器进行修改。除此之外，Black Box观测系统能够与各层次的系统组件交互，以采集全面的虚拟机指标信息。
 
-针对混部场景下的硬件特性差异的挑战。Control Zone一方面能够利用虚拟化提供的抽象层屏蔽底层硬件的差异，另一方面则根据配置的硬件特性选择合适的Control Tower任务调度策略。同时，在硬件特性变化时，Control Zone任务调度策略可以同步修改，而无需中断虚拟机的执行。
+\begin{itemize}
 
-针对混部场景下软件需求差异的挑战。首先，Control Zone可针对高优先级任务的特性，匹配的合适的内核调度配置来满足任务在响应度或吞吐量上的需求。其次，针对混部场景的特性，能够进一步选择或定制合适的Control Tower调度器来进行QoS保障。同时，考虑混部应用的负载的动态特性，一方面可以通过eBPF监测应用的负载，另一方面可以在不同的阶段切换不同的Control Tower调度器来实现不同的调度目标。
+    \item \textbf{Control Zone管理器}：负责Control Zone虚拟机的生命周期管理，包括Control Zone虚拟机的创建、启动、暂停、销毁等。Control Zone管理器还支持丰富的资源隔离措施，便于控制分配给Control Zone虚拟机的资源。
+
+    \item \textbf{Control Zone虚拟机}：基于KVM虚拟机实现，同时支持部署容器化的混部应用，并进行混部应用的生命周期管理。Control Zone虚拟机还支持Control Tower调度框架，允许针对混部场景量身定制调度策略，并借助BPF技术的插件化能力实现内核调度策略的运行时动态变化。此外，Control Tower调度策略被封装为容器镜像，并与混部应用一同进行管理。
+
+    \item \textbf{Black Box观测系统}：能够从Host、Hypervisor、App三个层次围绕虚拟机采集丰富的指标，并提供实时的监测与离线的数据分析功能。Black Box观测系统提供了一种持续对Control Zone进行性能分析的方式，一方面有助于了解混部应用的性能，另一方面可协助对调度策略的持续迭代。
+
+\end{itemize}
+
+针对混部场景下软硬件对于任务调度机制的需求。首先，Control Zone可利用虚拟化来屏蔽底层硬件差异，或定制Control Tower调度策略来满足不同硬件的对调度需求。其次，Control Zone允许选择合适的内核调度配置，来满足高优先任务在响应度或吞吐量上的需求。同时，Control Zone允许针对混部场景的量身定制Control Tower调度策略，来满足不同的调度目标。最后，考虑到混部应用负载的以及硬件环境的动态特性，Control Zone提供了一种在运行时切换不同调度策略的方式，而无需中断虚拟机的运行。
 
 \section{Control Zone实现}
 
-\subsection{Control Zone组成}
+\subsection{Control Zone轻量级虚拟机}
+
+% 隔离性实现
+% 内核裁切
+% hypervisor选择
+% 系统功能要求
+% 镜像共享
+
+Control Zone中使用KVM虚拟机主要出于隔离性与安全性两方面的考虑。在隔离性上，使用KVM虚拟机能够实现较强的隔离效果，同时利用Hypervisor对模拟设备控制能力可提供更丰富的资源隔离手段。在安全性上，修改调度子系统是较危险的行为，并可能影响到系统中的所有任务。使用虚拟机能够将风险限制在单个虚拟机内，此外，借助虚拟机的隔离性使得在一个物理机上同时运行多种不同调度机制成为可能。
+
+引入虚拟机会导致额外的虚拟化开销，主要来自于虚拟机监视器与来宾操作系统。虚拟机监视器要在启动虚拟机之前完成一系列的准备工作，包括各种模拟设备的创建与初始化，这些过程都会增加虚拟机的启动时间。此外，在虚拟机运行过程中，KVM模块无法处理的陷出事件需要转交虚拟机监视器处理，如对部分特殊设备的模拟，这一过程会降低虚拟机的运行速度。来宾操作系统是应用运行的基本环境，虚拟机中，操作系统启动以及运行时消耗的资源都是额外开销。此外对于容器化应用而言，容器运行时所消耗的资源同样也是一种额外开销。
+
+虚拟化开销显著影响了沙箱的性能，增加了保障混部应用QoS的困难。而Control Zone使用KVM虚拟机仅为提供较强的隔离环境，且综合上述分析发现绝大部分开销是不必要的。因此为减少虚拟化开销，本文设计实现了Control Zone轻量级虚拟机，从虚拟机监视器、来宾操作系统和容器运行时三个方面优化沙箱开销：
+
+\begin{itemize}
+
+    \item \textbf{轻量化的虚拟机监视器}：Control Zone使用CloudHypervisor作为默认的虚拟机监视器。CloudHypervisor与Firecracker类似，都是基于Rust-VMM套件构建的轻量级虚拟机监视器。相比于Firecracker，CloudHypervisor更侧重云场景的实际需求\citep{agache2020firecracker}，同时在保证轻量的同时，提供更强的性能与更实用的功能，如额外支持了PCI设备模拟以及PCI设备直通。
+
+    \item \textbf{精简操作系统}：Contorl Zone精简操作系统包含内核与根文件系统两部分。在内核上，Control Zone参考了Firecracker Kernel配置，并根据需要增加了对PCI、容器、BPF子系统以及Ext调度类的支持。此外，Control Zone使能了Linux的PVH（半虚拟化）配置，能够绕过BIOS直接引导系统。同时由于内核没有额外的模块依赖，因此还可绕过initramfs阶段而直接挂载根文件系统。在根文件系统上，Control Zone使用轻量级Linux发行版Alpine\citep{alpine}。Alpine使用Busybox与Musl来提供基本的运行环境。其中Busybox是一系列Linux基础工具的集合，专注于基础功能并高度简化，因此占用的存储空间非常小。Musl是一个轻量级的C标准库，在设计时就专注于提供最基本的C标准函数与特性，同时优化了常见库函数的实现，使得保持轻量级的同时能够在部分场景下有更好的性能表现。
+
+    \item \textbf{轻量容器运行时}：Control Zone选择crun\citep{crun}作为默认的的容器运行时。crun使用C语言开发，相较于使用Go语言开发的runc，crun在启动容器上的开销降低了49.4\%，同时内存占用也更少。
+
+\end{itemize}
+
+为满足多样的使用需求，Control Zone也保留了对Libvirt支持。Libvirt并不是一个虚拟机监视器，而是多种虚拟化技术的抽象层，提供了标准的API来进行虚拟机管理。Control Zone通过兼容Libvirt，提升了沙箱的兼容性。同时在可观测性上，Black Box观测系统能够借助Libvirt提供的丰富监控机制，更方便地获取Control Zone虚拟机的指标数据。
+
+\subsection{Control Zone管理器实现}
 
 % 优化图例
 % 使用中文名称，体现功能
@@ -48,7 +75,7 @@ Control Zone整体架构如图~\ref{fig:cz_arch}所示，其中管理器负责�
 %   - chsd: 调度策略管理
 % - observity: 可观测性
 
-调度动态可定制沙箱包括Control Zone管理、应用管理及可观测性三个主要部分。如图~\ref{fig:cz_components}所示，用户通过czyaml配置文件来定义一个Control Zone，而Control Zone的管理主要czctrl、czmanager及虚拟机监视器三个组件协作完成。每个Control Zone都运行有一个czdaemon，并与czctrl、czmanager协作实现应用管理。可观测性沿用了第3章中设计的在线指标监测系统，并与czmanager的协作完成对于虚拟机的监控。镜像存储服务负责管理OCI镜像，并在Control Zone运行的各个阶段中提供镜像存储服务。
+Control Zone管理器功能包含三部分：Control Zone管理、混部应用和Control Tower调度策略管理、Black Box观测系统管理。这些功能通过如图~\ref{fig:cz_components}所示的各个部分协作完成。其中，czyaml配置文件用来定义一个Control Zone虚拟机。czctrl、czmanager用来管理Control Zone虚拟机的生命周期。每个Control Zone虚拟机中都运行了czdaemon守护程序，能够与czmanager交互来完成混部应用及调度策略的部署。此外，czmanager能够与Black Box观测系统协作来管理Control Zone的性能监控。最后，Harbor镜像库\citep{harbor}负责管理OCI镜像，并在Control Zone虚拟机运行的各个阶段中提供镜像存储服务。
 
 \begin{figure}[!htbp]
     \centering
@@ -58,11 +85,17 @@ Control Zone整体架构如图~\ref{fig:cz_arch}所示，其中管理器负责�
 \end{figure}
 
 \begin{itemize}
+
     \item \textbf{czyaml}：Control Zone定义。czyaml包含Meta、Guest、Resource三部分，其中Meta包含一些元数据，用以区分不同的Control Zone。Guest部分则用于声明运行环境，包括使用的系统、调度器及根文件系统。Resource部分用于声明隔离的资源，包括常见的CPU、Memory以及Intel RDT子系统中的LLC和内存带宽。
+
     \item \textbf{czmanager}：Control Zone管理。czmanager负责Control Zone的实际管理， 包括创建、查看、启动、暂停、更新以及清除等完善的生命周期管理。过程中czmanager主要负责维护Control Zone的状态，并协同底层虚拟机监视器实现最终的虚拟机管理。而在可观测性上，czmanager利用了虚拟机各层次的信息生成监控配置，并与可观测性基础设施协作以实现Control Zone的持续监控。资源管理上，czmanager主要与虚拟机监视器、Linux Resctrl及Cgroup子系统交互，根据czyaml中的定义实现Control Zone的资源隔离。
+
     \item \textbf{czdaemon}：Control Zone守护程序。czdaemon运行在每个Control Zone之中，在启动阶段主要用来信息获取与状态探测。而在启动完成之后，作为Control Zone内外沟通的桥梁，对外与czmanager交互，以接收命令，对内则直接与容器运行时交互，实现镜像及容器的管理。
+
     \item \textbf{czctrl}：用户命令行工具。czctrl是所有请求的入口，能够解析用户输入的命令并验证czyaml配置，随后再与czmanager交互以达成用户管理Control Zone和任务的目的。
-    \item \textbf{镜像存储服务}：容器及其他静态资源管理。应用与Control Tower任务调度策略都以OCI容器镜像的形式保存在镜像存储服务中，并通过容器的形式运行，同时为方便其他静态资源的管理，预编译内核及根文件系统也保存在精简容器镜像的中交给镜像存储服务管理。
+
+    \item \textbf{Harbor镜像库}：容器镜像及其他OCI镜像的管理。Harbor是一个开源的企业级镜像管理服务，Control Zone中混部应用与Control Tower任务调度策略都以OCI容器镜像的形式保存在Harbor镜像库中。同时为方便其他资源的管理，预编译内核及根文件系统也同样以精简容器镜像的形式保存在镜像库中，并采用与容器镜像类似的形式管理。
+
 \end{itemize}
 
 \subsection{Control Zone流程}
@@ -83,7 +116,7 @@ Control Zone整体架构如图~\ref{fig:cz_arch}所示，其中管理器负责�
 % - chsd的策略控制
 % - sched ext的策略控制
 
-Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的基本配置，并提供丰富的资源隔离声明。
+Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的基本信息，并提供丰富的资源隔离配置。
 
 \begin{itemize}
     \item \textbf{基础配置}：Control Zone基础配置如表~\ref{tab:cz_meta_config}所示，首先，在Guest环境上，Control Zone提供了Response、Throughput两种基本内核，用户可根据需要进行选择。而为加快启动速度，Control Zone默认不使用initramfs，并采用基于Alpine的轻量化rootfs。轻量化rootfs中仅包含基础的软件运行环境，用户也可根据需要进行修改。在应用管理上，Control Zone使用类似Pod Yaml的配置文件来描述混部任务的部署需求，其中Control Tower调度器与常规应用一样包含在配置文件中。
@@ -166,7 +199,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
 
 \end{itemize}
 
-调度动态可定制沙箱提供了create、start、stop、remove、update五种操作来管理Control Zone的生命周期。Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中sync过程由czdaemon完成，并同步给czmanager。对于不能直接达到的状态，czmanager会试图多次切换状态以满足目标。对于无法达到的状态，czmanager会提示操作非法，并终止正在进行的操作。update操作并未在图中，其过程由多个已有的其他操作组成。取决于更新的内容，update具体的操作也有所不同，如对内核的修改将使得Control Zone重新启动，而仅修改CPU时间片大小则不会影响Control Zone的运行状态。
+czctrl提供了create、start、stop、remove、update五种操作来管理Control Zone的生命周期。Control Zone的状态变化如图~\ref{fig:cz_state}所示，其中sync过程由czdaemon完成，并同步给czmanager。对于不能直接达到的状态，czmanager会试图多次切换状态以满足目标。对于无法达到的状态，czmanager会提示操作非法，并终止正在进行的操作。update操作并未在图中，其过程由多个已有的其他操作组成。取决于更新的内容，update具体的操作也有所不同，如对内核的修改将使得Control Zone重新启动，而仅修改CPU时间片大小则不会影响Control Zone的运行状态。
 
 \begin{figure}[!htbp]
     \centering
@@ -194,7 +227,7 @@ Control Zone的创建流程如图~\ref{fig:cz_create}所示。过程中首先进
 \label{fig:cz_create_start}
 \end{figure}
 
-Control Zone的启动流程如图~\ref{fig:cz_start}所示。过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配。对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用目标虚拟机监视器来启动虚拟机。而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化。czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
+Control Zone的启动流程如图~\ref{fig:cz_start}所示。过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配。对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用虚拟机监视器来启动虚拟机。而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化。czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
 
 Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后存在重新启动的可能，因此沙箱采用了较为保守的关闭策略。关闭过程中需要czmanager与czdaemon协同合作。在验证配置之后，czmanager首先会通知czdaemon进行关闭处理。而czdaemon在接收到关闭信号之后，会对当前系统的状态进行保存，包含必要的信息、混部应用状态等，随后终止混部应用的运行并通知czmanager。收到通知后czmanager才会调用执行器关闭虚拟机，并在必要时通知可观测性基础停止监测。Control Zone在停止之后仍会保留部分资源分配信息，便于后续重新启动。
 
@@ -217,8 +250,6 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后�
 
 Control Zone的删除过程如图~\ref{fig:cz_remove}所示。通常只有已经停止的Control Zone能够被删除。为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，再进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
-% TODO: 描述CT调度器切换的过程
-
 Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml中的绝大部分字段都允许被更新。部分配置的更新在Control Zone运行中完成，如修改cgroup或resctrl等字段中的内容。czmanager发现这部分字段修改时，会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改。czmanager检测到这些字段发生修改后，首先会关闭虚拟机，随后在工作目录中更新配置所要求的内容，最后再启动虚拟机。通常更新完毕后，由于虚拟机进程的变化，可观测配置有可能过时，因此czmanager还会同步配置给可观测性基础设施。
 
 \begin{figure}[H]
@@ -228,32 +259,11 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
     \label{fig:cz_update}
 \end{figure}
 
-\subsection{Control Zone开销优化}
-
-% 隔离性实现
-% 内核裁切
-% hypervisor选择
-% 系统功能要求
-% 镜像共享
-
-Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安全性两个因素的考虑。首先，Control Zone需要一个较强的隔离环境，引入虚拟化一方面增强了隔离效果，同时也能够基于Hypervisor来提供更多的资源限制手段。其次，Control Zone中基于调度子系统来协调多任务的执行，使用虚拟机一方面能够提供场景上的限制，如有限的硬件资源、有限的竞争应用等。最后，修改任务的调度信息是较为风险的行为，设置不当有可能引发整个系统的性能劣化，而利用虚拟机能够防止这种风险的扩散。
-
-虚拟机的引入会带来额外的开销，主要体现在虚拟机监视器与系统环境两个层次。一方面，虚拟机监视器需要准备一个完整的虚拟机，而对各个模拟设备进行初始化及配置的过程会产生额外的开。同时在虚拟机运行过程中，虚拟机监视器在需要对设备进行模拟，模拟过程中也会产生额外的开销。另一方面，容器中的应用运行之前，还需要经过经过作操作系统、软件环境以及容器运行时三个阶段的运行环境初始化，每个阶段都会产生额外的开销。
-
-沙箱实现中主要从两个方面围绕开销进行优化。首先，在虚拟机监视器的选择上，沙箱使用CloudHypervisor作为默认的虚拟机监视器。CloudHypervisor与Firecracker类似，都是基于Rust-VMM套件构建的轻量级虚拟机监视器。相比于Firecracker，CloudHypervisor更侧重云场景的实际需求\citep{agache2020firecracker}，在保证轻量的同时，提供更强的性能与更实用的功能，如额外支持了PCI设备模拟以及PCI设备直通。其次，在系统环境上，沙箱实现时围绕三个阶段进行优化。对于操作系统，沙箱实现时参考了Firecracker Kernel配置，并根据需要增加了对PCI、容器、BPF子系统以及Sched Ext调度类的支持。随后，对于启动过程， 沙箱使能了Linux的PVH（半虚拟化）配置，使得不必经过BIOS就能够直接引导系统。同时，由于Control Zone系统环境足够简单，因此不需要initramfs阶段的引导过程而直接挂载根文件系统进入init初始化过程。对于根文件系统，沙箱使用Alpine\citep{alpine}作为基础镜像。Alpine是一个轻量级Linux发行版，使用Busybox与Musl。其中Busybox是一系列Linux基础工具的集合，同时Busybox代码专注于基础功能并高度简化，因此只会占用很小的存储空间。Musl是一个轻量级的C标准库，在设计时就专注于提供最基本的C标准函数与特性，因此占用空间非常小。同时，Musl优化了常见函数的实现，在部分场景下有更好的性能表现。对于容器运行时，沙箱选择了crun\citep{crun}作为Control Zone中的容器运行时。crun使用C语言开发，相较于使用Go语言开发的runc，crun在启动容器上的开销降低了49.4\%，同时占用的内存也更少。
-
-为满足多样的使用需求，沙箱也兼容了对Libvirt支持。Libvirt并不是一个虚拟机监视器，而是针对多种虚拟化技术的抽象层，提供了更标准的API来对虚拟机进行管理。通过兼容Libvirt，沙箱能够获取更多的特性，尤其在可观测性上，沙箱能够借助Libvirt提供的丰富监控机制，从而更方便地为可观测性基础设施提供监测数据。
-
-% \subsection{资源隔离技术}
-% - cgroup
-% - resctrl / intel RDT
-% - hpv virt device
-
 \section{实验设计与分析}
 
 \subsection{实验环境}
 
-实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node。同时，CPU均开启超线程，并使能Intel RDT。在网络资源上，服务网卡支持SRIOV技术，能为有网络性能需求的虚拟机提供硬件直通。
+实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node。同时，CPU均开启超线程，并使能Intel RDT。在网络资源上，服务网卡支持SRIOV技术，能为有网络性能需求的虚拟机提供硬件直通支持。
 
 \begin{table}[H]
     \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
@@ -277,7 +287,7 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
     \end{tabular}
 \end{table}
 
-每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS。Ubuntu同时也是Sched Ext优先支持的发行版，能较方便地通过包管理工具安装预编译的Sched Ext内核及相关工具。在虚拟机监视器上，Qemu采用Ubuntu22.04所支持的稳定版，CloudHyeprvirsor则采用v38.0-150发布版。
+每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS。在虚拟机监视器以及相关环境上，Libvirt与Qemu采用Ubuntu22.04所支持的稳定版，CloudHyeprvirsor则采用v38.0-150编译版。
 
 \begin{table}[H]
     \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
@@ -299,11 +309,13 @@ Control Zone中使用虚拟机作为沙箱底座，主要出于隔离性与安�
     \end{tabular}
 \end{table}
 
-除系统软件之外，每台服务器还按照需要部署了其他关键服务，包含第3章中设计的可观测性基础设施。Observer节点上部署的了Prometheus与Grafana，用于进行数据采集与离线分析。其次，Observer上还额外部署了Harbor来对外提供镜像存储服务。Observed上部署了第3章中设计的一系列Exporter及Control Zone各组件。实验中所有的组件都以容器的形式运行，选择较为轻量的Podman作为服务器中的容器运行时。Podman相较Docker更加轻量，不存在Docker、Containerd等后台驻留服务，提供较纯净的环境。而为避免可观测性基础设施对其他应用的影响，各组件都配置了CPU亲和性并限制在固定的CPU、NUMA上执行。
+除系统软件之外，每台服务器还按照需要部署了其他关键服务，包含第3章中设计的可观测性基础设施
 
-\subsection{启动开销实验}
+服务器均部署了Black Box观测系统，并在主服务器上额外部署了Harbor镜像库。实验中所有的组件都以容器的形式运行，并较轻量的Podman作为服务器中的容器运行时。Podman相较Docker更加轻量，且不存在Docker、Containerd等后台驻留服务，能够提供较纯净的环境。而为避免可观测性基础设施对其他应用的影响，各组件都配置了CPU亲和性并限制在固定的CPU、NUMA上运行。
 
-Control Zone的启动开销计算从虚拟机监视器开始到系统引导至init过程的时间，虚拟机使用1 CPU与512 MB内存的基础配置。在虚拟机监视器上，选择CloudHyperviosr与Qemu进行对比。在精简内核上，选择Alpine Virt内核、Control Zone内核，以及CloudHyeprvirsor、Firecracker的默认内核。其中Alpine Virt内核为社区提供给云厂商的标准虚拟机内核，启动了大部分Guest优化功能，但同时也保留了对于众多设备的支持。而以轻量为目标的CloudHyeprvirsor、Firecracker也各自提供了默认的精简内核，相较于Alpine Virt内核，去除了大量无意义的驱动，几乎只支持virtio设备。而CloudHypervisor默认内核还额外使能了PCI配置，以便于使用SRIOV设备。实验中虚拟机均使用virtio pci设备，因此为使得实验结果具备可比较性，使能了Firecracker默认内核的PCI配置。
+\subsection{Control Zone启动开销}
+
+Control Zone的启动开销计算从虚拟机监视器开始到系统引导至init过程的时间。虚拟机使用1 CPU与512 MB内存的基础配置。在虚拟机监视器上，选择CloudHyperviosr与Qemu进行对比。在精简内核上，选择Alpine Virt内核、Control Zone内核，以及CloudHyeprvirsor、Firecracker的默认内核。其中Alpine Virt内核为社区提供给云厂商的标准虚拟机内核，启动了大部分Guest优化功能，但同时也保留了对于众多设备的支持。而以轻量为目标的CloudHyeprvirsor、Firecracker也各自提供了默认的精简内核，相较于Alpine Virt内核，去除了大量无意义的驱动，几乎只支持virtio设备。而CloudHypervisor默认内核还额外使能了PCI配置，以便于使用SRIOV设备。实验中虚拟机均使用virtio pci设备，因此为使得实验结果具备可比较性，使能了Firecracker默认内核的PCI配置。
 
 \begin{figure}[H]
     \centering
@@ -323,7 +335,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
 
 而对于精简内核，由于支持的PCI设备更少，因此在模拟设备初始化时间上的优化效果就并不明显。但与其余精简内核相比，Control Zone内核也存在一定优势。如图~\ref{fig:boot_time_cdf}所示，使用Qemu时，Control Zone内核相较于CloudHypervisor默认内核在启动时间上减少了20.6\%。对比两者配置差异发现，CloudHypervisor所提供的精简内核虽然去掉了大部的驱动支持，但仍然保留了如虚拟化子系统在内的配置，因此存在额外的开销。Control Zone内核由于只需要支持容器运行环境，因此能够取得更快的启动速度。但是相较于Firecracker默认内核，Control Zone即便在CloudHypervisor下也仅能达到Firecracker在Qemu下的启动时间。比较两者的配置能够发现，Firecracker内核在功能裁切上更加激进，不支持容器运行环境与BPF子系统。然而在Control Zone内核中，这些功能则是必要的。在具体使用场景中，Firecracker注重安全容器的需求，虚拟机的生命周期与运行在其中的应用绑定。但在Control Zone的设计中，Control Zone并不完全与混部应用绑定，而是一种可复用的运行环境。Control Zone在混部应用部署时启动，而在应用结束后仍然会保留一段时间，并提供给需要类似隔离环境的其他混部应用使用。因此在启动时间上花费更多的时间在Control Zone的设计中是可接受的。
 
-\subsection{性能开销实验}
+\subsection{Control Zone性能开销}
 
 实验中选择典型应用分析中的6种应用进行性能测试，分析Control Zone上实际应用的性能。在内核性能上，选择与CloudHypervisor默认Linux内核进行比较，并同时运行在Control Zone沙箱上。而在沙箱性能上，选择与在Host上以容器的形式部署的应用进行比较。
 
@@ -369,7 +381,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 但对于一些逻辑复杂的应用，如MySQL，Control Zone存在一定的性能瓶颈。造成这一问题的核心原因是虚拟设备的性能限制。而在当前虚拟化技术中，通过SRIOV等硬件直通手段可有效地处理这一问题，因此Control Zone内核中保留了PCI总线配置以便驱动直通的硬件。
 
-\subsection{性能保障实验}
+\subsection{Control Zone混部场景QoS保障}
 
 性能保障实验在4 CPU、1024MB内存的Control Zone中展开，选择Qemu组合CloudHypervisor默认内核作为运行环境的对比。Control Zone中的混部方案为Memcached、stress\_ng CPU干扰应用与Control Tower调度策略，Qemu的混部方案为Memcached、stress\_ng CPU干扰。实验方式为分别在两个混部方案中运行一段时间相同的Memacached负载，并从Black Box观测系统中截取对应时间段的指标数据。
 
@@ -400,14 +412,14 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 \section{本章小结}
 
+%TODO
+
 本章首先介绍了运行时调度可变的沙箱Control Zone的基本概念，以及其对数据中心中单节点混部场景的处理方式，即结合外侧虚拟机资源隔离与内部Control Tower任务调度策略。
 
-随后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程。
+随后介绍了Control Zone轻量级虚拟机的实现，以及在实现中为解决引入虚拟化带来的开销做进行的工作，包括对虚拟机监视器的轻量化以及对操作系统的精简。
 
-由于Control Zone中的Control Tower任务调度策略也以容器的形式运行，因此能够和普通任务一样进行管理。因此在任务部署上，Control Zone允许将混部任务与调度策略共同部署，通过定制化调度来解决混部下的性能劣化问题。
+然后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程。
 
-然后介绍了Control Zone在实现中为解决引入虚拟化带来的开销做进行的工作，包括对内核的裁切以及轻量化Hypervisor的选择。
-
-实验设计中，在沙箱启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化， Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
+实验设计中，在沙箱启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化，Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
 
 而在混部性能保障上，Control Zone部署混部应用能够利用Contorl Tower调度策略的灵活性与调控能力，通过更符合混部场景的CPU资源分配策略，能够实现高优先应用99分尾延迟降低最高63.8\%的效果。
