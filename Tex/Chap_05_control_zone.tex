@@ -309,8 +309,6 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
     \end{tabular}
 \end{table}
 
-除系统软件之外，每台服务器还按照需要部署了其他关键服务，包含第3章中设计的可观测性基础设施
-
 服务器均部署了Black Box观测系统，并在主服务器上额外部署了Harbor镜像库。实验中所有的组件都以容器的形式运行，并较轻量的Podman作为服务器中的容器运行时。Podman相较Docker更加轻量，且不存在Docker、Containerd等后台驻留服务，能够提供较纯净的环境。而为避免可观测性基础设施对其他应用的影响，各组件都配置了CPU亲和性并限制在固定的CPU、NUMA上运行。
 
 \subsection{Control Zone启动开销}

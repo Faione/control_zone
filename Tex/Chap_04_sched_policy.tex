@@ -246,9 +246,56 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 \section{实验设计与分析}
 
-\subsection{响应度优先内核性能}
+\subsection{实验环境}
 
-% redis \ memcached
+实验环境在两台服务上展开，服务器硬件信息如表~\ref{tab:exp_env}所示。实验中考虑到内核兼容性与适配问题，使用Qemu6.2.0与KVM虚拟机作为混部应用的主要运行环境。
+
+\begin{table}[H]
+    \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
+    \label{tab:exp_env}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{4pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
+    \centering
+    \begin{tabular}{lc}
+        \hline
+        硬件资源 & 硬件信息 \\
+        \hline
+        CPU & Intel Xeon Gold 6148 (40 cores) * 2 \\
+        Processor Core Frequency & 2.4GHz，Turbo 3.7 GHz \\
+        L1 Caches & 32KB,  8-way set associative, split D/I \\
+        L2 Caches & 1024KB, 16-way set associative \\
+        L3 Caches & 28160KB, 11-way set associative \\
+        Main Memory & 32GB * 8, 2666MHz DDR4 \\
+        NIC & Intel Corporation Ethernet Connection X722 for 10GbE SFP+(10Gbit) \\
+        \hline
+    \end{tabular}
+\end{table}
+
+实验中选择Redis、Memcached、Mysql、Nginx四种LC应用和graph500、ffmpeg两种BE应用来构造混部环境，并使用stress-ng来模拟干扰。而在负载选择上，本文通过如表~\ref{tab:app_work}所示的Benchmark来生成负载，并通过预先实验确定固体虚拟机配置下的应用的最大负载值，定义为100\%工作负载。
+
+\begin{table}[H]
+    \bicaption{\quad 实验应用及负载}{\quad Applications and Workloads}% caption
+    \label{tab:app_work}
+    \footnotesize% fontsize
+    \setlength{\tabcolsep}{8pt}% column separation
+    \renewcommand{\arraystretch}{1.25}% row space 
+    \centering
+    \begin{tabular}{llc}
+        \hline
+        应用名称 & 测试工具 & 最大负载 \\
+        \hline
+        Redis     & Memtier Benchmark & 60000 op\textbackslash s \\
+        Memcached & Memtier Benchmark & 100000 op\textbackslash s \\
+        Mysql     & TPCC              & 7000  tpmc \\
+        Nginx     & wrk2              & 20000 qps \\
+        Graph500  & -                 & - \\
+        FFmpeg    & vbench            & - \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{响应度优先内核性能}
 
 响应度优先任务调度配置使用HZ\_1000配置时钟中断频率，并配置PREEMPT抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Redis、Memcached、Nginx和Mysql四种延迟敏感应用来分别与stress\_ng CPU干扰应用进行混部，并与HZ\_250和VOLUNTARY抢占模式的CloudHV默认Linux内核比较。
 
@@ -287,9 +334,9 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 \subsection{吞吐量优先内核性能}
 
-% graph500(time) \ ffmjpeg 
+% graph500(time) \ ffmpeg 
 
-吞吐量优先任务调度配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Graph500、ffmjepg两种CPU敏感型应用分别与stress\_ng CPU干扰应用混部，并与使用HZ\_250和VOLUNTARY抢占模式的CloudHypervisor默认Linux内核进行比较。Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录进程在用户态与内核态耗费的时间，并将平均每分钟能够执行的Graph500计算数量作为性能指标。FFmjpeg是主流的媒体处理工具，实验中使用vBench模拟负载并同样记录进程在用户态与内核态耗费的时间，而对于媒体处理应用而言，每秒处理帧数是其重要的性能指标。
+吞吐量优先任务调度配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Graph500、ffmjepg两种CPU敏感型应用分别与stress\_ng CPU干扰应用混部，并与使用HZ\_250和VOLUNTARY抢占模式的CloudHypervisor默认Linux内核进行比较。Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录进程在用户态与内核态耗费的时间，并将平均每分钟能够执行的Graph500计算数量作为性能指标。ffmpeg是主流的媒体处理工具，实验中使用vBench模拟负载并同样记录进程在用户态与内核态耗费的时间，而对于媒体处理应用而言，每秒处理帧数是其重要的性能指标。
 
 \begin{figure}[H]
     \centering
@@ -307,7 +354,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \label{fig:perf_throughput}
 \end{figure}
 
-混部实验结果如图~\ref{fig:perf_throughput}所示。对于Graph500，吞吐量优先内核实现了平均执行速度提升1.6 $\times$的效果。而在如图~\ref{fig:perf_throughput_time}所示的运行时间分布上可以看出，Graph500在吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，使得在内核态运行的时间大大减少。同时，更少的上下文切换也提升了应用执行的局部性，使得Graph500在用户态的运行时间也有所减少。而对于FFmjpeg，吞吐量优先内核与CloudHV默认内核的差异并不明显。这是因为不同于Graph500，FFmjpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能上意义并不大。
+混部实验结果如图~\ref{fig:perf_throughput}所示。对于Graph500，吞吐量优先内核实现了平均执行速度提升1.6 $\times$的效果。而在如图~\ref{fig:perf_throughput_time}所示的运行时间分布上可以看出，Graph500在吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，使得在内核态运行的时间大大减少。同时，更少的上下文切换也提升了应用执行的局部性，使得Graph500在用户态的运行时间也有所减少。而对于ffmpeg，吞吐量优先内核与CloudHV默认内核的差异并不明显。这是因为不同于Graph500，ffmpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能上意义并不大。
 
 \begin{figure}[H]
     \centering

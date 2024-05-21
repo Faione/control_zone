@@ -323,7 +323,7 @@
 
 \begin{enumerate}
     \item 单纯CPU敏感型：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
-    \item CPU与Cache敏感型：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，竖亥Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本文中将其归类为CPU与Cache敏感型。
+    \item CPU与Cache敏感型：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，华为云内部Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本文中将其归类为CPU与Cache敏感型。
     \item 资源不敏感型：此类应用对于所有干扰的敏感度都偏低。实验中Render在各个干扰下都没有出现较为明显的劣化，这主要有两个原因。一方面，在性能指标上，Render应用使用了完成时间作为性能评价指标，而与其他应用的性能指标不同，完成时间这一指标更偏向于整个运行过程的总体性能述而不是单一处理过程的性能，一些突发的性能劣化不会体现在这一指标上，另一方面，内核调度机制上在未作限制时倾向于公平地分配时间，因此干扰程序会因调度的影响向Render出让CPU时间，而当CPU资源总和足够满足Render使用时，性能指标就不会出现较大变化。
 \end{enumerate}
 
@@ -355,7 +355,7 @@ Control Zone响应度优先配置使用HZ\_1000配置时钟中断，并开启PRE
 
 \subsection{吞吐量优先内核性能}
 
-% graph500(time) \ ffmjpeg 
+% graph500(time) \ ffmpeg 
 
 Control Zone吞吐量优先配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。吞吐量优先内核能够在任务量较少的场景中，让任务保持CPU资源的占用，从而更好地利用局部性，因此实验使用单一任务场景，选择Graph500作为目标应用，并对比其在CloudHypervisor默认内核、Throughput内核以及Response内核下的运行情况。实验在一个4 CPU、512MB内存的Control Zone中进行。
 

@@ -146,8 +146,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 Black Box观测系统采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memroy、IO、Network等资源，原始指标数量达到344种。
 
 \begin{enumerate}
-    \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、
-eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
+    \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
 
 \begin{table}[!htbp]
     \bicaption{\quad Host层级指标}{\quad Host Metric list}% caption
@@ -207,7 +206,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \subsection{基准性能实验设计}
 
-实验中使用华为云提供的两台C6实例服务器作为实验环境。C6实列服务器的具体配置如表~\ref{tab:c6_info}所示。在两台服务器上部署Black Box观测系统，其中由于不需要采集应用级数据，因此Observed微服务仅部署了除Envoy Exporter外的6种Exporter。基准性能实验测试无干扰情况下各个典型应用的基础性能，并使用华为云提供的竖亥Benchmark来模拟真实场景下的应用负载。
+实验中使用华为云提供的两台C6型号服务器作为实验环境。C6型号服务器的具体配置如表~\ref{tab:c6_info}所示。在两台服务器上部署Black Box观测系统，而由于不需要采集应用级数据，因此Observed微服务中没有包括Envoy Exporter。实验中为尽可能模拟华为云现网环境，使用华为云提供的典型应用虚拟机镜像和华为云内部Benchmark。其中，典型应用虚拟机镜像采用与华为云现网相同配置，华为云内部Benchmark则能够模拟近似现网的负载。基准性能实验主要测试无干扰情况下各个典型应用的基础性能，了解应用的资源使用倾向。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6服务器信息}{\quad C6 Information}% caption
@@ -233,8 +232,6 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     \end{tabular}
 \end{table}
 
-
-% TODO: 竖亥Benchmark负载说明
 
 % 1）Redis、Memcached。使用memtier_benchmark来产生负载，负载的模型由华为云提供，包括Normal、Random两类模拟负载
 
@@ -357,7 +354,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 % - 干扰有效性
 % - 噪声控制
 
-性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本课题选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
+性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本文选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
 
 \begin{table}[H]
     \centering
@@ -442,7 +439,12 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
 
 \subsection{典型应用资源敏感度分析}
 
-资源敏感度主要分析典型应用与不同配置下的干扰进行混部后的性能劣化情况，其中应用性能使用竖亥Benchmark提供的白盒指标进行评价。白盒指标中既有经过加权计算后的统一评分，也有对于每个应用单独的评价指标，在性能劣化中，主要选择劣化程度与干扰程度较为相关的指标进行分析。
+资源敏感度主要分析典型应用与不同强度干扰混部后的性能劣化情况，其中典型应用性能使用华为云内部Benchmark提供的性能指标评价。这些性能指标由原始指标如99分位位延迟、平均请求数等加权计算后得到，具有一定的可比较性。在资源敏感度分析中，使用公式~\eqref{eq:pearson}计算皮尔逊相关系数筛选与干扰程度最为相关的性能指标进行分析。
+
+\begin{equation}
+    r = \frac{\sum_{i=1}^n (X_i - \bar{X})(Y_i - \bar{Y})}{\sqrt{\sum_{i=1}^n (X_i - \bar{X})^2 \sum_{i=1}^n (Y_i - \bar{Y})^2}}
+\label{eq:pearson}
+\end{equation}
 
 \begin{figure}[H]
     \centering
@@ -482,7 +484,7 @@ eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指
     
     \item \textbf{单纯CPU敏感型}：此类应用对于CPU干扰最为敏感，而受其他干扰影响的程度则明显更低。如Memcached，其在受到CPU资源干扰后产生了近50\%的性能劣化，而对于在其他干扰下的劣化程度则在10\%内，同样的情况也在Kafka的实验数据中出现。
 
-    \item \textbf{CPU与Cache敏感型}：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，竖亥Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本文中将其归类为CPU与Cache敏感型。
+    \item \textbf{CPU与Cache敏感型}：此类应用同时受CPU与Cache干扰明显，且通常对CPU干扰更加敏感。如Redis，与Memcached类似，对CPU干扰十分敏感，而同时由于Redis没有开启多线程支持，因此在Cache资源上的竞争能力弱于Memcached，从而更容易受到Cache干扰的影响。Elasticsearch情况则更为复杂，华为云内部Benchmark中提供了不同的白盒指标来表征Elasticsearch的性能，主要分为吞吐量与延迟，以吞吐量作为标准，则Elasticsearch符合CPU敏感型，而以延迟作为标准，则Elasticsearch则更倾向于CPU和Cache敏感型，这种现象在其他典型应用中也有出现，而对于Elasticsearch，其使用场景中更注重吞吐量，因此在本文中将其归类为CPU与Cache敏感型。
 
     \item \textbf{资源不敏感型}：此类应用对于所有干扰的敏感度都偏低。实验中Render在各个干扰下都没有出现较为明显的劣化，这主要有两个原因。一方面，在性能指标上，Render应用使用了完成时间作为性能评价指标，而与其他应用的性能指标不同，完成时间这一指标更偏向于整个运行过程的总体性能述而不是单一处理过程的性能，一些突发的性能劣化不会体现在这一指标上，另一方面，内核调度机制上在未作限制时倾向于公平地分配时间，因此干扰程序会因调度的影响向Render出让CPU时间，而当CPU资源总和足够满足Render使用时，性能指标就不会出现较大变化。
 
