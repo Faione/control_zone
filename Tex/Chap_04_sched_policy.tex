@@ -1,4 +1,4 @@
-\chapter{混部场景导向的调度定制}\label{chap:sched_policy}
+\chapter{混部场景导向的调度定制研究}\label{chap:sched_policy}
 
 % Core调度框架定制(静态) -> Control Tower任务调度框架定制(动态) -> 资源感知调度机制定制(动态) -> 资源感知调度策略定制(动态) 
 
@@ -360,15 +360,15 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \centering
     \begin{subfigure}[b]{0.35\textwidth}
         \includegraphics[width=\textwidth]{throughput_kernel_graph500}
-        \caption{\quad Graph500平均运行时间分布}
+        \caption{\quad Graph500平均运行时间}
         \label{fig:throughput_kernel_graph500}
     \end{subfigure}
     \begin{subfigure}[b]{0.35\textwidth}
         \includegraphics[width=\textwidth]{throughput_kernel_ffmpeg}
-        \caption{\quad FFmpeg平均运行时间分布}
+        \caption{\quad FFmpeg平均运行时间}
         \label{fig:throughput_kernel_ffmpeg}
     \end{subfigure}
-    \bicaption{\quad 混部场景下BE应用时间分布}{\quad BE application time distribution in Co-Location scenario}
+    \bicaption{\quad 应用与干扰混部场景下不同内核配置对BE应用平均运行时间的影响}{\quad The impact of different kernel configurations on the average runtime of BE applications in a co-location scenario of applications and interference}
     \label{fig:perf_throughput_time}
 \end{figure}
 
@@ -409,11 +409,11 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \label{fig:bpf_sched_smp_mysql_latency}
     \end{subfigure}
 
-\bicaption{\quad 混部场景下CPU感知调度下的LC应用QoS保障效果}{\quad LC Application Latency Stability}
+\bicaption{\quad 应用与干扰混部场景下CPU感知调度策略对LC应用QoS保障效果}{\quad The effect of CPU-aware scheduling strategies on QoS assurance for LC applications in a co-location scenario of applications and interference}
 \label{fig:lc_bpf_sched}
 \end{figure}
 
-在总体吞吐上，不同调度算法下的系统CPU总体利用率如图~\ref{fig:cpu_usage}所示。其中，对于Redis、Memcached、Nginx而言，混部场景中总体CPU资源使用率几乎都完全占满。对比无干扰下的CPU资源使用率，能够发现额外的CPU资源占用由干扰应用产生，此时分配CPU资源的方式决定了混部场景下QoS保障的效果。
+在总吞吐上，不同调度算法下的虚拟机的总CPU利用率如图~\ref{fig:cpu_usage}所示。其中，对于Redis、Memcached、Nginx而言，混部场景中总CPU几乎都完全占满。对比无干扰下的CPU利用率能够发现，额外的CPU资源占用由干扰应用产生，此时分配CPU资源的方式决定了混部场景下QoS保障的效果。
 
 \begin{figure}[H]
     \centering
@@ -437,7 +437,8 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \caption{Nginx-干扰}
         \label{fig:cpu_usage_nginx}
     \end{subfigure}
-\bicaption{\quad 混部场景CPU总使用率}{\quad Total CPU usage in co-location scenarios}
+\bicaption{\quad 应用与干扰混部场景下的虚拟机总CPU利用率}{\quad 
+Total CPU utilization of virtual machines in a mixed deployment scenario of applications and interference}
 \label{fig:cpu_usage}
 \end{figure}
 
@@ -474,7 +475,7 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \caption{\quad MySQL请求延迟}
         \label{fig:bpf_sched_smt_mysql_latency}
     \end{subfigure}
-\bicaption{\quad SMT混部场景下，CPU感知调度下的LC应用QoS保障}{\quad LC Application Latency Stability}
+\bicaption{\quad SMT混部场景下CPU感知调度策略对LC应用QoS保障效果}{\quad The effect of CPU-aware scheduling strategy on QoS assurance for LC applications in an SMT co-location scenario}
 \label{fig:lc_bpf_sched_smt}
 \end{figure}
 
@@ -502,7 +503,7 @@ Control Tower CPU感知调度策略在保障延时的同时，同时也保障了
         \caption{EEVDF高优先级}
         \label{fig:cpu_aware_box_eevdf_nice}
     \end{subfigure}
-\bicaption{\quad Redis延迟稳定性}{\quad LC Application Latency Stability}
+\bicaption{\quad SMT混部场景下不同调度策略对Redis延迟稳定性的影响}{\quad The impact of different scheduling strategies on Redis latency stability in an SMT co-location scenario}
 \label{fig:latency_box}
 \end{figure}
 
@@ -534,7 +535,7 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
         \caption{Mysql请求数量与Epoll Wait事件数量}
         \label{fig:epoll_mysql}
     \end{subfigure}
-\bicaption{\quad LC应用负载与Epoll事件}{\quad Requests and Epoll Events on LC}
+\bicaption{\quad LC应用负载与Epoll Wait事件数量的关系}{\quad The relationship between LC application load and the number of Epoll Wait events}
 \label{fig:epoll_request}
 \end{figure}
 
@@ -543,7 +544,7 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{network_aware_cpu_usage}
-    \bicaption{\quad Nginx混部场景CPU利用率}{\quad CPU utilization in mixed deployment scenario of Nginx}
+    \bicaption{\quad 应用与干扰混部一段时间内的CPU资源使用情况}{\quad The CPU resource utilization of applications and interference over a period of time}
     \label{fig:network_aware_cpu_usage}
 \end{figure}
 

@@ -97,7 +97,7 @@ FIRM\citep{qiu2020firm}面向Kubernetes集群设计了一种两级的机器学�
 
 基于节点资源的隔离性，部分研究围绕放置策略展开。Paragon\citep{delimitrou2013paragon}将推荐系统中常用的协同过滤技术（Collaborative filtering technique）引入到放置问题中，通过预测应用对节点上其他应用的影响以及应用能够承受的干扰，来进行应用的放置决策，实现了大多数工作负载场景下的QoS保障。而结合丰富的节点资源隔离手段，部分研究通过避免应用在关键资源上的竞争来实现应用的QoS保障。Quasar\citep{delimitrou2014quasar}预先对应用进行画像分析，并建立分类模型。随后通过分类模型快速确定新应用的资源需求以及干扰的敏感度，并利用资源隔离技术来调整资源分配。Heracles\citep{lo2015heracles}从应用资源敏感度的角度入手，分析了不同应用在不同负载下对于多种资源的敏感度，并依据分析结果优先保证敏感资源供给，从而实现应用的QoS保障。Parties\citep{chen2019parties}则进一步分析了如图~\ref{fig:parties_app_dif}所示更丰富的资源种类。在调度上，不同于Heracles，Parties利用应用间的资源拆借，实现保障应用QoS的同时整体资源利用率也得到提升。CLITE\citep{patel2020clite}利用贝叶斯优化构建资源隔离模型，将多个LC应用与BE应用进行混部，并利用Intel MBA技术对内存带宽进行控制以保障LC应用的QoS。LIBRA\citep{zhang2021libra}则基于一种新型硬件节流机制，实现内存带宽的动态调控，并根据应用的需求变化动态调整，及时地保障内存带宽资源供给。
 
-\subsection{围绕任务调度的混部场景QoS保障研究}
+\subsection{围绕任务调度的混部场景QoS保障研究现状}
 
 % 内核任务调度
 % 微秒级调度
@@ -169,7 +169,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
 
     \item \textbf{针对当前任务调度机制在不同混部场景下的不足，展开混部场景导向的定制任务调度机制研究}。首先，从内核任务调度的相关配置上针对不同应用的需求，设计了响应度优先与吞吐量优先两种基础内核配置。随后，在Ext调度类的基础上设计了塔台（Control Tower）任务调度框架，并在此基础上，结合eBPF技术的监测能力进一步实现CPU资源感知与网络资源感知的任务调度策略。
 
-    \item \textbf{针对单一调度机制与多样混部场景的挑战，设计实现受控空域（Contorl Zone），一种面向混部场景的调度动态可定制沙箱}。Control Zone基于KVM虚拟机实现，如图~\ref{fig:arch_dif}所示，相较于Firecracker\citep{agache2020firecracker}，Control Zone允许将Control Tower调度策略与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度策略。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
+    \item \textbf{针对单一调度机制与多样混部场景的挑战，设计实现受控空域（Control Zone），一种面向混部场景的调度动态可定制沙箱}。Control Zone基于KVM虚拟机实现，如图~\ref{fig:arch_dif}所示，相较于Firecracker\citep{agache2020firecracker}，Control Zone允许将Control Tower调度策略与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度策略。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
 
 \end{enumerate}
 

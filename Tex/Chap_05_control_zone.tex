@@ -1,4 +1,4 @@
-\chapter{调度动态可定制沙箱实现}\label{chap:control_zone}
+\chapter{调度动态可定制沙箱设计与实现}\label{chap:control_zone}
 
 为解决单一调度机制与多样混部场景矛盾的问题，本章设计实现了Contorl Zone，一种面向混部场景的调度动态可定制沙箱。Control Zone基于KVM虚拟机实现，并支持以容器的形式协同部署Control Tower任务调度策略与混部应用。一方面能够针对混部场景量身定制调度策略，另一方面借助BPF技术的动态性实现运行时可变的调度策略。同时，Control Zone还支持丰富的软硬件手段来对资源进行隔离，以提供精细的Control Zone资源分配。
 
@@ -21,7 +21,7 @@
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.9\textwidth]{cz_arch}
-    \bicaption{\quad Control Zone基本架构}{\quad Control Zone Architectural}
+    \bicaption{\quad Control Zone基本架构}{\quad Architecture of Control Zone}
     \label{fig:cz_arch}
 \end{figure}
 
@@ -287,7 +287,7 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
     \end{tabular}
 \end{table}
 
-每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04 LTS。在虚拟机监视器以及相关环境上，Libvirt与Qemu采用Ubuntu22.04所支持的稳定版，CloudHyeprvirsor则采用v38.0-150编译版。
+每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04LTS。在虚拟机监视器以及相关环境上，Libvirt与Qemu采用Ubuntu22.04所支持的稳定版，CloudHyeprvirsor则采用v38.0-150编译版。
 
 \begin{table}[H]
     \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
