@@ -55,7 +55,7 @@ Control Zone中使用KVM虚拟机主要出于隔离性与安全性两方面的�
 
 \begin{itemize}
 
-    \item \textbf{轻量化的虚拟机监视器}：Control Zone使用CloudHypervisor作为默认的虚拟机监视器。CloudHypervisor与Firecracker类似，都是基于Rust-VMM套件构建的轻量级虚拟机监视器。相比于Firecracker，CloudHypervisor更侧重云场景的实际需求\citep{agache2020firecracker}，同时在保证轻量的同时，提供更强的性能与更实用的功能，如额外支持了PCI设备模拟以及PCI设备直通。
+    \item \textbf{轻量化的虚拟机监视器}：Control Zone在CloudHypervisor的基础上构建轻量级虚拟机监视器。CloudHypervisor与Firecracker类似，都是基于Rust-VMM套件构建的轻量级虚拟机监视器。相比于Firecracker，CloudHypervisor更侧重云场景的实际需求\citep{agache2020firecracker}，同时在保证轻量的同时，提供更强的性能与更实用的功能，如额外支持了PCI设备模拟以及PCI设备直通。
 
     \item \textbf{精简操作系统}：Contorl Zone精简操作系统包含内核与根文件系统两部分。在内核上，Control Zone参考了Firecracker Kernel配置，并根据需要增加了对PCI、容器、BPF子系统以及Ext调度类的支持。此外，Control Zone使能了Linux的PVH（半虚拟化）配置，能够绕过BIOS直接引导系统。同时由于内核没有额外的模块依赖，因此还可绕过initramfs阶段而直接挂载根文件系统。在根文件系统上，Control Zone使用轻量级Linux发行版Alpine\citep{alpine}。Alpine使用Busybox与Musl来提供基本的运行环境。其中Busybox是一系列Linux基础工具的集合，专注于基础功能并高度简化，因此占用的存储空间非常小。Musl是一个轻量级的C标准库，在设计时就专注于提供最基本的C标准函数与特性，同时优化了常见库函数的实现，使得保持轻量级的同时能够在部分场景下有更好的性能表现。
 
@@ -63,7 +63,7 @@ Control Zone中使用KVM虚拟机主要出于隔离性与安全性两方面的�
 
 \end{itemize}
 
-为满足多样的使用需求，Control Zone也保留了对Libvirt支持。Libvirt并不是一个虚拟机监视器，而是多种虚拟化技术的抽象层，提供了标准的API来进行虚拟机管理。Control Zone通过兼容Libvirt，提升了沙箱的兼容性。同时在可观测性上，Black Box观测系统能够借助Libvirt提供的丰富监控机制，更方便地获取Control Zone虚拟机的指标数据。
+Control Zone轻量级虚拟机的实现包含虚拟机监视器与精简内配置两部分。在虚拟机监视器部分，本文在Cloudhypervisor基础上使用Rust语言进行了约800行代码的增量开发。而在精简内核部分，本文选用Linux6.9版本内核，并提供约3000行的KConfig。同时，为满足多样的使用需求，Control Zone也保留了对Libvirt支持。Libvirt并不是一个虚拟机监视器，而是多种虚拟化技术的抽象层，提供了标准的API来进行虚拟机管理。Control Zone通过兼容Libvirt，提升了沙箱的兼容性，同时Black Box观测系统也能够借助Libvirt提供的丰富监控机制，方便地获取Control Zone虚拟机的更多指标数据。
 
 \subsection{Control Zone管理器实现}
 
@@ -80,7 +80,7 @@ Control Zone管理器功能包含三部分：Control Zone管理、混部应用�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{cz_components}
-    \bicaption{\quad Control Zone组件结构}{\quad Components of Control Zone}
+    \bicaption{\quad Control Zone管理器的组件架构}{\quad Component architecture of the Control Zone Manager}
     \label{fig:cz_components}
 \end{figure}
 
@@ -150,7 +150,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
     \item \textbf{资源配置}：KVM虚拟机是一种特殊的进程，Control Zone在创建虚拟机的过程中，会为vCPU及emulator线程创建Cgroup与Resctrl Monitor Group来方便进行资源管理。具体的资源配置选项如表~\ref{tab:cz_cgroup_config}所示。首先，可基于Cgroup配置vCPU线程的相关资源，如CPU亲和性与CPU时间片配置。其次，也可通过Resctrl子系统为整个虚拟机线程组配置LLC掩码，来进行Cache资源的隔离。
 
 \begin{table}[H]
-    \bicaption{\quad Control Zone Resource 配置}{\quad Control Zone Resource Config}% caption
+    \bicaption{\quad Control Zone资源配置选项}{\quad Control Zone resource configuration options}% caption
     \label{tab:cz_cgroup_config}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{30pt}% column separation
@@ -174,7 +174,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
     \item \textbf{Hypervisor配置}：虚拟机硬件通常由Hypervisor模拟，其中如virtio设备等在模拟设备后端驱动上提供了丰富的配置选项。通过Hypervisor提供的调控接口，可进一步在设备上进行资源隔离的配置。具体配置如表~\ref{tab:cz_hv_config}所示。首先，对于CPU资源，可配置虚拟机所能使用的CPU feature。对于virtio网络设备和块设备，则可在读写速度上进行配置。
 
 \begin{table}[H]
-    \bicaption{\quad Control Zone Hypervisor 配置}{\quad Control Zone Hypervisor Config}% caption
+    \bicaption{\quad Control Zone 虚拟机监视器配置}{\quad Control Zone hypervisor configuration}% caption
     \label{tab:cz_hv_config}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{30pt}% column separation
@@ -204,7 +204,7 @@ czctrl提供了create、start、stop、remove、update五种操作来管理Contr
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.5\textwidth]{cz_state}
-    \bicaption{\quad Control Zone状态迁移}{\quad State of Control Zone}
+    \bicaption{\quad Control Zone状态迁移设计}{\quad Control Zone state transition design}
     \label{fig:cz_state}
 \end{figure}
 
@@ -223,7 +223,7 @@ Control Zone的创建流程如图~\ref{fig:cz_create}所示。过程中首先进
         \caption{\quad Control Zone启动流程}
         \label{fig:cz_start}
     \end{subfigure}
-\bicaption{\quad Control Zone创建与启动流程}{\quad Control Zone create and start process}
+\bicaption{\quad Control Zone创建与启动流程设计}{\quad Control Zone creation and startup process design}
 \label{fig:cz_create_start}
 \end{figure}
 
@@ -244,7 +244,7 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后�
         \caption{\quad Control Zone删除流程}
         \label{fig:cz_remove}
     \end{subfigure}
-\bicaption{\quad Control Zone关闭与删除流程}{\quad Control Zone stop and delete process}
+\bicaption{\quad Control Zone关闭与删除流程设计}{\quad Control Zone shutdown and deletion process design}
 \label{fig:cz_create_start}
 \end{figure}
 
@@ -255,9 +255,11 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{cz_update}
-    \bicaption{\quad Control Zone更新流程}{\quad Control Zone update process}
+    \bicaption{\quad Control Zone更新流程设计}{\quad Control Zone update process design}
     \label{fig:cz_update}
 \end{figure}
+
+本文在Control Zone管理器的各个组件实现中，使用Rust语言编写了约3500行代码。同时项目被组织为多个crate，能够方便组件之间共享公共代码，并未后续引入新特性和增量开发提供便利。
 
 \section{实验设计与分析}
 
@@ -266,7 +268,7 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node。同时，CPU均开启超线程，并使能Intel RDT。在网络资源上，服务网卡支持SRIOV技术，能为有网络性能需求的虚拟机提供硬件直通支持。
 
 \begin{table}[H]
-    \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
+    \bicaption{\quad 沙箱实验服务器硬件参数}{\quad Information about server hardware for sandbox experiments}% caption
     \label{tab:exp_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -290,7 +292,7 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 每台服务器的系统软件环境如表~\ref{tab:system_env}所示。在操作系统上，实验中选择使用较常见的Ubuntu22.04LTS。在虚拟机监视器以及相关环境上，Libvirt与Qemu采用Ubuntu22.04所支持的稳定版，CloudHyeprvirsor则采用v38.0-150编译版。
 
 \begin{table}[H]
-    \bicaption{\quad 服务器系统环境}{\quad Server System Information}% caption
+    \bicaption{\quad 沙箱实验服务器系统环境}{\quad Information about server system for sandbox experiments}% caption
     \label{tab:system_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{30pt}% column separation
@@ -318,7 +320,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.55\textwidth]{avg_boot_time}
-    \bicaption{\quad 平均启动时间比较}{\quad Comparison of average boot times}
+    \bicaption{\quad 不同内核与沙箱下的平均启动时间比较}{\quad Comparison of average startup times under different kernels and sandboxes}
     \label{fig:avg_boot_time}
 \end{figure}
 
@@ -327,7 +329,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{boot_time_cdf}
-    \bicaption{\quad 精简内核的启动时间比较}{\quad Comparison of Kernel Boot Time Optimization} 
+    \bicaption{\quad 轻量化虚拟机的启动时间比较}{\quad Comparison of startup times for lightweight virtual machines} 
     \label{fig:boot_time_cdf}
 \end{figure}
 
@@ -371,7 +373,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
         \caption{\quad Graph500 每分钟执行数量}
         \label{fig:perf_graph500}
     \end{subfigure}
-\bicaption{\quad 应用性能比较}{\quad Application performance comparison}
+\bicaption{\quad Control Zone沙箱对不同应用性能的影响}{\quad The impact of the Control Zone sandbox on the performance of different applications}
 \label{fig:perf_app}
 \end{figure}
 
@@ -397,7 +399,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
         \caption{\quad Qemu + CloudHV Kernel混部性能}
         \label{fig:cpu_series_memcached_eevdf}
     \end{subfigure}
-    \bicaption{\quad 混部场景下Memcached性能保障}{\quad Memcached performance protection in co-location scenario}
+    \bicaption{\quad 混部场景下Control Zone对Memcached服务性能的保障效果}{\quad Effectiveness of Control Zone for Memcached QoS guarantee in co-location deployment scenarios}
     \label{fig:cpu_series_memcached}
 \end{figure}
 

@@ -11,7 +11,7 @@ Linux调度子系统提供了一些编译配置选项，用以针对场景进行
 时钟中断是驱动Linux抢占式调度的核心机制，如表~\ref{tab:config_hz}所示，Linux内核提供了时钟中断频率与时钟中断处理模式两方面的配置。其中，中断的频率配置决定了调度滴答的周期，Linux提供了从100、250、300到1000四种不同的中断频率配置。越高的时钟中断频率意味着系统的整体响应度更好，同时，越高的时钟中断频率意味着更准确的时间记账。Linux在时钟中断处进行时间记账，但实际运行过程中，由于中断间隔可能存在任务切换，因此时间记账并不一定准确。时钟中断频率决定了时间片的最小粒度，而越高的时钟中断频率意味着越小的时钟中断间隔，同时在间隔中发生任务切换的概率也会越小，从而能够实现更准确的时间记账。
 
 \begin{table}[H]
-    \bicaption{\quad 内核时钟中断配置}{\quad Kernel Clock Interrupt Configuration}% caption
+    \bicaption{\quad 内核时钟中断配置选项}{\quad Kernel clock interrupt configuration options}% caption
     \label{tab:config_hz}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -37,7 +37,7 @@ Linux调度子系统提供了一些编译配置选项，用以针对场景进行
 抢占通常指高优先级任务打断低优先级任务的执行。Linux内核中用户态任务总是会被中断抢占，而内核态任务则存在不同的处理。早期Linux内核实现中会在执行内核态代码时屏蔽中断，而一些较长的内核态代码会引发系统整体响应度的下降。而为提供更好的响应度，Linux在后续迭代中设计了如表~\ref{tab:config_preempt}所示的四种抢占模型，用于配置内核态代码执行时中断的处理模式。不同抢占模式的主要区别在于可被抢占位点的数量。内核代码中可被抢占的位点越多系统的实时性通常就会越好，但也意味着任务的执行更容易被打断，需要根据部署应用的不同特性来选择。
 
 \begin{table}
-    \bicaption{\quad 内核抢占模式配置}{\quad Kernel Preemption Configuration}% caption
+    \bicaption{\quad 内核抢占模式配置选项}{\quad Kernel preemption mode configuration options}% caption
     \label{tab:config_preempt}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -99,7 +99,7 @@ Control Tower任务调度框架如图~\ref{fig:bpf_scheduler_arch}所示，其�
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{bpf_scheduler_arch}
-    \bicaption{\quad Control Tower任务调度框架}{\quad Control Tower scheduling framework}
+    \bicaption{\quad Control Tower任务调度框架设计}{\quad Control Tower task scheduling framework design}
     \label{fig:bpf_scheduler_arch}
 \end{figure}
 
@@ -122,7 +122,7 @@ BPF调度策略既可以直接定制Ext调度行为，也可以在调度过程�
         \caption{全局调度模式}
         \label{fig:bpf_global}
     \end{subfigure}
-\bicaption{\quad BPF任务调度模式}{\quad BPF task scheduling mode}
+\bicaption{\quad Control Tower任务调度模式}{\quad Control Tower task scheduling mode}
 \label{fig:bpf_sched_mode}
 \end{figure}
 
@@ -136,7 +136,7 @@ BPF调度策略既可以直接定制Ext调度行为，也可以在调度过程�
     \item \textbf{基于vtime的抢占式调度}：BPF调度策略中使用vtime DSQ，vtime DSQ按照vtime大小对任务进行排序，初始时设置每个入队任务的初始vtime，并在每个时钟滴答里根据任务的静态优先级更新vtime，并进行抢占判断。当抢占发生时，vtime越小的任务越优先被调度。
 \end{enumerate}
 
-相较于Linux任务调度机制，Control Tower任务调度框架能够提供更灵活的任务调度机制与调控手段，并通过定制和组合不同的外部数据来源、调度模式与调度策略来满足不同混部场景应用对调度机制的需求，以更好地保障高优先应用的QoS。
+本文在Control Tower任务调度框架的实现中，包括使用C语言编写的约1500行代码以及在Ext调度类上约200代码的修改。相较于Linux任务调度机制，Control Tower任务调度框架能够提供更灵活的任务调度机制与调控手段，并通过定制和组合不同的外部数据来源、调度模式与调度策略来满足不同混部场景应用对调度机制的需求，以更好地保障高优先应用的QoS。
 
 \section{Control Tower资源感知任务调度}
 
@@ -159,10 +159,10 @@ CPU拓扑描述了CPU之间的资源共享情况，而CPU之间的资源共享�
 
 造成上述问题的核心在于划分CPU集合时并没有考虑到不同应用对CPU资源的实际使用情况，而为解决这一问题，本文设计了CPU资源感知的任务调度策略，调度逻辑如伪代码~\ref{alg:cpu_aware_sched}所示，通过增加外部数据源的方式，让低优先任务感知高优先应用使用CPU资源的情况，并结合用户输入的CPU拓扑判断是否需要出让CPU资源，从而实现高优先应用的QoS保障。
 
-CPU资源感知的任务调度策略基于Control Tower任务调度框架实现。首先，在BPF程序初始化时，用户需要传入当前系统CPU拓扑以及低优先任务所能使用的CPU数量。随后，BPF程序初始化过程中会创建一个全局数组记录Ext调度类所管理的CPU状态，并通过在Ext调度类cpu\_acquire与cpu\_release处的插桩动态更新。任务调度时，BPF调度策略读取全局数组，计算得到当前低优先任务能够使用的CPU数量，并与阈值进行比较。当不满足CPU阈值时，拒绝进行任务调度，而目标CPU会在Local DSQ没有任务执行时，出让CPU并被Idle调度类抢占。而当CPU满足阈值时，BPF调度策略首先将任务调度到目标CPU的Local DSQ上，并根据目标CPU的状态来决定是否需要发送IPI。
+CPU资源感知的任务调度策略基于Control Tower任务调度框架实现，包含约250行eBPF代码。首先，在BPF程序初始化时，用户需要传入当前系统CPU拓扑以及低优先任务所能使用的CPU数量。随后，BPF程序初始化过程中会创建一个全局数组记录Ext调度类所管理的CPU状态，并通过在Ext调度类cpu\_acquire与cpu\_release处的插桩动态更新。任务调度时，BPF调度策略读取全局数组，计算得到当前低优先任务能够使用的CPU数量，并与阈值进行比较。当不满足CPU阈值时，拒绝进行任务调度，而目标CPU会在Local DSQ没有任务执行时，出让CPU并被Idle调度类抢占。而当CPU满足阈值时，BPF调度策略首先将任务调度到目标CPU的Local DSQ上，并根据目标CPU的状态来决定是否需要发送IPI。
 
 \begin{algorithm}[H]
-    \caption{Pseudocode for Enhanced Task Scheduling Isolation Mechanism}
+    \caption{Pseudocode for CPU resource-aware task scheduling}
     \label{alg:cpu_aware_sched}
     \begin{algorithmic}[1]
     
@@ -210,7 +210,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 实际生产环境中，网络服务应用的负载更加具有波动性，然而Linux任务调度机制并不考虑混部应用在不同负载对于调度需求，同时也缺乏有效的应用负载感知机制。为解决上述问题，本文设计了网络资源感知的任务调度策略，调度逻辑如伪代码~\ref{alg:network_aware_sched}所示。网络感知调度策略通过eBPF插桩获取应用的实时负载，并从用户输入获取目标应用在不同负载下的调度需求。调度过程中针对不同的负载地实施不同的调度策略，如在低负载下以系统吞吐为目标，而在高负载时以高优先应用的QoS保障为目标。
 
 \begin{algorithm}[H]
-    \caption{Pseudocode for Network Resource Constraints Scheduling Strategy}
+    \caption{Pseudocode for network resource-aware task scheduling}
     \label{alg:network_aware_sched}
     \begin{algorithmic}[1]
 
@@ -238,7 +238,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \end{algorithmic}
 \end{algorithm}
 
-网络资源感知调度策略增加了基于epoll\_wait系统调用探测的eBPF数据源。具体eBPF代码中，首先创建两个Per-CPU BPF Map，分别记录Per-CPU上epoll\_wait系统的频率与事件数量。同时在key的选择上，支持pid、Cgroup以及系统三种监测粒度。而在eBPF插桩位点上，选择do\_epoll\_wait内核函数的返回位点。此处不仅表示一次epoll\_wait系统调用的完成，也能够通读取返回值，获取此次epoll\_wait系统调用所得到的epoll事件数量。每次计数完毕后，都会更新此次计数的时间戳，结合计数与时间戳数据，就能够计算应用的负载量。
+网络资源感知调度策略增加了基于epoll\_wait系统调用探测的eBPF数据源，包含约200行eBPF代码。在具体eBPF代码中，首先会创建两个Per-CPU BPF Map，分别记录Per-CPU上epoll\_wait系统的频率与事件数量。而在观测粒度的的选择上，策略支持pid、Cgroup以及全局三种监测粒度。在eBPF插桩位点上，选择do\_epoll\_wait内核函数的返回处进行插桩。此处不仅表示一次epoll\_wait系统调用的完成，还也能够通读取返回值，获取此次epoll\_wait系统调用所得到的epoll事件数量。每次计数完毕后都会更新此次计数的时间戳，结合计数与时间戳数据就能够计算应用的负载量。
 
 网络资源感知调度策略在Control Tower调度框架中的实现也有多种方式。首先，在低负载时，直接调度任务而不考虑CPU拓扑上的资源竞争，在满足高优先低负载时的基本延时需求的同时，实现更高的系统吞吐。而在高负载时，采用避让的原则，减少与高优先应用的资源竞争，从而实现高优先应用的QoS保障。其次，也可以将探测逻辑与调度策略分离。如在低负载时关闭BPF调度策略，此时低优先任务会被Fair调度类调度，并与高优先应用处在相同的调度队列中，通过分时复用进一步提高吞吐。而在高负载时，加载CPU资源感知的BPF调度策略，并设置较为保守的参数来优先保障高优先应用的QoS。
 
@@ -248,10 +248,10 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 \subsection{实验环境}
 
-实验环境在两台服务上展开，服务器硬件信息如表~\ref{tab:exp_env}所示。实验中考虑到内核兼容性与适配问题，使用Qemu6.2.0与KVM虚拟机作为混部应用的主要运行环境。
+任务调度实验在两台服务上展开，服务器硬件信息如表~\ref{tab:exp_env}所示。实验中考虑到内核兼容性与适配问题，使用Qemu 6.2.0与KVM虚拟机作为混部应用的主要运行环境。
 
 \begin{table}[H]
-    \bicaption{\quad 服务器硬件参数}{\quad Server Hardware Information}% caption
+    \bicaption{\quad 任务调度实验服务器硬件参数}{\quad Information about server hardware for task scheduling experiments}% caption
     \label{tab:exp_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -275,7 +275,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 实验中选择Redis、Memcached、Mysql、Nginx四种LC应用和graph500、ffmpeg两种BE应用来构造混部环境，并使用stress-ng来模拟干扰。而在负载选择上，本文通过如表~\ref{tab:app_work}所示的Benchmark来生成负载，并通过预先实验确定固体虚拟机配置下的应用的最大负载值，定义为100\%工作负载。
 
 \begin{table}[H]
-    \bicaption{\quad 实验应用及负载}{\quad Applications and Workloads}% caption
+    \bicaption{\quad 实验应用及负载配置}{\quad Experimental application and workload configuration}% caption
     \label{tab:app_work}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{8pt}% column separation
@@ -328,7 +328,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{MySQL请求延迟}
         \label{fig:memcached_response}
       \end{subfigure}
-    \bicaption{\quad 响应度优先内核在LC混部场景下的效果}{\quad The effect of response-first kernel in LC Co-Location scenario}
+    \bicaption{\quad 混部场景下响应度优先内核对LC应用服务性能的保障效果}{\quad Effectiveness of responsiveness-first kernel for LC application QoS guarantee in co-location deployment scenarios}
     \label{fig:perf_response}
 \end{figure}
 
@@ -350,7 +350,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{\quad FFmpeg每秒处理帧数量}
         \label{fig:throughput_kernel_ffmpeg_speed}
     \end{subfigure}
-    \bicaption{\quad 吞吐量优先内核在BE混部场景下的效果}{\quad The effect of throughput-first kernel in BE Co-Location scenario}
+    \bicaption{\quad 混部场景下吞吐量优先内核对BE应用服务性能的保障效果}{\quad Effectiveness of throughput-first kernel for BE application QoS guarantee in co-location deployment scenarios}
     \label{fig:perf_throughput}
 \end{figure}
 
@@ -368,7 +368,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{\quad FFmpeg平均运行时间}
         \label{fig:throughput_kernel_ffmpeg}
     \end{subfigure}
-    \bicaption{\quad 应用与干扰混部场景下不同内核配置对BE应用平均运行时间的影响}{\quad The impact of different kernel configurations on the average runtime of BE applications in a co-location scenario of applications and interference}
+    \bicaption{\quad 混部场景下吞吐量优先内核对BE应用运行时间的影响}{\quad Impact of throughput-first kernel on BE application runtime in co-location deployment scenarios}
     \label{fig:perf_throughput_time}
 \end{figure}
 
@@ -409,7 +409,7 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \label{fig:bpf_sched_smp_mysql_latency}
     \end{subfigure}
 
-\bicaption{\quad 应用与干扰混部场景下CPU感知调度策略对LC应用QoS保障效果}{\quad The effect of CPU-aware scheduling strategies on QoS assurance for LC applications in a co-location scenario of applications and interference}
+\bicaption{\quad 混部场景下CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS guarantee in co-location deployment scenarios}
 \label{fig:lc_bpf_sched}
 \end{figure}
 
@@ -437,8 +437,8 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \caption{Nginx-干扰}
         \label{fig:cpu_usage_nginx}
     \end{subfigure}
-\bicaption{\quad 应用与干扰混部场景下的虚拟机总CPU利用率}{\quad 
-Total CPU utilization of virtual machines in a mixed deployment scenario of applications and interference}
+\bicaption{\quad 不同应用混部场景下的虚拟机总CPU利用率}{\quad 
+Total CPU utilization of virtual machines in co-location scenarios with different applications}
 \label{fig:cpu_usage}
 \end{figure}
 
@@ -475,7 +475,7 @@ Total CPU utilization of virtual machines in a mixed deployment scenario of appl
         \caption{\quad MySQL请求延迟}
         \label{fig:bpf_sched_smt_mysql_latency}
     \end{subfigure}
-\bicaption{\quad SMT混部场景下CPU感知调度策略对LC应用QoS保障效果}{\quad The effect of CPU-aware scheduling strategy on QoS assurance for LC applications in an SMT co-location scenario}
+\bicaption{\quad SMT混部场景下CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS guarantee in SMT co-location scenarios}
 \label{fig:lc_bpf_sched_smt}
 \end{figure}
 
