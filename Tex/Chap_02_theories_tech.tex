@@ -14,7 +14,7 @@
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.7\textwidth]{sched_arch}
-    \bicaption{\quad 调度子系统架构}{\quad Scheduling subsystem architecture}
+    \bicaption{\quad Linux调度子系统架构}{\quad Architecture of the Linux scheduling subsystem}
     \label{fig:sched_arch}
 \end{figure}
 
@@ -35,7 +35,7 @@
         \caption{\quad 抢占调度时钟滴答}
         \label{fig:schedule_tick}
     \end{subfigure}
-    \bicaption{\quad 非抢占式调度与抢占式调度}{\quad Non-preemptive Scheduling and Preemptive Scheduling}
+    \bicaption{\quad 非抢占式调度与抢占式调度}{\quad Non-preemptive scheduling and preemptive scheduling}
     \label{fig:cpu_series_memcached}
 \end{figure}
 
@@ -44,7 +44,7 @@
 \begin{figure}[!htbp]
     \centering 
     \includegraphics[width=0.6\textwidth]{shcedule_loop}
-    \bicaption{\quad 调度循环}{\quad Schedule Loop}
+    \bicaption{\quad 调度循环}{\quad Scheduling loop}
     \label{fig:shcedule_loop}
 \end{figure}
 
@@ -77,7 +77,7 @@ BPF技术通常会与同样作为内核功能扩展的内核模块比较，而�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.5\textwidth]{bpf_user_kernel}
-    \bicaption{\quad BPF中用户态与内核态的交互}{\quad Interaction between user mode and kernel mode in BPF}
+    \bicaption{\quad BPF程序中的用户态与内核态的交互}{\quad Interaction between user space and kernel space in BPF programs}
     \label{fig:bpf_user_kernel}
 \end{figure}
 
@@ -86,7 +86,7 @@ BPF技术具有高度的灵活性。首先，开发者可利用libbpf等库来�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.7\textwidth]{bpf_to_bpf}
-    \bicaption{\quad BPF程序之间的调用}{\quad Interaction between BPF programs}
+    \bicaption{\quad BPF程序之间的相互调用}{\quad Invocation between BPF programs}
     \label{fig:bpf_to_bpf}
 \end{figure}
 
@@ -111,7 +111,7 @@ Sched Ext可扩展调度类项目\citep{schedext}，由Meta工程师在2022年�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.65\textwidth]{sched_ext_arch}
-    \bicaption{\quad Sched Ext架构}{\quad Sched Ext Arch}
+    \bicaption{\quad Sched Ext项目架构}{\quad Architecture of the Sched Ext project}
     \label{fig:sched_ext_arch}
 \end{figure}
 
@@ -120,7 +120,7 @@ Sched Ext项目启发自ghOSt\citep{humphries2021ghost}，通过插件化的内�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.75\textwidth]{sched_ext_priorty}
-    \bicaption{\quad Sched Ext 调度优先级}{\quad Sched Ext Priorty}
+    \bicaption{\quad Ext调度类优先级}{\quad Priority of the Ext scheduling class}
     \label{fig:sched_ext_priorty}
 \end{figure}
 
@@ -135,7 +135,7 @@ Sched Ext项目提供了一种使用BPF程序定制调度策略的方式，实�
     \begin{figure}[!htbp]
         \centering
         \includegraphics[width=0.8\textwidth]{sched_ext_helpers}
-        \bicaption{\quad Sched Ext BPF Helper函数}{\quad Sched Ext BPF Helpers}
+        \bicaption{\quad Sched Ext中的BPF Helper函数}{\quad BPF helper functions in Sched Ext}
         \label{fig:sched_ext_helpers}
     \end{figure}
     
@@ -157,7 +157,7 @@ Ext调度类还提供了一系列插桩位点，便于BPF程序参与到调度�
     \centering
     \includegraphics[width=0.95\textwidth]{ext_bpf}
     \bicaption{\quad Ext调度类与BPF程序协作进行调度循环}{\quad 
-    Ext scheduling class cooperates with BPFScheduler}
+    Ext schedule scheduling collaborating with BPF programs for scheduling loop}
     \label{fig:ext_bpf}
 \end{figure}
 

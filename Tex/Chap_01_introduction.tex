@@ -26,7 +26,7 @@
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{scheduling_domain}
-    \bicaption{\quad CPU拓扑}{\quad CPU Topology}
+    \bicaption{\quad CPU拓扑结构}{\quad CPU topologies}
     \label{fig:scheduling_domain}
 \end{figure}
 
@@ -35,7 +35,7 @@
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.5\textwidth]{cpu_topology}
-    \bicaption{\quad Siblings片上共享资源 }{\quad Siblings on-chip shared resources}
+    \bicaption{\quad SMT兄弟核心的片上资源共享 }{\quad On-chip resource sharing of SMT sibling cores}
     \label{fig:cpu_topology}
 \end{figure}
 
@@ -91,7 +91,7 @@ FIRM\citep{qiu2020firm}面向Kubernetes集群设计了一种两级的机器学�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{parties_app_dif}
-    \bicaption{\quad 不同资源干扰对应用性能的影响（图片引用自文献\citep{chen2019parties}）}{\quad diferent resource interference on application performance(quoted from paper\citep{chen2019parties})}
+    \bicaption{\quad 不同资源干扰对应用性能的影响（图片引用自文献\citep{chen2019parties}）}{\quad Diferent resource interference on application performance(quoted from paper\citep{chen2019parties})}
     \label{fig:parties_app_dif}
 \end{figure}
 
@@ -109,7 +109,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.65\textwidth]{eevdf_scheduling}
-    \bicaption{\quad EEVDF可变时间片机制}{\quad EEVDF Variable Time Slice Mechanism}
+    \bicaption{\quad EEVDF调度器可变时间片机制的作用}{\quad Effectiveness of the EEVDF scheduler's variable time slice mechanism}
     \label{fig:eevdf_scheduling}
 \end{figure}
 
@@ -119,7 +119,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
     \item 超线程调度域中兄弟核心存在如表~\ref{tab:resourcesharing}所示的共享资源，部署在兄弟核心上的应用存在竞争的可能。Elfen\citep{yang2016elfen}设计了一种新的内核调度机制，首先提供了一种全新的系统调用nanonap，允许进程快速地释放CPU资源但保留对CPU的所占有状态。同时，Elfen通过向BE应用插入探测代码，使得BE应用在运行过程中能够快速的探测兄弟核心上任务的运行并及时调用nanonap释放资源。通过以上设计，Elfen实现了LC应用与BE应用在部署到兄弟核心时的交替执行，从而避免因资源竞争导致的QoS劣化。 
 
     \begin{table}[!htbp]
-        \bicaption{\quad 调度域与共享资源}{\quad scheduler domains and resource sharing}% caption
+        \bicaption{\quad 调度域对应的共享资源}{\quad Shared resources corresponding to scheduling domains}% caption
         \label{tab:resourcesharing}
         \footnotesize% fontsize
         \setlength{\tabcolsep}{4pt}% column separation
@@ -186,7 +186,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
         \caption{Firecracker}
         \label{fig:arch_dif_fc}
     \end{subfigure}
-\bicaption{\quad 沙箱结构差异}{\quad Sandbox Structure Differences}
+\bicaption{\quad Control Zone与Firecracker的功能差异}{\quad Differences in functionality between Control Zone and Firecracker}
 \label{fig:arch_dif}
 \end{figure}
 
@@ -197,7 +197,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{paper_organization}
-    \bicaption{\quad 本文组织架构}{\quad Paper Organization}
+    \bicaption{\quad 本文组织架构}{\quad Paper organization}
     \label{fig:paper_organization}
 \end{figure}
 

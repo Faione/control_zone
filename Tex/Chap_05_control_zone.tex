@@ -65,7 +65,7 @@ Control Zone中使用KVM虚拟机主要出于隔离性与安全性两方面的�
 
 Control Zone轻量级虚拟机的实现包含虚拟机监视器与精简内配置两部分。在虚拟机监视器部分，本文在Cloudhypervisor基础上使用Rust语言进行了约800行代码的增量开发。而在精简内核部分，本文选用Linux6.9版本内核，并提供约3000行的KConfig。同时，为满足多样的使用需求，Control Zone也保留了对Libvirt支持。Libvirt并不是一个虚拟机监视器，而是多种虚拟化技术的抽象层，提供了标准的API来进行虚拟机管理。Control Zone通过兼容Libvirt，提升了沙箱的兼容性，同时Black Box观测系统也能够借助Libvirt提供的丰富监控机制，方便地获取Control Zone虚拟机的更多指标数据。
 
-\subsection{Control Zone管理器实现}
+\subsection{Control Zone管理系统}
 
 % 优化图例
 % 使用中文名称，体现功能
@@ -75,12 +75,12 @@ Control Zone轻量级虚拟机的实现包含虚拟机监视器与精简内配�
 %   - chsd: 调度策略管理
 % - observity: 可观测性
 
-Control Zone管理器功能包含三部分：Control Zone管理、混部应用和Control Tower调度策略管理、Black Box观测系统管理。这些功能通过如图~\ref{fig:cz_components}所示的各个部分协作完成。其中，czyaml配置文件用来定义一个Control Zone虚拟机。czctrl、czmanager用来管理Control Zone虚拟机的生命周期。每个Control Zone虚拟机中都运行了czdaemon守护程序，能够与czmanager交互来完成混部应用及调度策略的部署。此外，czmanager能够与Black Box观测系统协作来管理Control Zone的性能监控。最后，Harbor镜像库\citep{harbor}负责管理OCI镜像，并在Control Zone虚拟机运行的各个阶段中提供镜像存储服务。
+Control Zone管理系统功能包含三部分：Control Zone管理、混部应用和Control Tower调度策略管理、Black Box观测系统管理。这些功能通过如图~\ref{fig:cz_components}所示的各个部分协作完成。其中，czyaml配置文件用来定义一个Control Zone虚拟机。czctrl、czmanager用来管理Control Zone虚拟机的生命周期。每个Control Zone虚拟机中都运行了czdaemon守护程序，能够与czmanager交互来完成混部应用及调度策略的部署。此外，czmanager能够与Black Box观测系统协作来管理Control Zone的性能监控。最后，Harbor镜像库\citep{harbor}负责管理OCI镜像，并在Control Zone虚拟机运行的各个阶段中提供镜像存储服务。
 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{cz_components}
-    \bicaption{\quad Control Zone管理器的组件架构}{\quad Component architecture of the Control Zone Manager}
+    \bicaption{\quad Control Zone管理系统的组件架构}{\quad Architecture of the Control Zone management system}
     \label{fig:cz_components}
 \end{figure}
 
@@ -98,7 +98,7 @@ Control Zone管理器功能包含三部分：Control Zone管理、混部应用�
 
 \end{itemize}
 
-\subsection{Control Zone流程}
+\subsection{Control Zone管理过程}
 
 % 要解决的问题，以及解决的问题的思路
 
@@ -122,7 +122,7 @@ Control Zone Yaml提供了丰富的配置选项，允许用户自定义沙箱的
     \item \textbf{基础配置}：Control Zone基础配置如表~\ref{tab:cz_meta_config}所示，首先，在Guest环境上，Control Zone提供了Response、Throughput两种基本内核，用户可根据需要进行选择。而为加快启动速度，Control Zone默认不使用initramfs，并采用基于Alpine的轻量化rootfs。轻量化rootfs中仅包含基础的软件运行环境，用户也可根据需要进行修改。在应用管理上，Control Zone使用类似Pod Yaml的配置文件来描述混部任务的部署需求，其中Control Tower调度器与常规应用一样包含在配置文件中。
 
 \begin{table}[H]
-    \bicaption{\quad Control Zone Meta 配置}{\quad Control Zone Meta Config}% caption
+    \bicaption{\quad Control Zone 元配置选项}{\quad Control Zone meta configuration options}% caption
     \label{tab:cz_meta_config}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
@@ -208,26 +208,26 @@ czctrl提供了create、start、stop、remove、update五种操作来管理Contr
     \label{fig:cz_state}
 \end{figure}
 
-Control Zone的创建流程如图~\ref{fig:cz_create}所示。过程中首先进行配置的合法性监测，创建过程中的检测主要判断资源是否重复分配，如对于cpuset，czmanager会检查全局的cpu mask来判断cpuset的设置是否合法。随后进行工作目录的创建，用来单独保存每个Control Zone的关键数据，如根文件系统等。创建过程仅为虚拟机的启动做好准备，而并不会启动虚拟机，相当于为虚拟机的启动预留了资源。
+Control Zone的创建过程如图~\ref{fig:cz_create}所示。过程中首先进行配置的合法性监测，创建过程中的检测主要判断资源是否重复分配，如对于cpuset，czmanager会检查全局的cpu mask来判断cpuset的设置是否合法。随后进行工作目录的创建，用来单独保存每个Control Zone的关键数据，如根文件系统等。创建过程仅为虚拟机的启动做好准备，而并不会启动虚拟机，相当于为虚拟机的启动预留了资源。
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.42\textwidth}
         \includegraphics[width=\textwidth]{cz_create}
-        \caption{\quad Control Zone创建流程}
+        \caption{\quad Control Zone创建过程}
         \label{fig:cz_create}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.56\textwidth}
         \includegraphics[width=\linewidth]{cz_start}
-        \caption{\quad Control Zone启动流程}
+        \caption{\quad Control Zone启动过程}
         \label{fig:cz_start}
     \end{subfigure}
-\bicaption{\quad Control Zone创建与启动流程设计}{\quad Control Zone creation and startup process design}
+\bicaption{\quad Control Zone创建与启动过程设计}{\quad Control Zone creation and startup process design}
 \label{fig:cz_create_start}
 \end{figure}
 
-Control Zone的启动流程如图~\ref{fig:cz_start}所示。过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配。对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用虚拟机监视器来启动虚拟机。而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化。czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
+Control Zone的启动过程如图~\ref{fig:cz_start}所示。过程中首先进行配置的合法性监测，如判断状态迁移是否合法、验证资源是否重复分配。对于一个已经创建的Control Zone，其预留的资源并不是严格进行保护的，因此在启动时其资源可能已经被占用，此时需要涉及重新更新Control Zone的资源配置。而在一切准备就绪以后，czmanager会按照配置要求，调用虚拟机监视器来启动虚拟机。而在虚拟机启动完毕之后，czdaemon会检测是否有已经提交的任务，并依次在后台进行执行，随后通知czmanager虚拟机状态的变化。czmanager在收到信号之后，Control Zone的启动过程就完成，而随后czmanager会根据配置来选择为Control Zone同步观测配置。
 
 Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后存在重新启动的可能，因此沙箱采用了较为保守的关闭策略。关闭过程中需要czmanager与czdaemon协同合作。在验证配置之后，czmanager首先会通知czdaemon进行关闭处理。而czdaemon在接收到关闭信号之后，会对当前系统的状态进行保存，包含必要的信息、混部应用状态等，随后终止混部应用的运行并通知czmanager。收到通知后czmanager才会调用执行器关闭虚拟机，并在必要时通知可观测性基础停止监测。Control Zone在停止之后仍会保留部分资源分配信息，便于后续重新启动。
 
@@ -235,16 +235,16 @@ Control Zone的停止过程如图~\ref{fig:cz_stop}所示。考虑停止之后�
     \centering
     \begin{subfigure}[b]{0.46\textwidth}
         \includegraphics[width=\textwidth]{cz_stop}
-        \caption{\quad Control Zone关闭流程}
+        \caption{\quad Control Zone关闭过程}
         \label{fig:cz_stop}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.53\textwidth}
         \includegraphics[width=\textwidth]{cz_remove}
-        \caption{\quad Control Zone删除流程}
+        \caption{\quad Control Zone删除过程}
         \label{fig:cz_remove}
     \end{subfigure}
-\bicaption{\quad Control Zone关闭与删除流程设计}{\quad Control Zone shutdown and deletion process design}
+\bicaption{\quad Control Zone关闭与删除过程设计}{\quad Control Zone shutdown and deletion process design}
 \label{fig:cz_create_start}
 \end{figure}
 
@@ -255,7 +255,7 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{cz_update}
-    \bicaption{\quad Control Zone更新流程设计}{\quad Control Zone update process design}
+    \bicaption{\quad Control Zone更新过程设计}{\quad Control Zone update process design}
     \label{fig:cz_update}
 \end{figure}
 
@@ -373,7 +373,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
         \caption{\quad Graph500 每分钟执行数量}
         \label{fig:perf_graph500}
     \end{subfigure}
-\bicaption{\quad Control Zone沙箱对不同应用性能的影响}{\quad The impact of the Control Zone sandbox on the performance of different applications}
+\bicaption{\quad Control Zone沙箱对不同应用性能的影响}{\quad The impact of the Control Zone on the performance of different applications}
 \label{fig:perf_app}
 \end{figure}
 
@@ -399,7 +399,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
         \caption{\quad Qemu + CloudHV Kernel混部性能}
         \label{fig:cpu_series_memcached_eevdf}
     \end{subfigure}
-    \bicaption{\quad 混部场景下Control Zone对Memcached服务性能的保障效果}{\quad Effectiveness of Control Zone for Memcached QoS guarantee in co-location deployment scenarios}
+    \bicaption{\quad 混部场景下Control Zone对Memcached服务性能的保障效果}{\quad Effectiveness of Control Zone for Memcached QoS guarantee in co-location}
     \label{fig:cpu_series_memcached}
 \end{figure}
 
@@ -418,7 +418,7 @@ Control Zone内核仅以提供隔离的内核环境为目标，在此目标上�
 
 随后介绍了Control Zone轻量级虚拟机的实现，以及在实现中为解决引入虚拟化带来的开销做进行的工作，包括对虚拟机监视器的轻量化以及对操作系统的精简。
 
-然后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作流程。
+然后介绍了沙箱中的czctrl、czmanager、czdaemon等组件及其主要功能，并详细阐述了Contorl Zone的隔离能力以及Control Zone生命周期管理中各个组件的协作过程。
 
 实验设计中，在沙箱启动开销上，比较了Control Zone虚拟机的启动时间，通过在Hypervisor、Guest OS上的裁剪优化，Control Zone能够达到与领先轻量级虚拟化相近的水平。而在性能开销上，选择6种应用进行性能测试，Control Zone沙箱在多数应用上都取得了更好的性能，同时依托内核上的裁切，能够弥补虚拟化所带来的开销，并达到应用性能优于在Host上直接部署的效果。
 

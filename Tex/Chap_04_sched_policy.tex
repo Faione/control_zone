@@ -328,7 +328,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{MySQL请求延迟}
         \label{fig:memcached_response}
       \end{subfigure}
-    \bicaption{\quad 混部场景下响应度优先内核对LC应用服务性能的保障效果}{\quad Effectiveness of responsiveness-first kernel for LC application QoS guarantee in co-location deployment scenarios}
+    \bicaption{\quad 响应度优先内核对LC应用服务性能的保障效果}{\quad Effectiveness of responsiveness-first kernel for LC application QoS}
     \label{fig:perf_response}
 \end{figure}
 
@@ -350,7 +350,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{\quad FFmpeg每秒处理帧数量}
         \label{fig:throughput_kernel_ffmpeg_speed}
     \end{subfigure}
-    \bicaption{\quad 混部场景下吞吐量优先内核对BE应用服务性能的保障效果}{\quad Effectiveness of throughput-first kernel for BE application QoS guarantee in co-location deployment scenarios}
+    \bicaption{\quad 吞吐量优先内核对BE应用服务性能的保障效果}{\quad Effectiveness of throughput-first kernel for BE application QoS}
     \label{fig:perf_throughput}
 \end{figure}
 
@@ -368,7 +368,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
         \caption{\quad FFmpeg平均运行时间}
         \label{fig:throughput_kernel_ffmpeg}
     \end{subfigure}
-    \bicaption{\quad 混部场景下吞吐量优先内核对BE应用运行时间的影响}{\quad Impact of throughput-first kernel on BE application runtime in co-location deployment scenarios}
+    \bicaption{\quad 吞吐量优先内核对BE应用运行时间的影响}{\quad Impact of throughput-first kernel on BE application runtime}
     \label{fig:perf_throughput_time}
 \end{figure}
 
@@ -409,7 +409,7 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \label{fig:bpf_sched_smp_mysql_latency}
     \end{subfigure}
 
-\bicaption{\quad 混部场景下CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS guarantee in co-location deployment scenarios}
+\bicaption{\quad CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS}
 \label{fig:lc_bpf_sched}
 \end{figure}
 
@@ -437,8 +437,8 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
         \caption{Nginx-干扰}
         \label{fig:cpu_usage_nginx}
     \end{subfigure}
-\bicaption{\quad 不同应用混部场景下的虚拟机总CPU利用率}{\quad 
-Total CPU utilization of virtual machines in co-location scenarios with different applications}
+\bicaption{\quad 不同应用混部时虚拟机总CPU利用率}{\quad 
+Total CPU utilization of virtual machines with different co-location applications}
 \label{fig:cpu_usage}
 \end{figure}
 
@@ -475,7 +475,7 @@ Total CPU utilization of virtual machines in co-location scenarios with differen
         \caption{\quad MySQL请求延迟}
         \label{fig:bpf_sched_smt_mysql_latency}
     \end{subfigure}
-\bicaption{\quad SMT混部场景下CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS guarantee in SMT co-location scenarios}
+\bicaption{\quad SMT场景下CPU感知调度策略对LC应用服务性能的保障效果}{\quad Effectiveness of CPU-aware scheduling policy for LC application QoS on SMT}
 \label{fig:lc_bpf_sched_smt}
 \end{figure}
 
@@ -503,7 +503,7 @@ Control Tower CPU感知调度策略在保障延时的同时，同时也保障了
         \caption{EEVDF高优先级}
         \label{fig:cpu_aware_box_eevdf_nice}
     \end{subfigure}
-\bicaption{\quad SMT混部场景下不同调度策略对Redis延迟稳定性的影响}{\quad The impact of different scheduling strategies on Redis latency stability in an SMT co-location scenario}
+\bicaption{\quad SMT下不同调度策略对Redis延迟稳定性的影响}{\quad The impact of different scheduling strategies on Redis latency stability on SMT}
 \label{fig:latency_box}
 \end{figure}
 
@@ -535,7 +535,7 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
         \caption{Mysql请求数量与Epoll Wait事件数量}
         \label{fig:epoll_mysql}
     \end{subfigure}
-\bicaption{\quad LC应用负载与Epoll Wait事件数量的关系}{\quad The relationship between LC application load and the number of Epoll Wait events}
+\bicaption{\quad LC应用负载与Epoll Wait事件数量的关系}{\quad The relationship between LC application workloads and epoll Wait events}
 \label{fig:epoll_request}
 \end{figure}
 
@@ -544,7 +544,7 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{network_aware_cpu_usage}
-    \bicaption{\quad 应用与干扰混部一段时间内的CPU资源使用情况}{\quad The CPU resource utilization of applications and interference over a period of time}
+    \bicaption{\quad 应用与干扰混部一段时间内的CPU使用率}{\quad The CPU utilization of applications and interference over a period of time}
     \label{fig:network_aware_cpu_usage}
 \end{figure}
 
