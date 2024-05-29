@@ -57,7 +57,7 @@ Control Zone中使用KVM虚拟机主要出于隔离性与安全性两方面的�
 
     \item \textbf{轻量化的虚拟机监视器}：Control Zone在CloudHypervisor的基础上构建轻量级虚拟机监视器。CloudHypervisor与Firecracker类似，都是基于Rust-VMM套件构建的轻量级虚拟机监视器。相比于Firecracker，CloudHypervisor更侧重云场景的实际需求\citep{agache2020firecracker}，同时在保证轻量的同时，提供更强的性能与更实用的功能，如额外支持了PCI设备模拟以及PCI设备直通。
 
-    \item \textbf{精简操作系统}：Contorl Zone精简操作系统包含内核与根文件系统两部分。在内核上，Control Zone参考了Firecracker Kernel配置，并根据需要增加了对PCI、容器、BPF子系统以及Ext调度类的支持。此外，Control Zone使能了Linux的PVH（半虚拟化）配置，能够绕过BIOS直接引导系统。同时由于内核没有额外的模块依赖，因此还可绕过initramfs阶段而直接挂载根文件系统。在根文件系统上，Control Zone使用轻量级Linux发行版Alpine\citep{alpine}。Alpine使用Busybox与Musl来提供基本的运行环境。其中Busybox是一系列Linux基础工具的集合，专注于基础功能并高度简化，因此占用的存储空间非常小。Musl是一个轻量级的C标准库，在设计时就专注于提供最基本的C标准函数与特性，同时优化了常见库函数的实现，使得保持轻量级的同时能够在部分场景下有更好的性能表现。
+    \item \textbf{精简操作系统}：Control Zone精简操作系统包含内核与根文件系统两部分。在内核上，Control Zone参考了Firecracker Kernel配置，并根据需要增加了对PCI、容器、BPF子系统以及Ext调度类的支持。此外，Control Zone使能了Linux的PVH（半虚拟化）配置，能够绕过BIOS直接引导系统。同时由于内核没有额外的模块依赖，因此还可绕过initramfs阶段而直接挂载根文件系统。在根文件系统上，Control Zone使用轻量级Linux发行版Alpine\citep{alpine}。Alpine使用Busybox与Musl来提供基本的运行环境。其中Busybox是一系列Linux基础工具的集合，专注于基础功能并高度简化，因此占用的存储空间非常小。Musl是一个轻量级的C标准库，在设计时就专注于提供最基本的C标准函数与特性，同时优化了常见库函数的实现，使得保持轻量级的同时能够在部分场景下有更好的性能表现。
 
     \item \textbf{轻量容器运行时}：Control Zone选择crun\citep{crun}作为默认的的容器运行时。crun使用C语言开发，相较于使用Go语言开发的runc，crun在启动容器上的开销降低了49.4\%，同时内存占用也更少。
 
@@ -79,7 +79,7 @@ Control Zone管理系统功能包含三部分：Control Zone管理、混部应�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{cz_components}
+    \includegraphics[width=0.9\textwidth]{cz_components}
     \bicaption{\quad Control Zone管理系统的组件架构}{\quad Architecture of the Control Zone management system}
     \label{fig:cz_components}
 \end{figure}
@@ -245,31 +245,31 @@ Control Zone的关闭过程如图~\ref{fig:cz_stop}所示。考虑关闭之后�
         \label{fig:cz_remove}
     \end{subfigure}
 \bicaption{\quad Control Zone关闭与删除过程}{\quad Control Zone shutdown and deletion process }
-\label{fig:cz_create_start}
+\label{fig:cz_stop_delete}
 \end{figure}
 
 Control Zone的删除过程如图~\ref{fig:cz_remove}所示。通常只有已经停止的Control Zone能够被删除。为简化操作，当Control Zone为其他状态时，此时进行删除操作时会首先将Control Zone的状态转化为停止状态，再进行删除操作。Control Zone的除了工作目录的销毁外，还会回收已经分配的资源。
 
 Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml中的绝大部分字段都允许被更新。部分配置的更新在Control Zone运行中完成，如修改cgroup或resctrl等字段中的内容。czmanager发现这部分字段修改时，会重新修改资源隔离配置，并调用各个资源管理接口来进行实施。而部分字段则会涉及到Control Zone的重新启动，如对Guest中的内核、根文件系统等字段进行修改。czmanager检测到这些字段发生修改后，首先会关闭虚拟机，随后在工作目录中更新配置所要求的内容，最后再启动虚拟机。通常更新完毕后，由于虚拟机进程的变化，可观测配置有可能过时，因此czmanager还会同步配置给可观测性基础设施。
 
+本文在Control Zone管理器的各个组件实现中，使用Rust语言编写了约3500行代码。同时项目被组织为多个crate，能够方便组件之间共享公共代码，并未后续引入新特性和增量开发提供便利。
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.65\textwidth]{cz_update}
+    \includegraphics[width=0.6\textwidth]{cz_update}
     \bicaption{\quad Control Zone更新过程}{\quad Control Zone update process }
     \label{fig:cz_update}
 \end{figure}
-
-本文在Control Zone管理器的各个组件实现中，使用Rust语言编写了约3500行代码。同时项目被组织为多个crate，能够方便组件之间共享公共代码，并未后续引入新特性和增量开发提供便利。
 
 \section{实验设计与分析}
 
 \subsection{实验环境}
 
-实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node。同时，CPU均开启超线程，并使能Intel RDT。在网络资源上，服务网卡支持SRIOV技术，能为有网络性能需求的虚拟机提供硬件直通支持。
+实验环境由两台服务器构成，服务器硬件信息如表~\ref{tab:sandbox_exp_env}所示。在CPU资源上，每台服务器上包含有两个Socket，单台总计80个物理核心，划分为4个Numa Node。同时，CPU均开启超线程，并使能Intel RDT。在网络资源上，服务网卡支持SRIOV技术，能为有网络性能需求的虚拟机提供硬件直通支持。
 
 \begin{table}[H]
     \bicaption{\quad 沙箱实验服务器硬件参数}{\quad Information about server hardware for sandbox experiments}% caption
-    \label{tab:exp_env}
+    \label{tab:sandbox_exp_env}
     \footnotesize% fontsize
     \setlength{\tabcolsep}{4pt}% column separation
     \renewcommand{\arraystretch}{1.25}% row space 
@@ -315,11 +315,11 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 
 \subsection{Control Zone启动开销}
 
-Control Zone的启动开销计算从虚拟机监视器开始到系统引导至init过程的时间。虚拟机使用1 CPU与512 MB内存的基础配置。在虚拟机监视器上，选择CloudHyperviosr与Qemu进行对比。在精简内核上，选择Alpine Virt内核、Control Zone内核，以及CloudHyeprvirsor、Firecracker的默认内核。其中Alpine Virt内核为社区提供给云厂商的标准虚拟机内核，启动了大部分Guest优化功能，但同时也保留了对于众多设备的支持。而以轻量为目标的CloudHyeprvirsor、Firecracker也各自提供了默认的精简内核，相较于Alpine Virt内核，去除了大量无意义的驱动，几乎只支持virtio设备。而CloudHypervisor默认内核还额外使能了PCI配置，以便于使用SRIOV设备。实验中虚拟机均使用virtio pci设备，因此为使得实验结果具备可比较性，使能了Firecracker默认内核的PCI配置。
+启动开销为从虚拟机监视器启动到系统引导至init的时间。在虚拟机监视器上，选择CloudHyperviosr与Qemu。在内核上，选择Alpine Virt内核、Control Zone内核、CloudHypervirsor默认内核及Firecracker默认内核。Alpine Virt内核为社区的标准虚拟机内核，保留了对于众多设备的支持。CloudHyeprvirsor、Firecracker默认内核以轻量为目标，相较于Alpine Virt内核去除了大量驱动，几乎只支持virtio设备。CloudHypervisor默认内核还额外使能了PCI以支持SRIOV。实验中虚拟机配置均为1 CPU、512 MB内存，且使用virtio pci设备。为使得实验结果具备可比较性，使能了Firecracker默认内核的PCI支持。
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.55\textwidth]{avg_boot_time}
+    \includegraphics[width=0.5\textwidth]{avg_boot_time}
     \bicaption{\quad 不同内核与沙箱下的平均启动时间比较}{\quad Comparison of average startup times under different kernels and sandboxes}
     \label{fig:avg_boot_time}
 \end{figure}
@@ -341,9 +341,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
 
 性能开销实验结果如图~\ref{fig:perf_app}所示，总体来看，Control Zone在内核性能上优于CloudHypervisor默认的Linux内核，而在沙箱性能上，Control Zone在一些应用上能够实现优于直接在Host上部署的性能。
 
-% TODO: 图飘了
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_redis}
@@ -367,7 +365,7 @@ Control Zone的启动开销计算从虚拟机监视器开始到系统引导至in
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{perf_ffmpeg}
-        \caption{\quad FFFmpeg 每秒处理帧数量}
+        \caption{\quad FFmpeg 每秒处理帧数量}
         \label{fig:perf_ffmpeg}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}

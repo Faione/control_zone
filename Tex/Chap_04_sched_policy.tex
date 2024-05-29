@@ -272,7 +272,7 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \end{tabular}
 \end{table}
 
-实验中选择Redis、Memcached、Mysql、Nginx四种LC应用和graph500、ffmpeg两种BE应用来构造混部环境，并使用stress-ng来模拟干扰。而在负载选择上，本文通过如表~\ref{tab:app_work}所示的Benchmark来生成负载，并通过预先实验确定固体虚拟机配置下的应用的最大负载值，定义为100\%工作负载。
+实验中选择Redis、Memcached、MySQL、Nginx四种LC应用和Graph500、FFmpeg两种BE应用来构造混部环境，并使用stress-ng来模拟不同类型的干扰。而在负载选择上，本文通过如表~\ref{tab:app_work}所示的Benchmark来生成负载，并通过预先实验确定固体虚拟机配置下的应用的最大负载值，定义为100\%工作负载。
 
 \begin{table}[H]
     \bicaption{\quad 实验应用及负载配置}{\quad Experimental application and workload configuration}% caption
@@ -297,9 +297,9 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
 
 \subsection{响应度优先内核性能}
 
-响应度优先任务调度配置使用HZ\_1000配置时钟中断频率，并配置PREEMPT抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Redis、Memcached、Nginx和Mysql四种延迟敏感应用来分别与stress\_ng CPU干扰应用进行混部，并与HZ\_250和VOLUNTARY抢占模式的CloudHypervisor项目默认Linux内核比较。
+响应度优先任务调度配置使用HZ\_1000配置时钟中断频率，并配置PREEMPT抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Redis、Memcached、Nginx和Mysql四种延迟敏感应用来分别与CPU干扰应用进行混部，并与HZ\_250和VOLUNTARY抢占模式的CloudHypervisor项目默认Linux内核比较。
 
-混部实验结果如图~\ref{fig:perf_response}所示，响应度优先内核配置几乎在所有混部场景下都实现了更好的应用QoS保障。对于业务逻辑较简单的LC应用，如Redis、Memcached与Nginx，响应度优先内核分别实现降低99分位尾延迟最高39.2\%、36.9\%、35.2\%的效果。高响应度的配置能够及时地为LC应用分配CPU资源，避免请求的积压从而保障应用的延时需求。MySQL混部实验中响应度优先内核能在一定程度上提升MySQL的事务处理能力。但由于MySQL线程数多、业务逻辑复杂，在较高负载时，由于NO\_HZ核心配置多线程下失效，频繁的时钟中断也导致执行有效任务的时间减少，使得MySQL的延时上升。
+混部实验结果如图~\ref{fig:perf_response}所示，响应度优先内核配置几乎在所有混部场景下都实现了更好的应用QoS保障。
 
 \begin{figure}[H]
     \centering
@@ -316,27 +316,29 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{response_kernel_nginx}
         \caption{Nginx请求延迟}
-        \label{fig:memcached_response}
+        \label{fig:response_kernel_nginx}
       \end{subfigure}
       \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{response_kernel_mysql}
         \caption{\quad MySQL每秒事务数量}
-        \label{fig:memcached_response}
+        \label{fig:response_kernel_mysql_tpmc}
       \end{subfigure}
       \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{response_kernel_mysql_latency}
         \caption{MySQL请求延迟}
-        \label{fig:memcached_response}
+        \label{fig:response_kernel_mysql}
       \end{subfigure}
     \bicaption{\quad 响应度优先内核对LC应用服务性能的保障效果}{\quad Effectiveness of responsiveness-first kernel for LC application QoS}
     \label{fig:perf_response}
 \end{figure}
 
+对于业务逻辑较简单的LC应用，如Redis、Memcached与Nginx，响应度优先内核分别实现降低99分位尾延迟最高39.2\%、36.9\%、35.2\%的效果。高响应度的配置能够及时地为LC应用分配CPU资源，避免请求的积压从而保障应用的延时需求。MySQL混部实验中响应度优先内核能在一定程度上提升MySQL的事务处理能力。但由于MySQL线程数多、业务逻辑复杂，在较高负载时，由于NO\_HZ核心配置多线程下失效，频繁的时钟中断也导致执行有效任务的时间减少，使得MySQL的延时上升。
+
 \subsection{吞吐量优先内核性能}
 
 % graph500(time) \ ffmpeg 
 
-吞吐量优先任务调度配置使用HZ\_100配置时钟中断，并开启PREEMPT\_NONE抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Graph500、ffmjepg两种CPU敏感型应用分别与stress\_ng CPU干扰应用混部，并与使用HZ\_250和VOLUNTARY抢占模式的CloudHypervisor项目默认Linux内核进行比较。Graph500主要执行图计算算法，因此执行时间是其重要的性能指标，实验中使用time工具记录进程在用户态与内核态耗费的时间，并将平均每分钟能够执行的Graph500计算数量作为性能指标。ffmpeg是主流的媒体处理工具，实验中使用vBench模拟负载并同样记录进程在用户态与内核态耗费的时间，而对于媒体处理应用而言，每秒处理帧数是其重要的性能指标。
+吞吐量优先任务内核配置HZ\_100时钟中断，并使用PREEMPT\_NONE抢占模式。实验在4 CPU、1024MB内存的虚拟机上展开，选择Graph500、FFmpeg两种BE应用与CPU干扰应用混部，并与使用HZ\_250和PREEMPT\_VOLUNTARY抢占模式的相同内核比较。Graph500主要执行图计算算法，实验中将平均每分钟能够执行的Graph500计算数量作为性能指标。FFmpeg是主流的媒体处理工具，实验中将每秒处理帧数作为性能指标。同时，为分析BE应用时间的分布，实验中同时使用time工具记录应用在用户态与内核态耗费的时间。
 
 \begin{figure}[H]
     \centering
@@ -354,8 +356,6 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \label{fig:perf_throughput}
 \end{figure}
 
-混部实验结果如图~\ref{fig:perf_throughput}所示。对于Graph500，吞吐量优先内核实现了平均执行速度提升1.6 $\times$的效果。而在如图~\ref{fig:perf_throughput_time}所示的运行时间分布上可以看出，Graph500在吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，使得在内核态运行的时间大大减少。同时，更少的上下文切换也提升了应用执行的局部性，使得Graph500在用户态的运行时间也有所减少。而对于ffmpeg，吞吐量优先内核与CloudHypervisor项目默认内核的差异并不明显。这是因为不同于Graph500，ffmpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能上意义并不大。
-
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.35\textwidth}
@@ -372,21 +372,25 @@ Control Tower任务调度框架提供了以调度队列为粒度的CPU资源划�
     \label{fig:perf_throughput_time}
 \end{figure}
 
+混部实验结果如图~\ref{fig:perf_throughput}所示。对于Graph500，吞吐量优先内核实现了平均执行速度提升1.6 $\times$的效果。而在如图~\ref{fig:perf_throughput_time}所示的运行时间分布上可以看出，Graph500在吞吐量优先内核下，得益于保守的抢占模式与较低的时钟中断频率，使得在内核态运行的时间大大减少。同时，更少的上下文切换也提升了应用执行的局部性，使得Graph500在用户态的运行时间也有所减少。而对于FFmpeg，吞吐量优先内核与CloudHypervisor项目默认内核的差异并不明显。这是因为不同于Graph500，FFmpeg在运行过程中需要频繁进行IO来读取媒体文件，因此等待IO的时间更多，此时即便设置更小的时钟中断频率，但对于提升应用性能上意义并不大。
+
+
+
 \subsection{CPU资源感知策略效果}
 
 % 普通场景
 % 硬件场景：SMT
 
-Control Tower CPU感知调度策略首先验证调度策略对高优先级任务的QoS保障能力，实验在4 CPU、1024 MB内存的虚拟机中展开，选择Redis、Memcached、Nginx与MySQL作为高优先应用来与stress\_ng CPU干扰混部，内核采用与CloudHypervisor项目默认内核相同的HZ与抢占模式，并与CloudHypervisor项目默认内核进行比较。
+Control Tower CPU感知调度策略首先验证调度策略对高优先级任务的QoS保障能力，实验在4 CPU、1024 MB内存的虚拟机中展开，选择Redis、Memcached、Nginx与MySQL作为高优先应用来与CPU干扰混部，内核采用与CloudHypervisor项目默认内核相同的HZ与抢占模式，并与CloudHypervisor项目默认内核进行比较。
 
-混部结果如图~\ref{fig:lc_bpf_sched}所示，总体来看，CPU资源感知调度策略几乎总是能够让LC应用达到与未受干扰情况下相近的性能。对于常见的LC应用Redis、Memcached与Nginx，CPU资源感知调度策略分别实现降低99分位尾延迟最高90.4\%、61.1\%、63.3\%的效果，同时在各个负载强度下均能有效保障应用的QoS。而对于业务逻辑较复杂的MySQL，CPU资源感知调度策略也同样能够很好地进行QoS保障，如图~\ref{fig:bpf_sched_smp_mysql}所示，在MySQL不同负载强度中，CPU感知调度策略实现了MySQL平均事务处理数量提升最高60.8\%的效果，同时请求延迟也最高降低了68.3\%。
+混部结果如图~\ref{fig:lc_bpf_sched}所示，总体来看，CPU资源感知调度策略几乎总是能够让LC应用达到与未受干扰情况下相近的性能。
 
 \begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_redis}
         \caption{\quad Redis请求延迟}
-        \label{fig:bpf_sched_smp_memcached}
+        \label{fig:bpf_sched_smp_redis}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_memcached}
@@ -396,7 +400,7 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_nginx}
         \caption{\quad Nginx请求延迟}
-        \label{fig:bpf_sched_smp_memcached}
+        \label{fig:bpf_sched_smp_nginx}
     \end{subfigure}
     \begin{subfigure}[b]{0.32\textwidth}
         \includegraphics[width=\textwidth]{bpf_sched_smp_mysql}
@@ -413,7 +417,9 @@ Control Tower CPU感知调度策略首先验证调度策略对高优先级任务
 \label{fig:lc_bpf_sched}
 \end{figure}
 
-在总吞吐上，不同调度算法下的虚拟机的总CPU利用率如图~\ref{fig:cpu_usage}所示。其中，对于Redis、Memcached、Nginx而言，混部场景中总CPU几乎都完全占满。对比无干扰下的CPU利用率能够发现，额外的CPU资源占用由干扰应用产生，此时分配CPU资源的方式决定了混部场景下QoS保障的效果。
+对于常见的LC应用Redis、Memcached与Nginx，CPU资源感知调度策略分别实现降低99分位尾延迟最高90.4\%、61.1\%、63.3\%的效果，同时在各个负载强度下均能有效保障应用的QoS。而对于业务逻辑较复杂的MySQL，CPU资源感知调度策略也同样能够很好地进行QoS保障，如图~\ref{fig:bpf_sched_smp_mysql}所示，在MySQL不同负载强度中，CPU感知调度策略实现了MySQL平均事务处理数量提升最高60.8\%的效果，同时请求延迟也最高降低了68.3\%。
+
+不同调度算法下的虚拟机的总CPU利用率如图~\ref{fig:cpu_usage}所示。其中对Redis、Memcached、Nginx而言，混部下CPU资源几乎完全占满。而对比无干扰下的CPU利用率能够发现，额外的CPU资源占用由干扰应用产生。
 
 \begin{figure}[H]
     \centering
@@ -446,7 +452,7 @@ Total CPU utilization of virtual machines with different co-location application
 
 混部场景中调度需要考虑硬件的特性，如SMT中兄弟核心之间存在片上共享资源，Linux任务调度策略中的措施是通过调度域名尽量避免将任务调度到SMT上，但这种做法并不能充分利用SMT资源。造成上述问题的核心在于缺少一种CPU感知的机制，让SMT调度时知道兄弟核心的运行情况，而CPU感知调度策略恰好能够解决这一问题。
 
-混部实验在2 SMT CPU、1024 MB内存的虚拟机中展开，选择Redis、Memcached、Nginx、MySQL四种延时敏感应用与stress\_ng CPU干扰进行混部。实验结果如图~\ref{fig:lc_bpf_sched_smt}所示，相较于EEVDF，CPU感知调度策略能够在所测应用的各个负载下有效地对应用QoS进行保障。其中对于Redis、Memcached、MySQL，CPU感知调度策略分别实现了99分位尾延迟降低最高71.2\%、48.7\%、49.5\%的效果。特别地，Nginx在高负载时由于SMT场景的激烈资源竞争，Linux EEVDF调度器几乎无法进行有效调度，导致Nginx延时呈数量级的上升，而在该场景下，如图~\ref{fig:bpf_sched_smt_nginx}所示，CPU感知调度策略则仍然能够实现Nginx与无干扰类似的性能表现。
+混部实验在2 SMT CPU、1024 MB内存的虚拟机中展开，选择Redis、Memcached、Nginx、MySQL四种延时敏感应用与CPU干扰进行混部。实验结果如图~\ref{fig:lc_bpf_sched_smt}所示，相较于EEVDF，CPU感知调度策略能够在所测应用的各个负载下有效地对应用QoS进行保障。其中对于Redis、Memcached、MySQL，CPU感知调度策略分别实现了99分位尾延迟降低最高71.2\%、48.7\%、49.5\%的效果。特别地，Nginx在高负载时由于SMT场景的激烈资源竞争，Linux EEVDF调度器几乎无法进行有效调度，导致Nginx延时呈数量级的上升，而在该场景下，如图~\ref{fig:bpf_sched_smt_nginx}所示，CPU感知调度策略则仍然能够实现Nginx与无干扰类似的性能表现。
 
 \begin{figure}[H]
     \centering
@@ -515,22 +521,22 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
 
 \begin{figure}[!htbp]
     \centering
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{epoll_memcached}
         \caption{Memcached请求数量与Epoll Wait事件数量}
         \label{fig:epoll_memcached}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{epoll_redis}
         \caption{Redis请求数量与Epoll Wait事件数量}
         \label{fig:epoll_redis}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{epoll_nginx}
         \caption{Nginx请求数量与Epoll Wait事件数量}
         \label{fig:epoll_nginx}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \includegraphics[width=\textwidth]{epoll_mysql}
         \caption{Mysql请求数量与Epoll Wait事件数量}
         \label{fig:epoll_mysql}
@@ -553,10 +559,10 @@ Control Tower网络资源感知调度策略实验在一个4CPU、1024MB内存的
 
 \section{本章小结}
 
-本章首先针对画像分析中不同类型应用，基于内核中关于HZ与抢占模型的配置，设计了调度配置的定制优化，提供了吞吐量优先与响应度优先两种不同调度目标的内核配置。
+本章首先基于内核中关于HZ与抢占模型的配置进行调度子系统的定制，并提供了吞吐量优先与响应度优先两种不同的内核。
 
-随后，为解决混部场景下，Linux任务调度机制调节手段单一、优先性存在缺陷的问题，设计实现了Control Tower任务调度框架。框架基于Sched Ext项目实现，首先，框架允许通过用户输入与eBPF插桩，为调度策略提供丰富的决策信息。其次，框架借助Ext调度类的优先级特点，实现任务的全局高优先性。最后，框架利用BPF调度策略的灵活性，能够针对不同的混部场景，定制混部任务所需的调度方式。
+随后，为解决混部场景下，Linux任务调度机制调节手段单一、优先性存在缺陷的问题，设计实现了Control Tower任务调度框架。框架基于Sched Ext项目实现，并允许通过用户输入和eBPF插桩来为内核任务调度提供更丰富的决策信息。同时，Control Tower框架利用BPF技术的灵活性，实现针对不同的混部场景的调度策略定制。
 
-在Control Tower任务调度框架的基础上，本文进一步设计了CPU感知的任务调度策略与网络资源感知的任务调度策略。其中，CPU感知任务调度策略通过感知高优先任务的CPU资源使用情况，结合用户定义的CPU阈值，在利用系统中的空闲CPU资源的同时，也能结合混部场景中CPU资源的不同特性来快速地向高优先任务出让CPU资源，从而实现有效的QoS保障。网络资源感知调度策略则通过监听epoll\_wait系统调用，了解系统中网络应用的负载情况，并适时地调整调度策略，以便于在网络应用的不同负载下进行区别性地管理。
+在Control Tower任务调度框架的基础上，本文进一步设计了CPU感知的任务调度策略与网络资源感知的任务调度策略。其中，CPU感知任务调度策略通过感知高优先任务的CPU资源使用情况，并根据用户输入的CPU阈值来快速分配CPU资源，从而实现有效的QoS保障。网络资源感知调度策略通过监听epoll\_wait系统调用，了解系统中网络应用的负载情况并适时地调整调度策略，实现针对不同负载的区别调度。
 
-本章实验中，首先围绕内核任务调度配置在虚拟化环境中展开实验。其中，响应度优先内核能够在混部场景下，能够最高降低LC应用39.2\%的延迟。吞吐量优先内核则能够在混部场景下，最高提升应用165.2\%的执行速度。随后，在Control Tower任务调度框架的实验中，CPU感知调度策略能够在混部实验中，相较于Linux任务调度实现90.4\%的延迟降低效果，并在混部任务的的各个负载下，是其接近于单独部署时的性能。除此之外，CPU感知调度策略也能够很好的解决SMT混部场景下的调度问题。
+本章实验首先围绕内核任务调度配置展开。其中，响应度优先内核在混部场景下能够实现LC应用99分位尾延迟降低最高39.2\%的效果。吞吐量优先内核则能够在混部场景下实现BE应用执行速度最高1.6 $\times$的效果。随后展开Control Tower任务调度框架的实验。其中，CPU感知调度策略能够在混部场景下相较Linux任务调度实现应用99分位尾延迟降低最高现90.4\%的效果，让高优先应用能够接近单独部署的性能。网络感知调度策略则能够通过感知常见LC应用的负载，实现灵活的任务调度策略。

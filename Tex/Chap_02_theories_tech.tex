@@ -36,7 +36,7 @@
         \label{fig:schedule_tick}
     \end{subfigure}
     \bicaption{\quad 非抢占式调度与抢占式调度}{\quad Non-preemptive scheduling and preemptive scheduling}
-    \label{fig:cpu_series_memcached}
+    \label{fig:schedule_frame}
 \end{figure}
 
     \item Sched Class调度类层基于Core调度框架实现。当前Linux中主要包含Stop、Deadline、Realtime、Fair、Idle五种调度类\citep{scheduler}。其中，Stop调度类的实现最简单，其本质上是从批处理调度中提取出简单逻辑。Fair调度类最复杂，使用到如红黑树等高级数据结构，并采用了较复杂的启发式算法与记账逻辑。Fair调度类以公平作为调度的目标，由于在多数场景下的稳定性能，因此长久以来都是Linux中任务的默认调度类。其余调度类也有各自的设计目标，如Deadline调度类保证任务按固定的周期执行固定的时间，从而提供良好的实时性保证。调度子系统允许相同逻辑核上的任务属于不同的调度类，各调度类优先级如图~\ref{fig:sched_arch}所示从左向右逐渐降低。每个调度循环都会从最高优先级调度类开始逐个遍历，直到能从调度类中拿到下一个任务。因此，将任务设置为更高的优先级能够保障任务总是优先被调度。

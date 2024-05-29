@@ -71,20 +71,20 @@ KVM虚拟机可从如图~\ref{fig:vm_arch}所示的Host、Hypervisor、Guest三�
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{vm_arch}
+    \includegraphics[width=0.7\textwidth]{vm_arch}
     \bicaption{\quad 虚拟机多维度指标采集}{\quad Multi-dimensional metrics from virtual machines}
     \label{fig:vm_arch}
 \end{figure}
 
 在Host维度，KVM虚拟机本身由多个进程组成，因此可以利用Host内核提供的进程观测接口来获取虚拟机的指标信息。如通过“/proc”内核文件系统来获取进程内核资源使用统计信息，或者利用cgroup来获取进程的CPU时间记账信息等。在Hypervisor维度，虚拟机使用的虚拟硬件设备如vCPU、Block设备、Network设备等由Hypervisor提供，因此可以利用KVM内核模块提供的虚拟设备观测接口来获取相关信息。如在KVM模块的Debug内核文件系统中，就提供了丰富的vCPU设备运行信息，包括IO、挂起、中断等vCPU陷出统计，以及模拟MMU缓存缺失统计等。在Guest维度，一方面可以从Guest内核侧获取应用的资源使用信息，另一方面对于C-S类型的网络服务应用，则能够利用Overlay网络层来对请求的延时、吞吐进行观测。同时，大部分开源的应用都提供的完善的观测接口，能够提供更加准确的性能指标。
 
-Linux内核提供的观测接口有限，而为提供更丰富的内核观测数据，本文基于eBPF设计了多种内核监测机制。Linux中进程对硬件资源的使用通常需要通过系统调用完成，如通过Send、Recv等系统调用来使用网络资源、通过Read、Write等系统来使用IO资源。常用的系统调用观测工具为strace，但在云场景中使用strace并不方便且不够灵活。而本文使用eBPF在系统调用分发处进行插桩，并能够捕获系统调用的参数与返回结构，从而定制更灵活的信息统计机制。不同于进程，虚拟机使用硬件资源的方式更为特殊。以网络资源为例，早期虚拟机的实现中需要两次陷出到用户态Qemu程序再进行网络设备的模拟，这种方式严重影响了虚拟机的网络性能。而为提升虚拟机使用网络资源的性能，一方面在Guest侧引入了virtio半虚拟化驱动，另一方面在宿主机上引入了vHost net网络设备。如图~\ref{fig:vhost_net}所示，vHost net作为一种内核态实现的模拟网络设备后端，在虚拟机首次陷出后就直接进入vHost Net模块，并最终由Worker内核线程完成网络包的处理。通过eBPF在Worker线程函数上的插桩，就能够观测虚拟机模拟网络设备后端的性能。
+Linux内核提供的观测接口有限，而为提供更丰富的内核观测数据，本文基于eBPF设计了多种内核监测机制。Linux中进程对硬件资源的使用通常需要通过系统调用完成，如通过Send、Recv等系统调用来使用网络资源、通过Read、Write等系统来使用IO资源。常用的系统调用观测工具为strace，但在云场景中使用strace并不方便且不够灵活。而本文使用eBPF在系统调用分发处进行插桩，并能够捕获系统调用的参数与返回结构，从而定制更灵活的信息统计机制。不同于进程，虚拟机使用硬件资源的方式更为特殊。以网络资源为例，早期虚拟机的实现中需要两次陷出到用户态Qemu程序再进行网络设备的模拟，这种方式严重影响了虚拟机的网络性能。而为提升虚拟机使用网络资源的性能，一方面在Guest侧引入了virtio半虚拟化驱动，另一方面在宿主机上引入了vhost-net网络设备。如图~\ref{fig:vhost_net}所示，vhost-net作为一种内核态实现的模拟网络设备后端，在虚拟机首次陷出后就直接进入vhost-net模块，并最终由Worker内核线程完成网络包的处理。通过eBPF在Worker线程函数上的插桩，就能够观测虚拟机模拟网络设备后端的性能。
 
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.6\textwidth]{vhost_net}
-    \bicaption{\quad vHost Net模拟网络设备后端处理流程}{\quad 
-    The backend processing flow of the vHost Net emulated network device}
+    \bicaption{\quad vhost-net模拟网络设备后端处理流程}{\quad 
+    The backend processing flow of the vhost-net emulated network device}
     \label{fig:vhost_net}
 \end{figure}
 
@@ -98,7 +98,7 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 % - Exporter的实现细节
 %   - Ebpf Exporter
 %       - Syscall 追踪
-%       - vHost Net 追踪
+%       - vhost-net 追踪
 
 \begin{figure}[!htbp]
     \centering
@@ -111,7 +111,7 @@ Linux内核提供的观测接口有限，而为提供更丰富的内核观测数
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{exporters}
+    \includegraphics[width=0.75\textwidth]{exporters}
     \bicaption{\quad Black Box观测系统指标采集与Exporters设计}{\quad Metric collection and exporters design in Black Box observation system}
     \label{fig:exporters} 
 \end{figure}
@@ -126,14 +126,14 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
     
     \item \textbf{KVM Exporter}：本文实现了Hypervisor维度的指标采集。KVM内核模块提供了一个Debug文件系统，在最顶层的目录中，记录了内核模块的运行信息，如虚拟机陷出的总计数等，同时，对于每个虚拟机进程，还会创建对应的子目录，并以单个虚拟机为粒度记录内核模块的运行数据，最后，在每个虚拟机目录中，还会为每个vCPU创建一个目录，记录vCPU的时钟源相关信息。KVM Exporter基于上述机制实现，通过扫描Debug系统中的目录，并为遍历每个虚拟机条目来生成相关的指标信息，默认情况下使用虚拟机进程号作为标签，也允许传入一个配置文件，来实现虚拟机进程号与虚拟机名称之间的转化。
 
-    \item \textbf{eBPF Exporter}：Cloudflare公司开发eBPF监控组件，提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vHost Net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数。因此利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，就能够捕获系统调用的执行信息。如图~\ref{fig:syscall_hook}所示，当进程进入系统调用中时，通过BPF Helper函数获取当前task结构体指针，并读取进程号、Cgroup描述符等信息。随后，在x86架构下，通过Helper函数读取系统调用上下文中的ax寄存器，进一步获取当前的系统调用号。组合上述两种信息可以得到系统调用的基础信息。而在系统调用起始与结束处通过BPF Stack传递时间戳信息，在记录系统调用执行频率的同时，也能够进一步对执行时间进行统计。vHost Net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制在这些函数的入口与出口处进行插桩，就能够统计出各个函数执行频率以及延时等信息。
-
     \begin{figure}[H]
         \centering
         \includegraphics[width=0.6\textwidth]{syscall_hook}
         \bicaption{\quad Syscall中eBPF程序的执行过程}{\quad The execution process of eBPF programs in syscalls}
         \label{fig:syscall_hook}
     \end{figure}
+
+    \item \textbf{eBPF Exporter}：Cloudflare公司开发eBPF监控组件，提供了内核侧的自定义指标采集。eBPF Exporter能够加载用户编译为字节码的eBPF程序，并通过RingBuffer收集内核侧eBPF程序采集的数据转化为指标。Observed中实现了系统调用及vhost-net内核模块两个eBPF采集程序。内核中系统调用分布在各个子模块中，并通过注册系统调用的方式加入到系统调用表中，用户态应用发起的系统调用会触发一次中断，并最终进入系统调用分发函数。因此利用raw tracepoint机制在系统调用分发函数的开始与结束处进行eBPF插桩，就能够捕获系统调用的执行信息。如图~\ref{fig:syscall_hook}所示，当进程进入系统调用中时，通过BPF Helper函数获取当前task结构体指针，并读取进程号、Cgroup描述符等信息。随后，在x86架构下，通过Helper函数读取系统调用上下文中的ax寄存器，进一步获取当前的系统调用号。组合上述两种信息可以得到系统调用的基础信息。而在系统调用起始与结束处通过BPF Stack传递时间戳信息，在记录系统调用执行频率的同时，也能够进一步对执行时间进行统计。vhost-net内核模块的监测则围绕worker内核线程展开，如图~\ref{fig:vhost_net}所示，worker线程中可能执行4种不同的回调函数，分别用于虚拟机的网络发送与接受，通fentry机制在这些函数的入口与出口处进行插桩，就能够统计出各个函数执行频率以及延时等信息。
 
     \item \textbf{Resctrl Exporter}：本文实现了Resctrl子系统的指标采集。Intel RDT等硬件技术提供了进程粒度的CPU末级缓存与内存带宽的监测能力，Linux Resctrl作为这类技术的软件接口，提供了一个内核文件系统，用户可以通过在此文件系统中创建文件夹的形式来创建Monitor Group，而将进程加入到其中之后，Resctrl子系统就会开始为进程记录LLC与内存带宽信息。Resctrl Exporter基于Resctrl子系统实现， 通过扫描子系统中的Monitor Group来生成相关的指标信息，并将Monitor Group作为标签以便于后续聚合。
     
@@ -153,10 +153,10 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 % - Hypervisor
 % - App
 
-本文在Black Box观测系统的具体实现中，Exporter部分包括使用Go语言编写的约1500行代码，以及对开源软件进行的约500行代码的修改。而在eBPF部分，使用C和Rust语言编写了约500行代码，用于观测内核函数及BPF程序控制。此外，在Prometheus指标聚合及服务发现部分，使用JSON编写了约4000行配置。Black Box观测系统最终采集的指标涵盖Host、Hypervisor、App三个层级，涉及CPU、Cache、Memory、IO、Network等资源，原始指标数量达到344种。
+本文在Black Box观测系统的具体实现中，Exporter部分包括使用Go语言编写的约1500行代码，以及对开源软件进行的约500行代码的修改。而在eBPF部分，使用C和Rust语言编写了约500行代码，用于观测内核函数及BPF程序控制。此外，在Prometheus指标聚合及服务发现部分，使用JSON编写了约4000行配置。Black Box观测系统最终采集的指标涉及CPU、Cache、Memory、IO、Network等资源，原始指标数量达到344种，涵盖Host、Hypervisor、App三个层级：
 
 \begin{enumerate}
-    \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vHost Net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
+    \item \textbf{Host层级指标}：如表~\ref{tab:host_metric}所示, 指标来源分别为Kernel、eBPF与Resctrl子系统。从Kernel采集的指标通常为总体性的资源指标，在CPU资源上，首先从时间记账子系统中采集了Host总体CPU时间片的分布，如sys\_time、user\_time，同时也从设备的角度采集了每个CPU的基准频率、最高频率与实时频率等信息。在内存资源上，主要从内存子系统中采集了Host上内存资源的使用情况，如内存使用量、可用内存量、swap可用量等。在网络资源上，首先针对每个物理设备采集驱动记录的transmit、receive等收发包信息，同时，针对目标进程采集了tcp、udp等描述符的使用情况。在磁盘IO资源上，针对每个存储设备采集驱动记录的read、write统计信息等。从eBPF采集的指标是作为Kernel指标的扩展，首先针对系统调用，以Cgroup为粒度统计系统调用的使用频次、执行时间等信息，其次针对驱动程序，如vhost-net虚拟网络设备后端，以Cgroup为粒度统计Worker执行回调函数的频次与时间。从Resctrl采集的指标在Host维度主要包含各个Numa实时的LLC使用率以及内存带宽大小。
 
 \begin{table}[!htbp]
     \bicaption{\quad Host层级指标}{\quad Host-level metrics}% caption
@@ -212,11 +212,11 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
     
 \end{enumerate}
 
-\section{基准性能实验设计与分析}
+\section{实验设计与分析}
 
-\subsection{基准性能实验设计}
+\subsection{实验环境}
 
-实验在华为云提供的两台C6型号服务器中展开。C6型号服务器的具体配置如表~\ref{tab:c6_info}所示。在两台服务器上部署Black Box观测系统，而由于不需要采集应用级数据，因此Observed微服务中没有包括Envoy Exporter。实验中为尽可能模拟华为云现网环境，使用华为云提供的典型应用虚拟机镜像和华为云内部Benchmark。其中，典型应用虚拟机镜像采用与华为云现网相同配置，华为云内部Benchmark则能够模拟近似现网的负载。基准性能实验主要测试无干扰情况下各个典型应用的基础性能，了解应用的资源使用倾向。
+实验在华为云提供的两台C6型号服务器中展开。C6型号服务器的具体配置如表~\ref{tab:c6_info}所示。在两台服务器上部署Black Box观测系统，而由于不需要采集应用级数据，因此Observed微服务中没有包括Envoy Exporter。实验中为尽可能模拟华为云现网环境，使用华为云提供的典型应用虚拟机镜像和华为云内部Benchmark。其中，典型应用虚拟机镜像采用与华为云现网相同配置，华为云内部Benchmark则能够模拟近似现网的负载。
 
 \begin{table}[!htbp]
     \bicaption{\quad C6型号服务器信息}{\quad Information about C6 model server}% caption
@@ -242,131 +242,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
     \end{tabular}
 \end{table}
 
-
-% 1）Redis、Memcached。使用memtier_benchmark来产生负载，负载的模型由华为云提供，包括Normal、Random两类模拟负载
-
-% 2）Mysql。使用TPCC作为基准实验负载
-
-% 3）Elasticsearch。使用YCSB作为基准负载
-
-% 4）Kafka。
-
-% 5）Nginx。
-
-% 6）Render。使用华为内部的模拟负载。
-
-\subsection{典型应用资源倾向分析}
-
-无干扰实验中使用变异系数来进行对不同的监测指标进行标准化，变异系数使用公式~\eqref{eq:cv}计算。
-
-\begin{equation}
-    CV = \frac{\sigma}{\mu}
-\label{eq:cv}
-\end{equation}
-
-不同应用对应不同资源指标均值的变异系数如图~\ref{fig:resource_affinity}所示，其中横轴为指标均值的变异系数值，纵轴为具体的指标，使用不同颜色的柱状图来区分不同应用。
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.49\textwidth}
-      \includegraphics[width=\textwidth]{cof_cpu}
-      \caption{CPU资源指标}
-      \label{fig:cof_cpu}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
-        \includegraphics[width=\textwidth]{cof_mem}
-        \caption{Cache、内存资源指标}
-        \label{fig:cof_mem}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
-        \includegraphics[width=\textwidth]{cof_io}
-        \caption{IO资源指标}
-        \label{fig:cof_mem}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.49\textwidth}
-        \includegraphics[width=\textwidth]{cof_network}
-        \caption{网络资源指标}
-        \label{fig:cof_mem}
-    \end{subfigure}
-\bicaption{\quad 基准实验中不同应用资源均值的变异系数比较}{\quad Comparison of the coefficient of variation of the average resource usage for different applications in benchmark experiments}
-\label{fig:resource_affinity}
-\end{figure}
-
-从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致图中一部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只会在一个较小的范围内波动。
-
-具体到每个应用的指标差异如图~\ref{fig:resource_affinity_0}所示，其中横坐标是指标名称，纵坐标是分别是各项指标极差、均值与标准差通过变异系数归一化后的结果，并使用不同颜色的柱状图来区分。不同应用对于主要的5种系统资源的需求呈现处较大的差异：
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.85\textwidth}
-      \includegraphics[width=\textwidth]{profile_redis}
-      \caption{Redis资源指标极差、均值与标准差}
-      \label{fig:profile_redis}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.85\textwidth}
-        \includegraphics[width=\textwidth]{profile_memcached}
-        \caption{Memcached资源指标极差、均值与标准差}
-        \label{fig:profile_memcached}
-    \end{subfigure}
-\bicaption{\quad Redis与Memcached资源指标统计值的变异系数对比}{\quad Comparison of the coefficient of variation of resource metric statistics between Redis and Memcached}
-\label{fig:resource_affinity_0}
-\end{figure}
-
-\begin{enumerate}
-
-    \item \textbf{CPU资源}：应用执行时都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出。但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高。而当请求量足够多时，由于上述两个应用都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用。而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.85\textwidth}
-      \includegraphics[width=\textwidth]{profile_nginx}
-      \caption{Nginx资源指标极差、均值与标准差}
-      \label{fig:profile_nginx}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.85\textwidth}
-        \includegraphics[width=\textwidth]{profile_kafka}
-        \caption{Kafka资源指标极差、均值与标准差}
-        \label{fig:profile_kafka}
-    \end{subfigure}
-\bicaption{\quad Nginx与Kafka资源指标统计值的变异系数对比}{\quad Comparison of the coefficient of variation of resource metric statistics between Nginx and Kafka}
-\label{fig:resource_affinity_1}
-\end{figure}
-
-    \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Nginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
-    
-    \item \textbf{Memory资源}：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，华为云的默认负载下各个应用都会占用一定量的内存，没有特别的规律性。
-    
-    \item \textbf{Network资源}：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，因为工作负载中并没有长时间且持续性的请求，Render则是离线应用，因此几乎不会使用到网络资源。
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.85\textwidth}
-      \includegraphics[width=\textwidth]{profile_elasticsearch}
-      \caption{Elasticsearch资源指标极差、均值与标准差}
-      \label{fig:profile_elasticsearch}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.85\textwidth}
-        \includegraphics[width=\textwidth]{profile_render}
-        \caption{Render资源指标极差、均值与标准差}
-        \label{fig:profile_render}
-    \end{subfigure}
-\bicaption{\quad Elasticsearch与Render资源指标统计值的变异系数对比}{\quad Comparison of the coefficient of variation of resource metric statistics between Elasticsearch and Render}
-\label{fig:resource_affinity_2}
-\end{figure}
-    
-    \item \textbf{I/O资源}：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
-
-\end{enumerate}
-
-\section{性能劣化实验设计与分析}
-
-\subsection{干扰实验设计}
-
-% 干扰应用
-% - 干扰有效性
-% - 噪声控制
-
-性能劣化实验通过增加目标应用与干扰应用的混部场景，分析应用对于不同干扰类型的敏感程度。在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本文选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
+在干扰应用的选择上，使用stress-ng来产生不同类型的干扰。stress-ng是Linux系统中常用的压力测试工具，能够模拟各种资源的压力场景，而实验中则利用其模拟各种压力场景的特性来制造干扰，并观测目标应用的性能劣化情况。stress-ng提供了丰富的配置参数，本文选用如表~\ref{tab:arg_list}所示的参数配置，来制造CPU、Cache、内存、IO、Network上的干扰。
 
 \begin{table}[H]
     \centering
@@ -379,7 +255,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
         \hline
         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
         %\cline{i-j}% partial hline from column i to column j
-        资源 & 参数 & 说明\\
+        子系统 & 参数 & 说明\\
         \hline
         CPU	    & --cpu & 循环执行sqrt(rand())的线程数量\\
 	            & --cpu-load & 线程负载的比率\\
@@ -402,7 +278,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
     \end{tabular}
 \end{table}
 
-正式干扰实验之前，首先需要验证干扰的效果。测试实验使用一个4 CPU、8G Memory虚拟机，并在其中按照上述配置stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程数量相关。其中对于CPU干扰，采用线性递增的干扰强度，即干扰强度正比于CPU负载。而对于其他干扰，则采用指数递增的干扰强度，即干扰强度与线程数量呈指数关系，便于快速探测峰值干扰。具体实验的结果从Black Box观测系统中收集，每种干扰选择一个表征指标来说明干扰效果，具体结果如图~\ref{fig:interference}所示：
+在正式干扰实验之前首先需要验证干扰的效果。测试实验使用一个4 CPU、8G Memory虚拟机，并在其中按照上述配置stress-ng干扰应用。干扰强度的定义与配置的stress-ng线程数量相关。其中对于CPU干扰，采用线性递增的干扰强度，即干扰强度正比于CPU负载。而对于其他干扰，则采用指数递增的干扰强度，即干扰强度与线程数量呈指数关系，便于快速探测峰值干扰。具体实验的结果从Black Box观测系统中收集，每种干扰选择一个表征指标来说明干扰效果，具体结果如图~\ref{fig:interference}所示：
 
 \begin{itemize}
     
@@ -414,29 +290,29 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 
 \begin{figure}[H]
   \centering
-  \begin{subfigure}[b]{0.32\textwidth}
+  \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{cpu_interference}
     \caption{cpu资源干扰效果}
     \label{fig:cpu_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
+  \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{cache_interference}
     \caption{cache资源干扰效果}
     \label{fig:cache_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
+  \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{io_interference}
     \caption{io资源干扰效果}
     \label{fig:io_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
+  \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{net_interference}
-    \caption{network资源干扰效果}
+    \caption{net资源干扰效果}
     \label{fig:net_interference}
   \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
+  \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{vm_interference}
-    \caption{memory资源干扰效果}
+    \caption{内存资源干扰效果}
     \label{fig:vm_interference}
   \end{subfigure}
   \bicaption{\quad stress\_ng不同配置下资源干扰效果}{\quad Resource interference effects of stress\_ng under different configurations}
@@ -446,19 +322,120 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
     \item \textbf{Network干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
     
     \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
-
 \end{itemize}
 
-考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰。因此在后续分析中没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
+考虑到Network干扰实际并不能实质性地在网络流量上产生干扰。因此在后续分析中没有采用Network干扰项作为测试项，而是根据典型应用的类型是否是网络应用来判断应用的网络敏感类型。
+
+\subsection{典型应用资源倾向分析}
+
+资源倾向分析实验主要测试无干扰情况下各个典型应用的基础性能，了解应用的资源使用倾向。其中使用变异系数来进行对不同的监测指标进行标准化，变异系数使用公式~\eqref{eq:cv}计算。
+
+\begin{equation}\label{eq:cv}
+    %\adddotsbeforeeqnnum%
+    CV = \frac{\sigma}{\mu}
+\end{equation}
+
+不同应用对应不同资源指标均值的变异系数如图~\ref{fig:resource_affinity}所示，其中横轴为指标均值的变异系数，纵轴为具体的指标，使用不同颜色的柱状图来区分不同应用。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+      \includegraphics[width=\textwidth]{cof_cpu}
+      \caption{CPU资源指标}
+      \label{fig:cof_cpu}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cof_mem}
+        \caption{Cache、内存资源指标}
+        \label{fig:cof_cache_mem}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cof_io}
+        \caption{IO资源指标}
+        \label{fig:cof_io}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{cof_network}
+        \caption{网络资源指标}
+        \label{fig:cof_network}
+    \end{subfigure}
+\bicaption{\quad 不同应用资源均值的变异系数比较}{\quad Comparison of the CV of the average resource usage for different applications}
+\label{fig:resource_affinity}
+\end{figure}
+
+从整体上看，Block I/O与Network I/O两类指标在不同应用之间呈现出较大的差异，相同指标在不同应用中的极大值与极小值差异可达$10^4$--$10^5$倍，而其余指标的差异通常不会超过20倍，这就导致部分应用I/O相关指标非常高，而另一部分应用的相同指标则始终为一个较低的值。而在其他指标上则没有体现明显的差异度，这有如下两方面原因，首先，对于"利用率"类型的指标，这些指标存在明确的上下界，同时数值上的差异度难以直接体现，如对于CPU利用率，80\%与90\%利用率仅有约12\%的数值差异，但计算空闲CPU占比，则前者是后者的200\%，对于这些指标不能简单地使用差异度度量。其次，一些与硬件相关的指标波动不明显，如CPI，其波动通常受到流水线周期、指令阻塞和回退的数量等因素影响，在优化较好的现代处理器平台上，通常只在较小范围内波动。
+
+具体到每个应用的指标差异如图~\ref{fig:resource_affinity_0}所示，其中横坐标是指标名称，纵坐标是分别是各项指标极差、均值与标准差通过变异系数归一化后的结果，并使用不同颜色的柱状图来区分。不同应用对5种主要资源的需求存在较大差异：
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.9\textwidth}
+      \includegraphics[width=\textwidth]{profile_redis}
+      \caption{Redis资源指标极差、均值与标准差}
+      \label{fig:profile_redis}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.9\textwidth}
+        \includegraphics[width=\textwidth]{profile_memcached}
+        \caption{Memcached资源指标极差、均值与标准差}
+        \label{fig:profile_memcached}
+    \end{subfigure}
+\bicaption{\quad Redis与Memcached资源指标的变异系数对比}{\quad Comparison of the CV of resource metric between Redis and Memcached}
+\label{fig:resource_affinity_0}
+\end{figure}
+
+\begin{enumerate}
+
+    \item \textbf{CPU资源}：应用执行时都需要CPU资源， 而不同应用对于CPU资源的使用上存在差异。Kafka运行时需要较多的CPU资源，体现在较高的IPS指标上。Redis、Memcached同样对于CPU资源有较高需求，从较多的平均CPU时间片占用能够看出。但不同之处在于，Redis、Memcached对于CPU资源的使用与请求强相关，在请求量较低时，由于频繁的睡眠与唤醒，此时不仅CPU资源需求少，同时CPI也较高。而当请求量足够多时，由于上述两个应用都基于epoll实现，因此密集的请求使得两者总是能够保持CPU的占用。而相较于Redis，Memcached在默认配置下更能够利用多核优势。Render应用同样需要较多的CPU资源，但与上述应用不同的是，Render在CPU资源使用上相当稳定，这一特点反映在较低的Branch IPS及Context Switch指标上。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.9\textwidth}
+      \includegraphics[width=\textwidth]{profile_nginx}
+      \caption{Nginx资源指标极差、均值与标准差}
+      \label{fig:profile_nginx}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.9\textwidth}
+        \includegraphics[width=\textwidth]{profile_kafka}
+        \caption{Kafka资源指标极差、均值与标准差}
+        \label{fig:profile_kafka}
+    \end{subfigure}
+\bicaption{\quad Nginx与Kafka资源指标统计值的变异系数对比}{\quad Comparison of the CV of resource metric between Nginx and Kafka}
+\label{fig:resource_affinity_1}
+\end{figure}
+
+    \item \textbf{Cache资源}：末级缓存资源与内存访问强相关，分析不同应用的LLC相关指标，可以将应用按访存局部性进行划分，其中Nginx属于局部性较好的应用，其在运行过程中LLC使用率波动不明显，并且LLC Miss数量较少。而对于Redis、Memcached这类键值存储型应用，局部性则与工作负载相关，在随机负载下局部性表现较差，而在模拟负载下局部性则相对较好。
+    
+    \item \textbf{Memory资源}：内存资源区分带宽与使用量。典型应用中，Nginx在模拟负载下对内存带宽的需求较高，这点与其在Cache资源需求上的表现一致，其余应用则采用间歇与分批的内存读取，因此不会占用过多的内存带宽。内存使用量上，典型应用的内存占用除自身所需外，都与工作负载相关，华为云的默认负载下各个应用都会占用一定量的内存，没有特别的规律性。
+    
+    \item \textbf{Network资源}：在网络资源上，不同的应用使用需求差异很大，其中Redis、Memcached、Kafka表现出极高的网络需求，事实上这些应用都是服务型应用或自身就是网络消息中间件。而Elasticsearch、Render等在网络资源的需求上则相对较少，其中Elasticsearch并非不使用网络，因为工作负载中并没有长时间且持续性的请求，Render则是离线应用，因此几乎不会使用到网络资源。
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.9\textwidth}
+      \includegraphics[width=\textwidth]{profile_elasticsearch}
+      \caption{Elasticsearch资源指标极差、均值与标准差}
+      \label{fig:profile_elasticsearch}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.9\textwidth}
+        \includegraphics[width=\textwidth]{profile_render}
+        \caption{Render资源指标极差、均值与标准差}
+        \label{fig:profile_render}
+    \end{subfigure}
+\bicaption{\quad Elasticsearch与Render资源指标统计值的变异系数对比}{\quad Comparison of the CV of resource metric between Elasticsearch and Render}
+\label{fig:resource_affinity_2}
+\end{figure}
+    
+    \item \textbf{I/O资源}：在I/O资源上，不同应用的使用需求差异同样十分大。其中Elasticsearch、Kafka和Mysql由于涉及到存储内容的持久化，因此会大量地使用I/O资源。而类似Redis等应用，虽然存在数据持久化的配置，但实际运行中持久化频率较低，因此通常只会有周期性的少量I/O资源占用。
+
+\end{enumerate}
 
 \subsection{典型应用资源敏感度分析}
 
-资源敏感度主要分析典型应用与不同强度干扰混部后的性能劣化情况，其中典型应用性能使用华为云内部Benchmark提供的性能指标评价。这些性能指标由原始指标如99分位位延迟、平均请求数等加权计算后得到，具有一定的可比较性。在资源敏感度分析中，使用公式~\eqref{eq:pearson}计算皮尔逊相关系数筛选与干扰程度最为相关的性能指标进行分析。
-% TODO：公式编号错误
+资源敏感度实验通过构造典型应用与不同类型干扰的混部场景，观察在不同干扰下应用性能劣化情况，来分析应用对不同干扰的敏感程度。其中典型应用性能使用华为云内部Benchmark提供的性能指标评价。这些性能指标由原始指标如99分位位延迟、平均请求数等加权计算后得到，具有一定的可比较性。在资源敏感度分析中，使用公式~\eqref{eq:pearson}计算皮尔逊相关系数筛选与干扰程度最为相关的性能指标进行分析。
 
-\begin{equation}
+\begin{equation} \label{eq:pearson}
+    %\adddotsbeforeeqnnum%
     r = \frac{\sum_{i=1}^n (X_i - \bar{X})(Y_i - \bar{Y})}{\sqrt{\sum_{i=1}^n (X_i - \bar{X})^2 \sum_{i=1}^n (Y_i - \bar{Y})^2}}
-\label{eq:pearson}
 \end{equation}
 
 \begin{figure}[H]
@@ -493,7 +470,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 \label{fig:redis_interf_sensitivity}
 \end{figure}
 
-以Redis为例，使用操作延迟作为性能评价指标，并计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。综合所有典型应用得到如表~\ref{tab:interf_sensitivity}所示的资源敏感度评价，其中性能劣化程度归一化为高、中、低三档，并依据资源敏感度将应用分为如下3类：
+以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。综合所有典型应用得到如表~\ref{tab:interf_sensitivity}所示的资源敏感度评价，其中性能劣化程度归一化为高、中、低三档，并依据资源敏感度将应用分为如下3类：
 
 \begin{enumerate}
     
@@ -506,7 +483,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 \end{enumerate}
 
 
-% TODO：合并单元格
+% TODO合并单元格
 \begin{table}[H]
     \centering
     \bicaption{\quad 典型应用干扰敏感度}{\quad Typical application interference sensitivity}% caption

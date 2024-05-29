@@ -169,11 +169,7 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
 
     \item \textbf{针对当前任务调度机制在不同混部场景下的不足，展开混部场景导向的定制任务调度机制研究}。首先，从内核任务调度的相关配置上针对不同应用的需求，设计了响应度优先与吞吐量优先两种基础内核配置。随后，在Ext调度类的基础上设计了塔台（Control Tower）任务调度框架，并在此基础上，结合eBPF技术的监测能力进一步实现CPU资源感知与网络资源感知的任务调度策略。
 
-    \item \textbf{针对单一调度机制与多样混部场景的挑战，设计实现受控空域（Control Zone），一种面向混部场景的调度动态可定制沙箱}。Control Zone基于KVM虚拟机实现，如图~\ref{fig:arch_dif}所示，相较于Firecracker\citep{agache2020firecracker}，Control Zone允许将Control Tower调度策略与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度策略。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
-
-\end{enumerate}
-
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \begin{subfigure}[b]{0.4\textwidth}
         \includegraphics[width=\textwidth]{arch_dif_cz}
@@ -189,6 +185,10 @@ CFS调度器\citep{pabla2009completely}于2009年提出，用来解决交互式�
 \bicaption{\quad Control Zone与Firecracker的功能差异}{\quad Differences in functionality between Control Zone and Firecracker}
 \label{fig:arch_dif}
 \end{figure}
+
+    \item \textbf{针对单一调度机制与多样混部场景的挑战，设计实现受控空域（Control Zone），一种面向混部场景的调度动态可定制沙箱}。Control Zone基于KVM虚拟机实现，如图~\ref{fig:arch_dif}所示，相较于Firecracker\citep{agache2020firecracker}，Control Zone允许将Control Tower调度策略与混部应用协同部署。一方面，能够针对不同混部场景自由地选择合适的Control Tower调度策略。另一方面，能够随混部应用的变化在运行时对Control Tower调度器动态修改。同时，还支持通过软硬件手段来隔离不同Control Zone的资源。
+
+\end{enumerate}
 
 \section{论文结构安排}
 
