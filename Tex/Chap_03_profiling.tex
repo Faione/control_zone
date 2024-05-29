@@ -379,7 +379,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
         \hline
         %\multicolumn{num_of_cols_to_merge}{alignment}{contents} \\
         %\cline{i-j}% partial hline from column i to column j
-        子系统 & 参数 & 说明\\
+        资源 & 参数 & 说明\\
         \hline
         CPU	    & --cpu & 循环执行sqrt(rand())的线程数量\\
 	            & --cpu-load & 线程负载的比率\\
@@ -431,21 +431,22 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
   \end{subfigure}
   \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{net_interference}
-    \caption{net资源干扰效果}
+    \caption{network资源干扰效果}
     \label{fig:net_interference}
   \end{subfigure}
   \begin{subfigure}[b]{0.32\textwidth}
     \includegraphics[width=\textwidth]{vm_interference}
-    \caption{内存资源干扰效果}
+    \caption{memory资源干扰效果}
     \label{fig:vm_interference}
   \end{subfigure}
   \bicaption{\quad stress\_ng不同配置下资源干扰效果}{\quad Resource interference effects of stress\_ng under different configurations}
   \label{fig:interference}
 \end{figure}
 
-    \item \textbf{Net干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
+    \item \textbf{Network干扰}：使用网络子系统中的Accept系统调用延时作为表征指标。Linux中，Accept系统调用通常由Server类应用调用，用来与Client建立连接吗，而Accept系统调用执行速度变慢通常意味着连接排队延迟与客户端超时，由于延时并没有最大值，因此实验中选择延时上升速度加快的干扰配置作为100\%的定义。实验干扰效果如图~\ref{fig:net_interference}所示，可见随干扰强度的不断上升，Accept系统调用的延迟逐渐变大。
     
     \item \textbf{Memory干扰}：使用每秒的mmap系统调用次数作为表征指标。stress-ng通过频繁地调用mmap来产生内存干扰，而频繁的内存分配操作会对内存子系统施加干扰，实验中选择mmap频率波动较大的干扰配置作为Memory干扰100\%的定义。实验干扰效果如图~\ref{fig:vm_interference}所示，随干扰强度的上升，每秒的mmap系统调用数量也在不断上升，并在干扰强度最大时出现较大的波动。
+
 \end{itemize}
 
 考虑到干扰效果评测结果中，Net干扰实际上使用的是本地回环网络，因此并不能实质性地在网络流量上产生干扰。因此在后续分析中没有采用Net干扰项作为测试项，而是根据典型应用的类型，如是否是网络应用来判断应用的网络敏感性。
@@ -453,6 +454,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 \subsection{典型应用资源敏感度分析}
 
 资源敏感度主要分析典型应用与不同强度干扰混部后的性能劣化情况，其中典型应用性能使用华为云内部Benchmark提供的性能指标评价。这些性能指标由原始指标如99分位位延迟、平均请求数等加权计算后得到，具有一定的可比较性。在资源敏感度分析中，使用公式~\eqref{eq:pearson}计算皮尔逊相关系数筛选与干扰程度最为相关的性能指标进行分析。
+% TODO：公式编号错误
 
 \begin{equation}
     r = \frac{\sum_{i=1}^n (X_i - \bar{X})(Y_i - \bar{Y})}{\sqrt{\sum_{i=1}^n (X_i - \bar{X})^2 \sum_{i=1}^n (Y_i - \bar{Y})^2}}
@@ -491,7 +493,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 \label{fig:redis_interf_sensitivity}
 \end{figure}
 
-以Redis为例，使用redis操作延迟作为性能评价指标，计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。综合所有典型应用得到如表~\ref{tab:interf_sensitivity}所示的资源敏感度评价，其中性能劣化程度归一化为高、中、低三档，并依据资源敏感度将应用分为如下3类：
+以Redis为例，使用操作延迟作为性能评价指标，并计算有无干扰下的指标变化百分比用于描述劣化程度，综合不同干扰及不同负载下的实验结果如图~\ref{fig:redis_interf_sensitivity}所示。综合所有典型应用得到如表~\ref{tab:interf_sensitivity}所示的资源敏感度评价，其中性能劣化程度归一化为高、中、低三档，并依据资源敏感度将应用分为如下3类：
 
 \begin{enumerate}
     
@@ -504,7 +506,7 @@ Observed微服务包含了各个维度的Exporter的开发与配置，并由Push
 \end{enumerate}
 
 
-% TODO合并单元格
+% TODO：合并单元格
 \begin{table}[H]
     \centering
     \bicaption{\quad 典型应用干扰敏感度}{\quad Typical application interference sensitivity}% caption
