@@ -317,14 +317,27 @@ Control Zone的更新过程如图~\ref{fig:cz_update}所示。Control Zone Yaml�
 
 启动开销为从虚拟机监视器启动到系统引导至init的时间。在虚拟机监视器上，选择CloudHyperviosr与Qemu。在内核上，选择Alpine Virt内核、Control Zone内核、CloudHypervirsor默认内核及Firecracker默认内核。Alpine Virt内核为社区的标准虚拟机内核，保留了对于众多设备的支持。CloudHyeprvirsor、Firecracker默认内核以轻量为目标，相较于Alpine Virt内核去除了大量驱动，几乎只支持virtio设备。CloudHypervisor默认内核还额外使能了PCI以支持SRIOV。实验中虚拟机配置均为1 CPU、512 MB内存，且使用virtio pci设备。为使得实验结果具备可比较性，使能了Firecracker默认内核的PCI支持。
 
+%TODO: 补充细致的alpine与cz内核启动时间的比较
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.5\textwidth]{avg_boot_time}
-    \bicaption{\quad 不同内核与沙箱下的平均启动时间比较}{\quad Comparison of average startup times under different kernels and sandboxes}
-    \label{fig:avg_boot_time}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{avg_boot_time}
+        \caption{\quad 平均启动时间比较}
+        \label{fig:avg_boot_time}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{avg_pci_time}
+        \caption{\quad 平均PCI初始化时间比较}
+        \label{fig:avg_pci_time}
+    \end{subfigure}
+
+    \bicaption{\quad 不同内核与沙箱下的启动开销比较}{\quad Comparison of average startup overhead under different kernels and sandboxes}
+    \label{fig:avg_startup_time}
+
 \end{figure}
 
-实验结果如图~\ref{fig:avg_boot_time}所示，Control Zone内核的平均启动开销相较于Alpine Virt内核最高降低了88.8\%。对比不同的虚拟机监视器的数据发现，优化效果的绝大部分来自于对内核的裁切。Control Zone内核仅支持运行容器、BPF子系统与Sched Ext调度类的最小功能，因此在启动时省去了大量非必要的工作，从而能够做到足够快速。同时，即便对于相同的Alpine Virt内核，使用CloudHypervisor相较于Qemu降低28.9\%的启动时间。观察两者的启动日志能够发现，虚拟机启动时间的差异主要来自于模拟设备的初始化上。CloudHypervisor仅针对云场景，因此相较于Qemu去除了大量的无关设备模拟。更少的模拟设备一方面减少了虚拟机监视器的启动时间，另一方面Guest内核在设备探测与初始化上花费的时间也更少。尤其在PCI子系统的初始化上，相较于Qemu，CloudHypervisor在PCI初始化上的平均时间减少了83.2\%。
+实验结果如图~\ref{fig:avg_startup_time}所示。在启动时间上，Control Zone内核的平均启动开销相较于Alpine Virt内核最高降低了88.8\%。对比不同的虚拟机监视器的日志输出能够发现优化效果的绝大部分来自于对内核的裁切。Control Zone内核仅支持运行容器、BPF子系统与Sched Ext调度类的最小功能，因此在启动时省去了大量非必要的工作，从而能够做到足够快速。同时如图~\ref{fig:avg_boot_time}所示，即便对于相同的Alpine Virt内核，使用CloudHypervisor相较于Qemu降低28.9\%的启动时间。观察两者的启动日志能够发现，虚拟机启动时间的差异主要来自于模拟设备的初始化上。CloudHypervisor仅针对云场景，因此相较于Qemu去除了大量的无关设备模拟。更少的模拟设备一方面减少了虚拟机监视器的启动时间，另一方面Guest内核在设备探测与初始化上花费的时间也更少。尤其在PCI子系统的初始化上，如图~\ref{fig:avg_pci_time}所示，相较于Qemu，CloudHypervisor在PCI初始化上的平均时间减少了83.2\%。
 
 \begin{figure}[!htbp]
     \centering
